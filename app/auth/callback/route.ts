@@ -46,7 +46,7 @@ export async function GET(request: Request) {
         const { data: allowlistEntry, error: allowlistError } = await supabase
           .from("allowlist")
           .select("*")
-          .ilike("email", user.email)
+          .ilike("email", user.email!)
           .single()
 
         console.log("Allowlist query result:", { allowlistEntry, allowlistError })
@@ -68,26 +68,67 @@ export async function GET(request: Request) {
           return NextResponse.redirect(new URL("/auth/login?error=profile_fetch_failed", requestUrl.origin))
         }
 
-        // If new user, create profile with role from allowlist
-        if (!profile) {
-          const { error: profileCreateError } = await supabase
-            .from("profiles")
+        // If user has a profile, they're already approved - let them in
+        if (profile) {
+          console.log("User has existing profile, allowing access")
+          return NextResponse.redirect(new URL("/", requestUrl.origin))
+        }
+
+        // User is in allowlist but no profile yet - check for existing join request
+        const { data: existingRequest } = await supabase
+          .from("join_requests")
+          .select("*")
+          .eq("email", user.email)
+          .single()
+
+        if (existingRequest) {
+          if (existingRequest.status === "approved") {
+            // Join request was approved, create profile
+            const { error: profileCreateError } = await supabase
+              .from("profiles")
+              .insert({
+                id: user.id,
+                email: user.email!,
+                full_name: user.user_metadata?.full_name || user.email?.split("@")[0] || "User",
+                role: allowlistEntry.role
+              })
+
+            if (profileCreateError) {
+              console.error("Profile creation error:", profileCreateError)
+              return NextResponse.redirect(new URL("/auth/login?error=profile_creation_failed", requestUrl.origin))
+            }
+
+            // Update join request status
+            await supabase
+              .from("join_requests")
+              .update({ status: "approved" })
+              .eq("email", user.email)
+
+            console.log("Profile created for approved user")
+            return NextResponse.redirect(new URL("/", requestUrl.origin))
+          } else {
+            // Join request exists but not approved yet
+            console.log("User has pending join request")
+            await supabase.auth.signOut()
+            return NextResponse.redirect(new URL("/auth/login?error=pending_approval", requestUrl.origin))
+          }
+        } else {
+          // No join request exists, create one
+          const { error: joinRequestError } = await supabase
+            .from("join_requests")
             .insert({
-              id: user.id,
-              full_name: user.user_metadata?.full_name || user.email?.split("@")[0] || "User",
-              role: allowlistEntry.role
+              email: user.email!,
+              name: user.user_metadata?.full_name || null,
+              status: "pending"
             })
 
-          if (profileCreateError) {
-            console.error("Profile creation error:", profileCreateError)
-            return NextResponse.redirect(new URL("/auth/login?error=profile_creation_failed", requestUrl.origin))
+          if (joinRequestError) {
+            console.error("Join request creation error:", joinRequestError)
           }
 
-          // Remove from join requests if it exists (they're now a user)
-          await supabase
-            .from("join_requests")
-            .delete()
-            .eq("email", user.email)
+          console.log("Created join request for user")
+          await supabase.auth.signOut()
+          return NextResponse.redirect(new URL("/auth/login?error=pending_approval", requestUrl.origin))
         }
       }
     } catch (error) {

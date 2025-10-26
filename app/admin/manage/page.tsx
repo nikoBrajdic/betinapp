@@ -45,7 +45,7 @@ export default async function AdminManagePage() {
         </TabsContent>
 
         <TabsContent value="admins" className="space-y-4">
-          <AdminsTable admins={admins} />
+          <AdminsTable admins={admins} currentUserRole={user.profile?.role} />
         </TabsContent>
 
         <TabsContent value="allowlist" className="space-y-4">

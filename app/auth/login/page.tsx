@@ -25,7 +25,9 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
             <Alert className="mb-4" variant={error === "not_authorized" ? "default" : "destructive"}>
               <AlertDescription>
                 {error === "not_authorized" 
-                  ? "Your email is not authorized to access this application. A join request has been created and will be reviewed by an administrator."
+                  ? "Your email is not authorized to access this application."
+                  : error === "pending_approval"
+                  ? "Admins have received your request. You will be notified once approved."
                   : `Authentication error: ${error}`
                 }
               </AlertDescription>

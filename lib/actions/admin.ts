@@ -33,7 +33,18 @@ export async function updateAllowlistRole(
   role: string,
 ) {
   const supabase = await createClient()
-  const { error } = await supabase
+  
+  // Get the allowlist entry to find the email
+  const { data: allowlistEntry, error: fetchError } = await supabase
+    .from("allowlist")
+    .select("email")
+    .eq("id", id)
+    .single()
+
+  if (fetchError) throw fetchError
+
+  // Update allowlist role
+  const { error: allowlistError } = await supabase
     .from("allowlist")
     .update({
       role,
@@ -41,7 +52,22 @@ export async function updateAllowlistRole(
     })
     .eq("id", id)
 
-  if (error) throw error
+  if (allowlistError) throw allowlistError
+
+  // Also update the corresponding profile role if it exists
+  const { error: profileError } = await supabase
+    .from("profiles")
+    .update({
+      role,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("email", allowlistEntry.email)
+
+  // Don't throw error if profile doesn't exist yet
+  if (profileError && profileError.code !== "PGRST116") {
+    console.warn("Could not update profile role:", profileError)
+  }
+
   revalidatePath("/admin/manage")
 }
 
@@ -120,6 +146,20 @@ export async function createJoinRequest(formData: {
     email: formData.email,
     name: formData.name,
   })
+
+  if (error) throw error
+  revalidatePath("/admin/manage")
+}
+
+export async function updateProfileRole(profileId: string, role: string) {
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from("profiles")
+    .update({
+      role,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", profileId)
 
   if (error) throw error
   revalidatePath("/admin/manage")

@@ -37,13 +37,19 @@ export function AllowlistTable({ allowlist }: AllowlistTableProps) {
     if (!email.trim()) return
     
     try {
-      await addToAllowlist({ email: email.trim(), role })
+      if (editingItem) {
+        // Update existing allowlist entry
+        await updateAllowlistRole(editingItem.id, role)
+      } else {
+        // Add new allowlist entry
+        await addToAllowlist({ email: email.trim(), role })
+      }
       setEmail("")
       setRole("admin")
       setIsDialogOpen(false)
       router.refresh()
     } catch (error) {
-      console.error("Failed to add to allowlist:", error)
+      console.error("Failed to add/update allowlist:", error)
     }
   }
 
@@ -184,6 +190,7 @@ export function AllowlistTable({ allowlist }: AllowlistTableProps) {
                 placeholder="Enter email address"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                disabled={!!editingItem}
               />
             </div>
             <div className="space-y-2">
