@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Plus, Search, Edit, Trash2, Users, Calendar, MapPin } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { useRouter } from "next/navigation"
+import { GuestStayDialog } from "@/components/guest-stay-dialog"
 
 interface GuestStay {
   id: string
@@ -24,9 +24,11 @@ interface GuestStaysClientProps {
   guests: GuestStay[]
 }
 
-export function GuestStaysClient({ guests }: GuestStaysClientProps) {
+export function GuestStaysClient({ guests: initialGuests }: GuestStaysClientProps) {
   const [searchQuery, setSearchQuery] = useState("")
-  const router = useRouter()
+  const [guests, setGuests] = useState(initialGuests)
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [editingGuest, setEditingGuest] = useState<GuestStay | null>(null)
 
   const filteredGuests = guests.filter(
     (guest) =>
@@ -50,6 +52,41 @@ export function GuestStaysClient({ guests }: GuestStaysClientProps) {
   const currentGuests = guests.filter(g => g.status === "current").length
   const pastGuests = guests.filter(g => g.status === "past").length
 
+  const handleAddGuest = () => {
+    setEditingGuest(null)
+    setIsDialogOpen(true)
+  }
+
+  const handleEditGuest = (guest: GuestStay) => {
+    setEditingGuest(guest)
+    setIsDialogOpen(true)
+  }
+
+  const handleSaveGuest = (guestData: Omit<GuestStay, "id" | "updated_at">) => {
+    if (editingGuest) {
+      // Update existing guest
+      setGuests(guests.map(guest => 
+        guest.id === editingGuest.id 
+          ? { ...guest, ...guestData, updated_at: new Date().toISOString() }
+          : guest
+      ))
+    } else {
+      // Add new guest
+      const newGuest: GuestStay = {
+        id: Date.now().toString(), // Simple ID generation for demo
+        ...guestData,
+        updated_at: new Date().toISOString()
+      }
+      setGuests([...guests, newGuest])
+    }
+  }
+
+  const handleDeleteGuest = (id: string) => {
+    if (confirm("Are you sure you want to delete this guest stay?")) {
+      setGuests(guests.filter(guest => guest.id !== id))
+    }
+  }
+
   return (
     <div className="p-8">
       <div className="flex items-center justify-between mb-8">
@@ -57,7 +94,7 @@ export function GuestStaysClient({ guests }: GuestStaysClientProps) {
           <h1 className="text-3xl font-bold text-foreground mb-2">Guest Stays</h1>
           <p className="text-muted-foreground">Manage guest accommodations and visits</p>
         </div>
-        <Button onClick={() => router.push("/guest-stays/new")}>
+        <Button onClick={handleAddGuest}>
           <Plus className="h-4 w-4 mr-2" />
           Add Guest Stay
         </Button>
@@ -115,7 +152,7 @@ export function GuestStaysClient({ guests }: GuestStaysClientProps) {
             {searchQuery ? "Try adjusting your search terms" : "Add your first guest stay to get started"}
           </p>
           {!searchQuery && (
-            <Button onClick={() => router.push("/guest-stays/new")}>
+            <Button onClick={handleAddGuest}>
               <Plus className="h-4 w-4 mr-2" />
               Add Guest Stay
             </Button>
@@ -179,7 +216,7 @@ export function GuestStaysClient({ guests }: GuestStaysClientProps) {
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8"
-                        onClick={() => router.push(`/guest-stays/${guest.id}/edit`)}
+                        onClick={() => handleEditGuest(guest)}
                       >
                         <Edit className="h-4 w-4" />
                       </Button>
@@ -187,12 +224,7 @@ export function GuestStaysClient({ guests }: GuestStaysClientProps) {
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8 text-destructive hover:text-destructive"
-                        onClick={() => {
-                          if (confirm("Are you sure you want to delete this guest stay?")) {
-                            // Handle delete
-                            console.log("Delete guest stay:", guest.id)
-                          }
-                        }}
+                        onClick={() => handleDeleteGuest(guest.id)}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -204,6 +236,13 @@ export function GuestStaysClient({ guests }: GuestStaysClientProps) {
           </Table>
         </Card>
       )}
+
+      <GuestStayDialog
+        open={isDialogOpen}
+        onOpenChange={setIsDialogOpen}
+        guestStay={editingGuest}
+        onSave={handleSaveGuest}
+      />
     </div>
   )
 }

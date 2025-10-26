@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Plus, Search, Edit, Trash2, Users } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { useRouter } from "next/navigation"
+import { TableDialog } from "@/components/table-dialog"
 
 interface TableItem {
   id: string
@@ -23,9 +23,11 @@ interface TablesClientProps {
   tables: TableItem[]
 }
 
-export function TablesClient({ tables }: TablesClientProps) {
+export function TablesClient({ tables: initialTables }: TablesClientProps) {
   const [searchQuery, setSearchQuery] = useState("")
-  const router = useRouter()
+  const [tables, setTables] = useState(initialTables)
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [editingTable, setEditingTable] = useState<TableItem | null>(null)
 
   const filteredTables = tables.filter(
     (table) =>
@@ -49,6 +51,41 @@ export function TablesClient({ tables }: TablesClientProps) {
   const availableTables = tables.filter(table => table.status === "available").length
   const occupiedTables = tables.filter(table => table.status === "occupied").length
 
+  const handleAddTable = () => {
+    setEditingTable(null)
+    setIsDialogOpen(true)
+  }
+
+  const handleEditTable = (table: TableItem) => {
+    setEditingTable(table)
+    setIsDialogOpen(true)
+  }
+
+  const handleSaveTable = (tableData: Omit<TableItem, "id" | "updated_at">) => {
+    if (editingTable) {
+      // Update existing table
+      setTables(tables.map(table => 
+        table.id === editingTable.id 
+          ? { ...table, ...tableData, updated_at: new Date().toISOString() }
+          : table
+      ))
+    } else {
+      // Add new table
+      const newTable: TableItem = {
+        id: Date.now().toString(), // Simple ID generation for demo
+        ...tableData,
+        updated_at: new Date().toISOString()
+      }
+      setTables([...tables, newTable])
+    }
+  }
+
+  const handleDeleteTable = (id: string) => {
+    if (confirm("Are you sure you want to delete this table?")) {
+      setTables(tables.filter(table => table.id !== id))
+    }
+  }
+
   return (
     <div className="p-8">
       <div className="flex items-center justify-between mb-8">
@@ -56,7 +93,7 @@ export function TablesClient({ tables }: TablesClientProps) {
           <h1 className="text-3xl font-bold text-foreground mb-2">Tables</h1>
           <p className="text-muted-foreground">Manage dining tables and seating arrangements</p>
         </div>
-        <Button onClick={() => router.push("/tables/new")}>
+        <Button onClick={handleAddTable}>
           <Plus className="h-4 w-4 mr-2" />
           Add Table
         </Button>
@@ -123,7 +160,7 @@ export function TablesClient({ tables }: TablesClientProps) {
             {searchQuery ? "Try adjusting your search terms" : "Add your first table to get started"}
           </p>
           {!searchQuery && (
-            <Button onClick={() => router.push("/tables/new")}>
+            <Button onClick={handleAddTable}>
               <Plus className="h-4 w-4 mr-2" />
               Add Table
             </Button>
@@ -168,7 +205,7 @@ export function TablesClient({ tables }: TablesClientProps) {
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8"
-                        onClick={() => router.push(`/tables/${table.id}/edit`)}
+                        onClick={() => handleEditTable(table)}
                       >
                         <Edit className="h-4 w-4" />
                       </Button>
@@ -176,12 +213,7 @@ export function TablesClient({ tables }: TablesClientProps) {
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8 text-destructive hover:text-destructive"
-                        onClick={() => {
-                          if (confirm("Are you sure you want to delete this table?")) {
-                            // Handle delete
-                            console.log("Delete table:", table.id)
-                          }
-                        }}
+                        onClick={() => handleDeleteTable(table.id)}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -193,6 +225,13 @@ export function TablesClient({ tables }: TablesClientProps) {
           </Table>
         </Card>
       )}
+
+      <TableDialog
+        open={isDialogOpen}
+        onOpenChange={setIsDialogOpen}
+        table={editingTable}
+        onSave={handleSaveTable}
+      />
     </div>
   )
 }
