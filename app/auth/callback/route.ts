@@ -40,12 +40,16 @@ export async function GET(request: Request) {
       }
 
       if (user) {
-        // Check if user is in allowlist
-        const { data: allowlistEntry } = await supabase
+        console.log("User email from OAuth:", user.email)
+        
+        // Check if user is in allowlist (case-insensitive)
+        const { data: allowlistEntry, error: allowlistError } = await supabase
           .from("allowlist")
           .select("*")
-          .eq("email", user.email)
+          .ilike("email", user.email)
           .single()
+
+        console.log("Allowlist query result:", { allowlistEntry, allowlistError })
 
         if (!allowlistEntry) {
           // User is not in allowlist, sign them out immediately
@@ -53,6 +57,8 @@ export async function GET(request: Request) {
           await supabase.auth.signOut()
           return NextResponse.redirect(new URL("/auth/login?error=not_authorized", requestUrl.origin))
         }
+
+        console.log("User found in allowlist with role:", allowlistEntry.role)
 
         // User is in allowlist, check if this is a new user (profile might not exist yet)
         const { data: profile, error: profileError } = await supabase.from("profiles").select("*").eq("id", user.id).single()
