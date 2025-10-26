@@ -8,13 +8,15 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Plus, Search, Edit, Trash2, Users, Calendar, MapPin } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { GuestStayDialog } from "@/components/guest-stay-dialog"
+import { createGuestStay, updateGuestStay, deleteGuestStay } from "@/lib/actions/guest-stays"
+import { useRouter } from "next/navigation"
 
 interface GuestStay {
   id: string
   guest_name: string
   room: string
-  check_in: string
-  check_out: string
+  from_date: string
+  to_date: string
   status: "upcoming" | "current" | "past"
   notes: string
   updated_at: string
@@ -24,11 +26,11 @@ interface GuestStaysClientProps {
   guests: GuestStay[]
 }
 
-export function GuestStaysClient({ guests: initialGuests }: GuestStaysClientProps) {
+export function GuestStaysClient({ guests }: GuestStaysClientProps) {
   const [searchQuery, setSearchQuery] = useState("")
-  const [guests, setGuests] = useState(initialGuests)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingGuest, setEditingGuest] = useState<GuestStay | null>(null)
+  const router = useRouter()
 
   const filteredGuests = guests.filter(
     (guest) =>
@@ -62,28 +64,43 @@ export function GuestStaysClient({ guests: initialGuests }: GuestStaysClientProp
     setIsDialogOpen(true)
   }
 
-  const handleSaveGuest = (guestData: Omit<GuestStay, "id" | "updated_at">) => {
-    if (editingGuest) {
-      // Update existing guest
-      setGuests(guests.map(guest => 
-        guest.id === editingGuest.id 
-          ? { ...guest, ...guestData, updated_at: new Date().toISOString() }
-          : guest
-      ))
-    } else {
-      // Add new guest
-      const newGuest: GuestStay = {
-        id: Date.now().toString(), // Simple ID generation for demo
-        ...guestData,
-        updated_at: new Date().toISOString()
+  const handleSaveGuest = async (guestData: Omit<GuestStay, "id" | "updated_at">) => {
+    try {
+      if (editingGuest) {
+        // Update existing guest
+        await updateGuestStay(editingGuest.id, {
+          guestName: guestData.guest_name,
+          room: guestData.room,
+          checkIn: guestData.from_date,
+          checkOut: guestData.to_date,
+          status: guestData.status,
+          notes: guestData.notes,
+        })
+      } else {
+        // Add new guest
+        await createGuestStay({
+          guestName: guestData.guest_name,
+          room: guestData.room,
+          checkIn: guestData.from_date,
+          checkOut: guestData.to_date,
+          status: guestData.status,
+          notes: guestData.notes,
+        })
       }
-      setGuests([...guests, newGuest])
+      router.refresh()
+    } catch (error) {
+      console.error("Failed to save guest stay:", error)
     }
   }
 
-  const handleDeleteGuest = (id: string) => {
+  const handleDeleteGuest = async (id: string) => {
     if (confirm("Are you sure you want to delete this guest stay?")) {
-      setGuests(guests.filter(guest => guest.id !== id))
+      try {
+        await deleteGuestStay(id)
+        router.refresh()
+      } catch (error) {
+        console.error("Failed to delete guest stay:", error)
+      }
     }
   }
 
@@ -184,14 +201,14 @@ export function GuestStaysClient({ guests: initialGuests }: GuestStaysClientProp
                     </div>
                   </TableCell>
                   <TableCell>
-                    {new Date(guest.check_in).toLocaleDateString("en-US", { 
+                    {new Date(guest.from_date).toLocaleDateString("en-US", { 
                       month: "short", 
                       day: "numeric",
                       year: "numeric"
                     })}
                   </TableCell>
                   <TableCell>
-                    {new Date(guest.check_out).toLocaleDateString("en-US", { 
+                    {new Date(guest.to_date).toLocaleDateString("en-US", { 
                       month: "short", 
                       day: "numeric",
                       year: "numeric"

@@ -12,8 +12,8 @@ interface GuestStay {
   id: string
   guest_name: string
   room: string
-  check_in: string
-  check_out: string
+  from_date: string
+  to_date: string
   status: "upcoming" | "current" | "past"
   notes: string
   updated_at: string
@@ -38,8 +38,8 @@ export function GuestStayDialog({ open, onOpenChange, guestStay, onSave }: Guest
     if (guestStay) {
       setGuestName(guestStay.guest_name)
       setRoom(guestStay.room)
-      setCheckIn(guestStay.check_in)
-      setCheckOut(guestStay.check_out)
+      setCheckIn(guestStay.from_date)
+      setCheckOut(guestStay.to_date)
       setStatus(guestStay.status)
       setNotes(guestStay.notes)
     } else {
@@ -58,8 +58,8 @@ export function GuestStayDialog({ open, onOpenChange, guestStay, onSave }: Guest
     onSave({
       guest_name: guestName.trim(),
       room: room.trim(),
-      check_in: checkIn,
-      check_out: checkOut,
+      from_date: checkIn,
+      to_date: checkOut,
       status,
       notes: notes.trim(),
     })

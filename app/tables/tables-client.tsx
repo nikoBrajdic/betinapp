@@ -8,6 +8,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Plus, Search, Edit, Trash2, Users } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { TableDialog } from "@/components/table-dialog"
+import { createTable, updateTable, deleteTable } from "@/lib/actions/tables"
+import { useRouter } from "next/navigation"
 
 interface TableItem {
   id: string
@@ -23,11 +25,11 @@ interface TablesClientProps {
   tables: TableItem[]
 }
 
-export function TablesClient({ tables: initialTables }: TablesClientProps) {
+export function TablesClient({ tables }: TablesClientProps) {
   const [searchQuery, setSearchQuery] = useState("")
-  const [tables, setTables] = useState(initialTables)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingTable, setEditingTable] = useState<TableItem | null>(null)
+  const router = useRouter()
 
   const filteredTables = tables.filter(
     (table) =>
@@ -61,28 +63,29 @@ export function TablesClient({ tables: initialTables }: TablesClientProps) {
     setIsDialogOpen(true)
   }
 
-  const handleSaveTable = (tableData: Omit<TableItem, "id" | "updated_at">) => {
-    if (editingTable) {
-      // Update existing table
-      setTables(tables.map(table => 
-        table.id === editingTable.id 
-          ? { ...table, ...tableData, updated_at: new Date().toISOString() }
-          : table
-      ))
-    } else {
-      // Add new table
-      const newTable: TableItem = {
-        id: Date.now().toString(), // Simple ID generation for demo
-        ...tableData,
-        updated_at: new Date().toISOString()
+  const handleSaveTable = async (tableData: Omit<TableItem, "id" | "updated_at">) => {
+    try {
+      if (editingTable) {
+        // Update existing table
+        await updateTable(editingTable.id, tableData)
+      } else {
+        // Add new table
+        await createTable(tableData)
       }
-      setTables([...tables, newTable])
+      router.refresh()
+    } catch (error) {
+      console.error("Failed to save table:", error)
     }
   }
 
-  const handleDeleteTable = (id: string) => {
+  const handleDeleteTable = async (id: string) => {
     if (confirm("Are you sure you want to delete this table?")) {
-      setTables(tables.filter(table => table.id !== id))
+      try {
+        await deleteTable(id)
+        router.refresh()
+      } catch (error) {
+        console.error("Failed to delete table:", error)
+      }
     }
   }
 
