@@ -48,27 +48,13 @@ export async function GET(request: Request) {
           .single()
 
         if (!allowlistEntry) {
-          // User is not in allowlist, create join request
-          const { error: joinRequestError } = await supabase
-            .from("join_requests")
-            .upsert({
-              email: user.email!,
-              name: user.user_metadata?.full_name || null,
-              status: "pending"
-            }, {
-              onConflict: "email"
-            })
-
-          if (joinRequestError) {
-            console.error("Join request creation error:", joinRequestError)
-          }
-
-          // Sign out the user and redirect to login with message
+          // User is not in allowlist, sign them out immediately
+          console.log("User not in allowlist, signing out:", user.email)
           await supabase.auth.signOut()
           return NextResponse.redirect(new URL("/auth/login?error=not_authorized", requestUrl.origin))
         }
 
-        // Check if this is a new user (profile might not exist yet)
+        // User is in allowlist, check if this is a new user (profile might not exist yet)
         const { data: profile, error: profileError } = await supabase.from("profiles").select("*").eq("id", user.id).single()
 
         if (profileError && profileError.code !== 'PGRST116') {
@@ -91,7 +77,7 @@ export async function GET(request: Request) {
             return NextResponse.redirect(new URL("/auth/login?error=profile_creation_failed", requestUrl.origin))
           }
 
-          // Remove from join requests if it exists
+          // Remove from join requests if it exists (they're now a user)
           await supabase
             .from("join_requests")
             .delete()

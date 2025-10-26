@@ -237,7 +237,7 @@ CREATE POLICY "Superadmins can manage allowlist" ON public.allowlist
     )
   );
 
--- 17. Create RLS policies for join_requests (superadmin only)
+-- 17. Create RLS policies for join_requests (superadmin only for viewing/managing, anyone can create)
 DROP POLICY IF EXISTS "Superadmins can view join requests" ON public.join_requests;
 CREATE POLICY "Superadmins can view join requests" ON public.join_requests
   FOR SELECT USING (
@@ -248,9 +248,23 @@ CREATE POLICY "Superadmins can view join requests" ON public.join_requests
     )
   );
 
+DROP POLICY IF EXISTS "Anyone can create join requests" ON public.join_requests;
+CREATE POLICY "Anyone can create join requests" ON public.join_requests
+  FOR INSERT WITH CHECK (true);
+
 DROP POLICY IF EXISTS "Superadmins can manage join requests" ON public.join_requests;
 CREATE POLICY "Superadmins can manage join requests" ON public.join_requests
-  FOR ALL USING (
+  FOR UPDATE USING (
+    EXISTS (
+      SELECT 1 FROM public.profiles 
+      WHERE profiles.id = auth.uid() 
+      AND profiles.role = 'superadmin'
+    )
+  );
+
+DROP POLICY IF EXISTS "Superadmins can delete join requests" ON public.join_requests;
+CREATE POLICY "Superadmins can delete join requests" ON public.join_requests
+  FOR DELETE USING (
     EXISTS (
       SELECT 1 FROM public.profiles 
       WHERE profiles.id = auth.uid() 
