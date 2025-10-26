@@ -2,9 +2,18 @@ import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
 
 export async function GET(request: Request) {
+  console.log("Callback route called")
   const requestUrl = new URL(request.url)
   const code = requestUrl.searchParams.get("code")
   const error = requestUrl.searchParams.get("error")
+
+  console.log("Callback params:", { code: code?.substring(0, 10) + "...", error })
+  
+  // Temporary: Just return a simple response to test if route is working
+  return new Response(`Callback received! Code: ${code?.substring(0, 10)}...`, {
+    status: 200,
+    headers: { 'Content-Type': 'text/plain' }
+  })
 
   // Handle OAuth errors
   if (error) {
@@ -14,8 +23,11 @@ export async function GET(request: Request) {
 
   if (code) {
     try {
+      console.log("Attempting code exchange...")
       const supabase = await createClient()
       const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
+      
+      console.log("Code exchange result:", { success: !exchangeError, error: exchangeError?.message })
       
       if (exchangeError) {
         console.error("Code exchange error:", exchangeError)
