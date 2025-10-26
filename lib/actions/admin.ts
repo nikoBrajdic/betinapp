@@ -153,14 +153,20 @@ export async function createJoinRequest(formData: {
 
 export async function updateProfileRole(profileId: string, role: string) {
   const supabase = await createClient()
-  const { error } = await supabase
+  
+  const { data, error } = await supabase
     .from("profiles")
     .update({
       role,
       updated_at: new Date().toISOString(),
     })
     .eq("id", profileId)
+    .select()
 
-  if (error) throw error
+  if (error) {
+    console.error("Profile role update error:", error)
+    throw error
+  }
+  
   revalidatePath("/admin/manage")
 }
