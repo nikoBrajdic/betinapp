@@ -1,0 +1,108 @@
+// Prisma schema for household admin dashboard
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  notes      Note[]
+  tasks      Task[]
+  events     Event[]
+  bills      Bill[]
+  guestStays GuestStay[]
+}
+
+model Note {
+  id        String   @id @default(cuid())
+  title     String
+  content   String   @db.Text
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([authorId])
+}
+
+model Task {
+  id          String   @id @default(cuid())
+  title       String
+  description String?  @db.Text
+  status      String   @default("todo") // todo, in-progress, done
+  dueDate     DateTime?
+  points      Int?
+  assigneeId  String
+  assignee    User     @relation(fields: [assigneeId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([assigneeId])
+  @@index([status])
+}
+
+model Event {
+  id          String   @id @default(cuid())
+  title       String
+  description String?  @db.Text
+  date        DateTime
+  createdById String
+  createdBy   User     @relation(fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([createdById])
+  @@index([date])
+}
+
+model Bill {
+  id        String   @id @default(cuid())
+  name      String
+  amount    Float
+  dueDate   DateTime
+  paid      Boolean  @default(false)
+  createdById String
+  createdBy   User     @relation(fields: [createdById], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([createdById])
+  @@index([dueDate])
+}
+
+model UtilityReading {
+  id        String   @id @default(cuid())
+  type      String   // electricity, water, gas, etc.
+  value     Float
+  maxValue  Float
+  date      DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([type])
+  @@index([date])
+}
+
+model GuestStay {
+  id          String   @id @default(cuid())
+  guestName   String
+  fromDate    DateTime
+  toDate      DateTime
+  notes       String?  @db.Text
+  createdById String
+  createdBy   User     @relation(fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([createdById])
+  @@index([fromDate])
+}
