@@ -1,8 +1,17 @@
 import { signInWithGoogle } from "@/lib/actions/auth"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 
-export default function LoginPage() {
+interface LoginPageProps {
+  searchParams: {
+    error?: string
+  }
+}
+
+export default function LoginPage({ searchParams }: LoginPageProps) {
+  const { error } = searchParams
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
@@ -11,6 +20,13 @@ export default function LoginPage() {
           <CardDescription>Sign in with your Google account to continue</CardDescription>
         </CardHeader>
         <CardContent>
+          {error && (
+            <Alert className="mb-4" variant="destructive">
+              <AlertDescription>
+                Authentication error: {error}
+              </AlertDescription>
+            </Alert>
+          )}
           <form action={signInWithGoogle}>
             <Button type="submit" className="w-full" size="lg">
               <svg className="mr-2 h-5 w-5" viewBox="0 0 24 24">
