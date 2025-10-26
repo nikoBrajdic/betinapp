@@ -10,6 +10,7 @@ import { UtilityDialog } from "@/components/utility-dialog"
 import { cn } from "@/lib/utils"
 import { updateUtility } from "@/lib/actions/utilities"
 import { useRouter } from "next/navigation"
+import { formatMoney } from "@/lib/currency"
 
 interface Utility {
   id: string
@@ -115,7 +116,7 @@ export function UtilitiesClient({ utilities }: UtilitiesClientProps) {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-muted-foreground">Total Cost</p>
-              <p className="text-2xl font-bold text-foreground">${totalCost.toFixed(2)}</p>
+              <p className="text-2xl font-bold text-foreground">{formatMoney(totalCost)}</p>
             </div>
             <Zap className="h-8 w-8 text-muted-foreground" />
           </div>
@@ -189,7 +190,7 @@ export function UtilitiesClient({ utilities }: UtilitiesClientProps) {
 
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">Cost</span>
-                    <span className="text-sm font-medium">${utility.cost.toFixed(2)}</span>
+                    <span className="text-sm font-medium">{formatMoney(utility.cost)}</span>
                   </div>
 
                   <div className="flex items-center justify-between">

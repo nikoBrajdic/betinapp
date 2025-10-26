@@ -190,12 +190,13 @@ export function TasksClient({ taskGroups }: TasksClientProps) {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {taskGroups.map((group) => {
-            const completedTasks = group.tasks.filter(task => task.completed)
-            const pendingTasks = group.tasks.filter(task => !task.completed)
+            const tasks = group.tasks || []
+            const completedTasks = tasks.filter(task => task.completed)
+            const pendingTasks = tasks.filter(task => !task.completed)
             const sortedTasks = [...pendingTasks, ...completedTasks]
 
             return (
-              <Card key={group.id} className={cn("p-6 border-2", getColorClasses(group.color))}>
+              <Card key={group.id} className={cn("p-6 border-2 flex flex-col h-full", getColorClasses(group.color))}>
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center gap-2">
                     <div className={cn("w-3 h-3 rounded-full", getColorAccent(group.color))} />
@@ -221,7 +222,7 @@ export function TasksClient({ taskGroups }: TasksClientProps) {
                   </div>
                 </div>
 
-                <div className="space-y-2 mb-4">
+                <div className="space-y-2 mb-4 flex-1">
                   {sortedTasks.map((task) => (
                     <div key={task.id} className="flex items-center gap-2 group">
                       <Checkbox 
@@ -261,7 +262,7 @@ export function TasksClient({ taskGroups }: TasksClientProps) {
                 <Button 
                   variant="ghost" 
                   size="sm" 
-                  className="w-full"
+                  className="w-full mt-auto"
                   onClick={() => openTaskDialog(group.id)}
                 >
                   <Plus className="h-4 w-4 mr-2" />

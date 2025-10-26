@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache"
 
 export async function getGuestStays() {
   const supabase = await createClient()
-  const { data, error } = await supabase.from("guest_stays").select("*").order("check_in", { ascending: true })
+  const { data, error } = await supabase.from("guest_stays").select("*").order("from_date", { ascending: true })
 
   if (error) throw error
   return data
@@ -23,8 +23,8 @@ export async function createGuestStay(formData: {
   const { error } = await supabase.from("guest_stays").insert({
     guest_name: formData.guestName,
     room: formData.room,
-    check_in: formData.checkIn,
-    check_out: formData.checkOut,
+    from_date: formData.checkIn,
+    to_date: formData.checkOut,
     status: formData.status,
     notes: formData.notes,
   })
@@ -50,8 +50,8 @@ export async function updateGuestStay(
     .update({
       guest_name: formData.guestName,
       room: formData.room,
-      check_in: formData.checkIn,
-      check_out: formData.checkOut,
+      from_date: formData.checkIn,
+      to_date: formData.checkOut,
       status: formData.status,
       notes: formData.notes,
       updated_at: new Date().toISOString(),

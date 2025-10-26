@@ -16,6 +16,7 @@ import {
   Clock
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { formatMoney } from "@/lib/currency"
 
 interface Bill {
   id: string
@@ -113,7 +114,7 @@ export function ProfileClient({ user, profile, bills, guestStays, events }: Prof
         <Alert className="mb-8 border-orange-200 bg-orange-50 dark:border-orange-800 dark:bg-orange-950">
           <AlertTriangle className="h-4 w-4 text-orange-600" />
           <AlertDescription className="text-orange-800 dark:text-orange-200">
-            <strong>Outstanding Debt:</strong> You owe ${totalUserDebt.toFixed(2)} across {userShares.length} unpaid bills.
+            <strong>Outstanding Debt:</strong> You owe {formatMoney(totalUserDebt)} across {userShares.length} unpaid bills.
           </AlertDescription>
         </Alert>
       )}
@@ -174,7 +175,7 @@ export function ProfileClient({ user, profile, bills, guestStays, events }: Prof
                     "text-sm font-medium",
                     totalUserDebt > 0 ? "text-orange-600" : "text-green-600"
                   )}>
-                    ${totalUserDebt.toFixed(2)}
+                    {formatMoney(totalUserDebt)}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
@@ -201,7 +202,7 @@ export function ProfileClient({ user, profile, bills, guestStays, events }: Prof
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-lg font-semibold text-foreground">Outstanding Debts</h3>
               <Badge variant="outline" className="text-orange-600 border-orange-200">
-                Total: ${totalUserDebt.toFixed(2)}
+                Total: {formatMoney(totalUserDebt)}
               </Badge>
             </div>
 
@@ -228,10 +229,10 @@ export function ProfileClient({ user, profile, bills, guestStays, events }: Prof
                     </div>
                     <div className="text-right">
                       <p className="text-lg font-semibold text-orange-600">
-                        ${share.share.toFixed(2)}
+                        {formatMoney(share.share)}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        of ${share.bill.amount.toFixed(2)}
+                        of {formatMoney(share.bill.amount)}
                       </p>
                     </div>
                   </div>
@@ -259,7 +260,7 @@ export function ProfileClient({ user, profile, bills, guestStays, events }: Prof
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="text-sm font-medium">${bill.amount.toFixed(2)}</p>
+                      <p className="text-sm font-medium">{formatMoney(bill.amount)}</p>
                       <Badge 
                         className={cn(
                           "text-xs",

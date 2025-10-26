@@ -9,6 +9,7 @@ import { BillDialog } from "@/components/bill-dialog"
 import { cn } from "@/lib/utils"
 import { createBill, updateBill, deleteBill } from "@/lib/actions/bills"
 import { useRouter } from "next/navigation"
+import { formatMoney } from "@/lib/currency"
 
 interface Bill {
   id: string
@@ -174,7 +175,7 @@ export function BillsClient({ bills }: BillsClientProps) {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-muted-foreground">Total Bills</p>
-              <p className="text-2xl font-bold text-foreground">${totalAmount.toFixed(2)}</p>
+              <p className="text-2xl font-bold text-foreground">{formatMoney(totalAmount)}</p>
             </div>
             <DollarSign className="h-8 w-8 text-muted-foreground" />
           </div>
@@ -183,7 +184,7 @@ export function BillsClient({ bills }: BillsClientProps) {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-muted-foreground">Pending</p>
-              <p className="text-2xl font-bold text-yellow-600">${pendingAmount.toFixed(2)}</p>
+              <p className="text-2xl font-bold text-yellow-600">{formatMoney(pendingAmount)}</p>
             </div>
             <Clock className="h-8 w-8 text-yellow-600" />
           </div>
@@ -192,7 +193,7 @@ export function BillsClient({ bills }: BillsClientProps) {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-muted-foreground">Paid</p>
-              <p className="text-2xl font-bold text-green-600">${paidAmount.toFixed(2)}</p>
+              <p className="text-2xl font-bold text-green-600">{formatMoney(paidAmount)}</p>
             </div>
             <CheckCircle2 className="h-8 w-8 text-green-600" />
           </div>
@@ -216,7 +217,7 @@ export function BillsClient({ bills }: BillsClientProps) {
               <div className="flex items-start justify-between mb-4">
                 <div className="flex-1">
                   <h3 className="text-lg font-semibold text-foreground mb-1">{bill.name}</h3>
-                  <p className="text-2xl font-bold text-foreground">${bill.amount.toFixed(2)}</p>
+                  <p className="text-2xl font-bold text-foreground">{formatMoney(bill.amount)}</p>
                 </div>
                 <div className="flex items-center gap-2">
                   {getStatusIcon(bill.status)}

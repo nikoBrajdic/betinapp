@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
+import { CURRENCY_SYMBOL } from "@/lib/currency"
 
 interface BillDialogProps {
   open: boolean
@@ -80,7 +81,7 @@ export function BillDialog({
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="amount">Amount ($)</Label>
+              <Label htmlFor="amount">Amount ({CURRENCY_SYMBOL})</Label>
               <Input
                 id="amount"
                 type="number"

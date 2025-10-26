@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { CURRENCY_SYMBOL } from "@/lib/currency"
 
 interface UtilityDialogProps {
   open: boolean
@@ -45,7 +46,7 @@ export function UtilityDialog({ open, onOpenChange, onSave, utilityName, unit }:
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="cost">Cost ($)</Label>
+            <Label htmlFor="cost">Cost ({CURRENCY_SYMBOL})</Label>
             <Input
               id="cost"
               type="number"

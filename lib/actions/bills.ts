@@ -15,7 +15,7 @@ export async function createBill(formData: {
   name: string
   amount: number
   dueDate: string
-  status: string
+  paid: boolean
   category: string
   recurring: boolean
 }) {
@@ -24,7 +24,7 @@ export async function createBill(formData: {
     name: formData.name,
     amount: formData.amount,
     due_date: formData.dueDate,
-    status: formData.status,
+    paid: formData.paid,
     category: formData.category,
     recurring: formData.recurring,
   })
@@ -39,7 +39,7 @@ export async function updateBill(
     name: string
     amount: number
     dueDate: string
-    status: string
+    paid: boolean
     category: string
     recurring: boolean
   },
@@ -51,7 +51,7 @@ export async function updateBill(
       name: formData.name,
       amount: formData.amount,
       due_date: formData.dueDate,
-      status: formData.status,
+      paid: formData.paid,
       category: formData.category,
       recurring: formData.recurring,
       updated_at: new Date().toISOString(),
