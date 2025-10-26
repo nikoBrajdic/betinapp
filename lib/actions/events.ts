@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache"
 
 export async function getEvents() {
   const supabase = await createClient()
-  const { data, error } = await supabase.from("events").select("*").order("date", { ascending: true })
+  const { data, error } = await supabase.from("events").select("*").order("start_date", { ascending: true })
 
   if (error) throw error
   return data
@@ -14,16 +14,18 @@ export async function getEvents() {
 export async function createEvent(formData: {
   title: string
   description: string
-  date: string
-  time: string
+  startDate: string
+  endDate?: string
+  time?: string
   category: string
 }) {
   const supabase = await createClient()
   const { error } = await supabase.from("events").insert({
     title: formData.title,
     description: formData.description,
-    date: formData.date,
-    time: formData.time,
+    start_date: formData.startDate,
+    end_date: formData.endDate || null,
+    time: formData.time || null,
     category: formData.category,
   })
 
@@ -36,8 +38,9 @@ export async function updateEvent(
   formData: {
     title: string
     description: string
-    date: string
-    time: string
+    startDate: string
+    endDate?: string
+    time?: string
     category: string
   },
 ) {
@@ -47,8 +50,9 @@ export async function updateEvent(
     .update({
       title: formData.title,
       description: formData.description,
-      date: formData.date,
-      time: formData.time,
+      start_date: formData.startDate,
+      end_date: formData.endDate || null,
+      time: formData.time || null,
       category: formData.category,
       updated_at: new Date().toISOString(),
     })

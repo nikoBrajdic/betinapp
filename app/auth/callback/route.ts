@@ -8,12 +8,6 @@ export async function GET(request: Request) {
   const error = requestUrl.searchParams.get("error")
 
   console.log("Callback params:", { code: code?.substring(0, 10) + "...", error })
-  
-  // Temporary: Just return a simple response to test if route is working
-  return new Response(`Callback received! Code: ${code?.substring(0, 10)}...`, {
-    status: 200,
-    headers: { 'Content-Type': 'text/plain' }
-  })
 
   // Handle OAuth errors
   if (error) {
@@ -46,6 +40,34 @@ export async function GET(request: Request) {
       }
 
       if (user) {
+        // Check if user is in allowlist
+        const { data: allowlistEntry } = await supabase
+          .from("allowlist")
+          .select("*")
+          .eq("email", user.email)
+          .single()
+
+        if (!allowlistEntry) {
+          // User is not in allowlist, create join request
+          const { error: joinRequestError } = await supabase
+            .from("join_requests")
+            .upsert({
+              email: user.email!,
+              name: user.user_metadata?.full_name || null,
+              status: "pending"
+            }, {
+              onConflict: "email"
+            })
+
+          if (joinRequestError) {
+            console.error("Join request creation error:", joinRequestError)
+          }
+
+          // Sign out the user and redirect to login with message
+          await supabase.auth.signOut()
+          return NextResponse.redirect(new URL("/auth/login?error=not_authorized", requestUrl.origin))
+        }
+
         // Check if this is a new user (profile might not exist yet)
         const { data: profile, error: profileError } = await supabase.from("profiles").select("*").eq("id", user.id).single()
 
@@ -54,12 +76,26 @@ export async function GET(request: Request) {
           return NextResponse.redirect(new URL("/auth/login?error=profile_fetch_failed", requestUrl.origin))
         }
 
-        // If new user, try to use invite code from session storage
-        // Note: We can't access sessionStorage from server, so we'll check if profile exists
-        // The invite code usage will be handled by the client after redirect
+        // If new user, create profile with role from allowlist
         if (!profile) {
-          // New user - redirect to complete signup
-          return NextResponse.redirect(new URL("/auth/complete-signup", requestUrl.origin))
+          const { error: profileCreateError } = await supabase
+            .from("profiles")
+            .insert({
+              id: user.id,
+              full_name: user.user_metadata?.full_name || user.email?.split("@")[0] || "User",
+              role: allowlistEntry.role
+            })
+
+          if (profileCreateError) {
+            console.error("Profile creation error:", profileCreateError)
+            return NextResponse.redirect(new URL("/auth/login?error=profile_creation_failed", requestUrl.origin))
+          }
+
+          // Remove from join requests if it exists
+          await supabase
+            .from("join_requests")
+            .delete()
+            .eq("email", user.email)
         }
       }
     } catch (error) {

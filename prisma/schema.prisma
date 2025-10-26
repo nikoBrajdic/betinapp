@@ -16,10 +16,13 @@ model User {
   updatedAt DateTime @updatedAt
 
   notes      Note[]
-  tasks      Task[]
+  taskGroups TaskGroup[]
   events     Event[]
   bills      Bill[]
+  billShares BillShare[]
   guestStays GuestStay[]
+  allowlists Allowlist[]
+  joinRequestsReviewed JoinRequest[]
 }
 
 model Note {
@@ -34,34 +37,49 @@ model Note {
   @@index([authorId])
 }
 
+model TaskGroup {
+  id          String   @id @default(cuid())
+  title       String
+  color       String   @default("blue")
+  authorId    String
+  author      User     @relation(fields: [authorId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  tasks       Task[]
+
+  @@index([authorId])
+}
+
 model Task {
   id          String   @id @default(cuid())
   title       String
-  description String?  @db.Text
-  status      String   @default("todo") // todo, in-progress, done
-  dueDate     DateTime?
-  points      Int?
-  assigneeId  String
-  assignee    User     @relation(fields: [assigneeId], references: [id])
+  completed   Boolean  @default(false)
+  taskGroupId String
+  taskGroup   TaskGroup @relation(fields: [taskGroupId], references: [id], onDelete: Cascade)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  @@index([assigneeId])
-  @@index([status])
+  @@index([taskGroupId])
+  @@index([completed])
 }
 
 model Event {
   id          String   @id @default(cuid())
   title       String
   description String?  @db.Text
-  date        DateTime
+  startDate   DateTime
+  endDate     DateTime?
+  time        String?
+  category    String   @default("other") // family, maintenance, appointment, other
   createdById String
   createdBy   User     @relation(fields: [createdById], references: [id])
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   @@index([createdById])
-  @@index([date])
+  @@index([startDate])
+  @@index([endDate])
 }
 
 model Bill {
@@ -70,13 +88,33 @@ model Bill {
   amount    Float
   dueDate   DateTime
   paid      Boolean  @default(false)
+  type      String   @default("recurring") // recurring, metered, one-time
   createdById String
   createdBy   User     @relation(fields: [createdById], references: [id])
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  billShares BillShare[]
+
   @@index([createdById])
   @@index([dueDate])
+  @@index([type])
+}
+
+model BillShare {
+  id        String   @id @default(cuid())
+  billId    String
+  bill      Bill     @relation(fields: [billId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  amount    Float
+  paid      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([billId])
+  @@index([userId])
+  @@index([paid])
 }
 
 model UtilityReading {
@@ -105,4 +143,31 @@ model GuestStay {
 
   @@index([createdById])
   @@index([fromDate])
+}
+
+model Allowlist {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  role      String   @default("admin") // admin, superadmin
+  createdById String
+  createdBy   User     @relation(fields: [createdById], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([email])
+  @@index([role])
+}
+
+model JoinRequest {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  status    String   @default("pending") // pending, approved, rejected
+  reviewedById String?
+  reviewedBy   User?    @relation(fields: [reviewedById], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([email])
+  @@index([status])
 }

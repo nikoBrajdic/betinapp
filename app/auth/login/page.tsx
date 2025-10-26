@@ -2,15 +2,16 @@ import { signInWithGoogle } from "@/lib/actions/auth"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { redirect } from "next/navigation"
 
 interface LoginPageProps {
-  searchParams: {
+  searchParams: Promise<{
     error?: string
-  }
+  }>
 }
 
-export default function LoginPage({ searchParams }: LoginPageProps) {
-  const { error } = searchParams
+export default async function LoginPage({ searchParams }: LoginPageProps) {
+  const { error } = await searchParams
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
@@ -21,13 +22,22 @@ export default function LoginPage({ searchParams }: LoginPageProps) {
         </CardHeader>
         <CardContent>
           {error && (
-            <Alert className="mb-4" variant="destructive">
+            <Alert className="mb-4" variant={error === "not_authorized" ? "default" : "destructive"}>
               <AlertDescription>
-                Authentication error: {error}
+                {error === "not_authorized" 
+                  ? "Your email is not authorized to access this application. A join request has been created and will be reviewed by an administrator."
+                  : `Authentication error: ${error}`
+                }
               </AlertDescription>
             </Alert>
           )}
-          <form action={signInWithGoogle}>
+          <form action={async () => {
+            "use server"
+            const result = await signInWithGoogle()
+            if (result?.error) {
+              redirect(`/auth/login?error=${encodeURIComponent(result.error)}`)
+            }
+          }}>
             <Button type="submit" className="w-full" size="lg">
               <svg className="mr-2 h-5 w-5" viewBox="0 0 24 24">
                 <path
@@ -50,7 +60,9 @@ export default function LoginPage({ searchParams }: LoginPageProps) {
               Continue with Google
             </Button>
           </form>
-          <p className="mt-4 text-center text-sm text-muted-foreground">You need an invite code to create an account</p>
+          <p className="mt-4 text-center text-sm text-muted-foreground">
+            Only authorized email addresses can access this application
+          </p>
         </CardContent>
       </Card>
     </div>

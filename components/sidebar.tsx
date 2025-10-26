@@ -13,6 +13,7 @@ import {
   Home,
   Settings,
   LogOut,
+  User,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { signOut } from "@/lib/actions/auth"
@@ -137,6 +138,13 @@ export function Sidebar({ user }: SidebarProps) {
                 <p className="text-xs text-muted-foreground">{user.email}</p>
               </div>
             </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem asChild>
+              <Link href="/profile" className="flex w-full items-center">
+                <User className="mr-2 h-4 w-4" />
+                Profile
+              </Link>
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild>
               <form action={signOut} className="w-full">

@@ -3,28 +3,71 @@
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 
-export async function getTasks() {
+export async function getTaskGroups() {
   const supabase = await createClient()
-  const { data, error } = await supabase.from("tasks").select("*").order("created_at", { ascending: false })
+  const { data, error } = await supabase
+    .from("task_groups")
+    .select(`
+      *,
+      tasks (*)
+    `)
+    .order("created_at", { ascending: false })
 
   if (error) throw error
   return data
 }
 
+export async function createTaskGroup(formData: {
+  title: string
+  color?: string
+}) {
+  const supabase = await createClient()
+  const { error } = await supabase.from("task_groups").insert({
+    title: formData.title,
+    color: formData.color || "blue",
+  })
+
+  if (error) throw error
+  revalidatePath("/tasks")
+}
+
+export async function updateTaskGroup(
+  id: string,
+  formData: {
+    title: string
+    color?: string
+  },
+) {
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from("task_groups")
+    .update({
+      title: formData.title,
+      color: formData.color || "blue",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id)
+
+  if (error) throw error
+  revalidatePath("/tasks")
+}
+
+export async function deleteTaskGroup(id: string) {
+  const supabase = await createClient()
+  const { error } = await supabase.from("task_groups").delete().eq("id", id)
+
+  if (error) throw error
+  revalidatePath("/tasks")
+}
+
 export async function createTask(formData: {
   title: string
-  description: string
-  status: string
-  priority: string
-  dueDate: string
+  taskGroupId: string
 }) {
   const supabase = await createClient()
   const { error } = await supabase.from("tasks").insert({
     title: formData.title,
-    description: formData.description,
-    status: formData.status,
-    priority: formData.priority,
-    due_date: formData.dueDate,
+    task_group_id: formData.taskGroupId,
   })
 
   if (error) throw error
@@ -35,10 +78,7 @@ export async function updateTask(
   id: string,
   formData: {
     title: string
-    description: string
-    status: string
-    priority: string
-    dueDate: string
+    completed?: boolean
   },
 ) {
   const supabase = await createClient()
@@ -46,10 +86,31 @@ export async function updateTask(
     .from("tasks")
     .update({
       title: formData.title,
-      description: formData.description,
-      status: formData.status,
-      priority: formData.priority,
-      due_date: formData.dueDate,
+      completed: formData.completed,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id)
+
+  if (error) throw error
+  revalidatePath("/tasks")
+}
+
+export async function toggleTaskCompletion(id: string) {
+  const supabase = await createClient()
+  
+  // First get the current task to toggle its completion status
+  const { data: task, error: fetchError } = await supabase
+    .from("tasks")
+    .select("completed")
+    .eq("id", id)
+    .single()
+
+  if (fetchError) throw fetchError
+
+  const { error } = await supabase
+    .from("tasks")
+    .update({
+      completed: !task.completed,
       updated_at: new Date().toISOString(),
     })
     .eq("id", id)

@@ -1,0 +1,97 @@
+"use client"
+
+import { useState } from "react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
+import { Pencil, Trash2 } from "lucide-react"
+import { NoteDialog } from "@/components/note-dialog"
+
+interface Note {
+  id: string
+  title: string
+  content: string
+  color: string
+  created_at: string
+  updated_at: string
+}
+
+interface NoteViewModalProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  note: Note | null
+  onEdit: (note: Note) => void
+  onDelete: (id: string) => void
+  onEditSave: (id: string, title: string, content: string) => void
+}
+
+export function NoteViewModal({ open, onOpenChange, note, onEdit, onDelete, onEditSave }: NoteViewModalProps) {
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+
+  if (!note) return null
+
+  const handleEdit = () => {
+    setIsEditDialogOpen(true)
+  }
+
+  const handleDelete = () => {
+    onDelete(note.id)
+    onOpenChange(false)
+  }
+
+  const handleEditSave = (title: string, content: string) => {
+    onEditSave(note.id, title, content)
+    setIsEditDialogOpen(false)
+    onOpenChange(false)
+  }
+
+  return (
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="min-w-[80vw] max-w-[1000px] min-h-[90vh] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold">{note.title}</DialogTitle>
+          </DialogHeader>
+          
+          <div className="flex-1 py-6">
+            <div className="prose prose-gray dark:prose-invert max-w-none">
+              <div className="whitespace-pre-wrap text-base leading-relaxed">
+                {note.content}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-between items-center pt-4 border-t">
+            <div className="text-sm text-muted-foreground">
+              Updated {new Date(note.updated_at).toLocaleDateString("en-US", { 
+                month: "long", 
+                day: "numeric", 
+                year: "numeric",
+                hour: "2-digit",
+                minute: "2-digit"
+              })}
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={handleEdit}>
+                <Pencil className="h-4 w-4 mr-2" />
+                Edit
+              </Button>
+              <Button variant="destructive" onClick={handleDelete}>
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <NoteDialog
+        open={isEditDialogOpen}
+        onOpenChange={setIsEditDialogOpen}
+        onSave={handleEditSave}
+        initialTitle={note.title}
+        initialContent={note.content}
+        mode="edit"
+      />
+    </>
+  )
+}
