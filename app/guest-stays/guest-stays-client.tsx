@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Plus, Search, Edit, Trash2, Users, Calendar, MapPin } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { formatDateFull, formatDateTime } from "@/lib/utils/date"
 import { GuestStayDialog } from "@/components/guest-stay-dialog"
 import { createGuestStay, updateGuestStay, deleteGuestStay } from "@/lib/actions/guest-stays"
 import { useRouter } from "next/navigation"
@@ -257,26 +258,10 @@ export function GuestStaysClient({ guests, events }: GuestStaysClientProps) {
                     </div>
                   </TableCell>
                   <TableCell>
-                    {(() => {
-                      const [year, month, day] = guest.from_date.split('T')[0].split('-').map(Number)
-                      const date = new Date(year, month - 1, day)
-                      return date.toLocaleDateString("en-US", { 
-                        month: "short", 
-                        day: "numeric",
-                        year: "numeric"
-                      })
-                    })()}
+                    {formatDateFull(guest.from_date.split('T')[0])}
                   </TableCell>
                   <TableCell>
-                    {(() => {
-                      const [year, month, day] = guest.to_date.split('T')[0].split('-').map(Number)
-                      const date = new Date(year, month - 1, day)
-                      return date.toLocaleDateString("en-US", { 
-                        month: "short", 
-                        day: "numeric",
-                        year: "numeric"
-                      })
-                    })()}
+                    {formatDateFull(guest.to_date.split('T')[0])}
                   </TableCell>
                   <TableCell>
                     <span className={cn("px-2 py-1 rounded-full text-xs font-medium", getStatusColor(guest.status))}>
@@ -285,14 +270,7 @@ export function GuestStaysClient({ guests, events }: GuestStaysClientProps) {
                   </TableCell>
                   <TableCell className="max-w-xs truncate">{guest.notes || "-"}</TableCell>
                   <TableCell>
-                    {(() => {
-                      const date = new Date(guest.updated_at)
-                      return date.toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric"
-                      })
-                    })()}
+                    {formatDateTime(guest.updated_at)}
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">

@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { CalendarIcon, Clock } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { getLocalDateString, formatDateString, formatDateShort } from "@/lib/utils/date"
 import { EventViewModal } from "@/components/event-view-modal"
 
 interface Event {
@@ -74,23 +75,6 @@ export function CalendarSidebar({
     }
   }
 
-  const formatDateString = (dateStr: string) => {
-    // Simple date formatting for Murter, Croatia
-    const date = new Date(dateStr + 'T00:00:00') // Force local timezone
-    return date.toLocaleDateString("en-US", { 
-      weekday: "short", 
-      month: "short", 
-      day: "numeric" 
-    })
-  }
-
-  const getLocalDateString = (date: Date) => {
-    // Get date string in local timezone (Murter, Croatia)
-    const year = date.getFullYear()
-    const month = String(date.getMonth() + 1).padStart(2, '0')
-    const day = String(date.getDate()).padStart(2, '0')
-    return `${year}-${month}-${day}`
-  }
 
   const getUpcomingEvents = () => {
     const today = new Date()
@@ -248,7 +232,7 @@ export function CalendarSidebar({
                               <p className="text-sm text-muted-foreground line-clamp-2">{event.description}</p>
                               {event.end_date && event.end_date !== event.start_date && (
                                 <p className="text-xs text-muted-foreground mt-1">
-                                  Until {formatDateString(event.end_date).split(' ').slice(1).join(' ')}
+                                  Until {formatDateShort(event.end_date)}
                                 </p>
                               )}
                             </div>
