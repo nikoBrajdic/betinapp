@@ -107,8 +107,8 @@ export function CalendarSidebar({
     id: string,
     title: string,
     description: string,
-    startDate: Date | null,
-    endDate: Date | null,
+    startDate: Date | string | null,
+    endDate: Date | string | null,
     time: string,
     category: Event["category"],
   ) => {
@@ -122,8 +122,8 @@ export function CalendarSidebar({
         id,
         title,
         description,
-        start_date: startDate.toISOString().split('T')[0],
-        end_date: endDate ? endDate.toISOString().split('T')[0] : null,
+        start_date: startDate instanceof Date ? startDate.toISOString().split('T')[0] : startDate,
+        end_date: endDate ? (endDate instanceof Date ? endDate.toISOString().split('T')[0] : endDate) : null,
         time,
         category,
         created_at: editingEvent!.created_at,
@@ -302,6 +302,7 @@ export function CalendarSidebar({
             closeViewModal()
           }
         }}
+        onEditSave={handleEditEvent}
       />
 
       <EventDialog
