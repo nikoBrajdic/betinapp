@@ -3,10 +3,9 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { Plus, ChevronLeft, ChevronRight, CalendarIcon } from "lucide-react"
 import { EventDialog } from "@/components/event-dialog"
-import { EventViewModal } from "@/components/event-view-modal"
+import { CalendarSidebar } from "@/components/calendar-sidebar"
 import { cn } from "@/lib/utils"
 import { createEvent, updateEvent, deleteEvent } from "@/lib/actions/events"
 import { useRouter } from "next/navigation"
@@ -30,9 +29,8 @@ interface CalendarClientProps {
 export function CalendarClient({ events }: CalendarClientProps) {
   const [currentDate, setCurrentDate] = useState(new Date())
   const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [isViewModalOpen, setIsViewModalOpen] = useState(false)
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
-  const [viewingEvent, setViewingEvent] = useState<Event | null>(null)
   const router = useRouter()
 
   const handleAddEvent = async (
@@ -58,23 +56,15 @@ export function CalendarClient({ events }: CalendarClientProps) {
     }
   }
 
-  const handleEditEvent = async (
-    id: string,
-    title: string,
-    description: string,
-    startDate: Date,
-    endDate: Date | null,
-    time: string,
-    category: Event["category"],
-  ) => {
+  const handleEditEvent = async (event: Event) => {
     try {
-      await updateEvent(id, {
-        title,
-        description,
-        startDate: startDate.toISOString().split('T')[0],
-        endDate: endDate ? endDate.toISOString().split('T')[0] : undefined,
-        time: time || undefined,
-        category,
+      await updateEvent(event.id, {
+        title: event.title,
+        description: event.description,
+        startDate: event.start_date,
+        endDate: event.end_date,
+        time: event.time,
+        category: event.category,
       })
       router.refresh()
     } catch (error) {
@@ -125,19 +115,6 @@ export function CalendarClient({ events }: CalendarClientProps) {
     })
   }
 
-  const getCategoryColor = (category: Event["category"]) => {
-    switch (category) {
-      case "family":
-        return "bg-blue-500/10 text-blue-700 dark:text-blue-400"
-      case "maintenance":
-        return "bg-orange-500/10 text-orange-700 dark:text-orange-400"
-      case "appointment":
-        return "bg-green-500/10 text-green-700 dark:text-green-400"
-      case "other":
-        return "bg-gray-500/10 text-gray-700 dark:text-gray-400"
-    }
-  }
-
   const navigateMonth = (direction: "prev" | "next") => {
     setCurrentDate(prev => {
       const newDate = new Date(prev)
@@ -160,14 +137,14 @@ export function CalendarClient({ events }: CalendarClientProps) {
     setSelectedDate(null)
   }
 
-  const openViewModal = (event: Event) => {
-    setViewingEvent(event)
-    setIsViewModalOpen(true)
+  const openSidebar = (date: Date | null) => {
+    setSelectedDate(date)
+    setIsSidebarOpen(true)
   }
 
-  const closeViewModal = () => {
-    setIsViewModalOpen(false)
-    setViewingEvent(null)
+  const closeSidebar = () => {
+    setIsSidebarOpen(false)
+    setSelectedDate(null)
   }
 
   const days = getDaysInMonth(currentDate)
@@ -178,15 +155,21 @@ export function CalendarClient({ events }: CalendarClientProps) {
 
   return (
     <div className="p-8">
-      <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-3xl font-bold text-foreground mb-2">Calendar</h1>
-          <p className="text-muted-foreground">Manage your household events and appointments</p>
+          <p className="text-muted-foreground">Click on any date to view events or add new ones</p>
         </div>
-        <Button onClick={() => setIsDialogOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          New Event
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => openSidebar(null)}>
+            <CalendarIcon className="h-4 w-4 mr-2" />
+            Upcoming Events
+          </Button>
+          <Button onClick={() => setIsDialogOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            New Event
+          </Button>
+        </div>
       </div>
 
       <Card className="p-6">
@@ -225,58 +208,24 @@ export function CalendarClient({ events }: CalendarClientProps) {
               <div
                 key={day.toISOString()}
                 className={cn(
-                  "h-24 p-1 border border-border rounded cursor-pointer hover:bg-muted/50",
+                  "h-24 p-2 border border-border rounded cursor-pointer hover:bg-muted/50 transition-colors",
                   isToday && "bg-primary/10 border-primary"
                 )}
-                onClick={() => openAddDialog(day)}
+                onClick={() => openSidebar(day)}
               >
                 <div className="flex items-center justify-between mb-1">
                   <span className={cn("text-sm font-medium", isToday && "text-primary font-bold")}>
                     {day.getDate()}
                   </span>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6 opacity-0 group-hover:opacity-100"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      openAddDialog(day)
-                    }}
-                  >
-                    <Plus className="h-3 w-3" />
-                  </Button>
-                </div>
-                <div className="space-y-1">
-                  {dayEvents.slice(0, 2).map((event) => (
-                    <div
-                      key={event.id}
-                      className="flex items-center justify-between group cursor-pointer"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        openViewModal(event)
-                      }}
-                    >
-                      <Badge className={cn("text-xs px-1 py-0 flex-1 truncate", getCategoryColor(event.category))}>
-                        {event.time && `${event.time} `}{event.title}
-                      </Badge>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-4 w-4 opacity-0 group-hover:opacity-100 text-destructive ml-1 flex-shrink-0"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          handleDeleteEvent(event.id)
-                        }}
-                      >
-                        ×
-                      </Button>
-                    </div>
-                  ))}
-                  {dayEvents.length > 2 && (
-                    <div className="text-xs text-muted-foreground">
-                      +{dayEvents.length - 2} more
+                  {dayEvents.length > 0 && (
+                    <div className="flex items-center gap-1">
+                      <div className="h-2 w-2 bg-primary rounded-full"></div>
+                      <span className="text-xs text-muted-foreground">{dayEvents.length}</span>
                     </div>
                   )}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {dayEvents.length > 0 ? `${dayEvents.length} event${dayEvents.length > 1 ? 's' : ''}` : 'No events'}
                 </div>
               </div>
             )
@@ -292,13 +241,14 @@ export function CalendarClient({ events }: CalendarClientProps) {
         mode="create"
       />
 
-      <EventViewModal
-        open={isViewModalOpen}
-        onOpenChange={closeViewModal}
-        event={viewingEvent}
-        onEdit={() => {}} // Will be handled by the modal itself
-        onDelete={handleDeleteEvent}
-        onEditSave={handleEditEvent}
+      <CalendarSidebar
+        isOpen={isSidebarOpen}
+        onClose={closeSidebar}
+        selectedDate={selectedDate}
+        events={events}
+        onAddEvent={openAddDialog}
+        onEditEvent={handleEditEvent}
+        onDeleteEvent={handleDeleteEvent}
       />
     </div>
   )
