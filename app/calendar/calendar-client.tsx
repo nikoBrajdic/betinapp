@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
 import { Plus, ChevronLeft, ChevronRight, CalendarIcon } from "lucide-react"
 import { EventDialog } from "@/components/event-dialog"
 import { CalendarSidebar } from "@/components/calendar-sidebar"
@@ -115,6 +116,19 @@ export function CalendarClient({ events }: CalendarClientProps) {
     })
   }
 
+  const getCategoryColor = (category: Event["category"]) => {
+    switch (category) {
+      case "family":
+        return "bg-blue-500/10 text-blue-700 dark:text-blue-400"
+      case "maintenance":
+        return "bg-orange-500/10 text-orange-700 dark:text-orange-400"
+      case "appointment":
+        return "bg-green-500/10 text-green-700 dark:text-green-400"
+      case "other":
+        return "bg-gray-500/10 text-gray-700 dark:text-gray-400"
+    }
+  }
+
   const navigateMonth = (direction: "prev" | "next") => {
     setCurrentDate(prev => {
       const newDate = new Date(prev)
@@ -208,7 +222,7 @@ export function CalendarClient({ events }: CalendarClientProps) {
               <div
                 key={day.toISOString()}
                 className={cn(
-                  "h-24 p-2 border border-border rounded cursor-pointer hover:bg-muted/50 transition-colors",
+                  "h-24 p-1 border border-border rounded cursor-pointer hover:bg-muted/50 transition-colors",
                   isToday && "bg-primary/10 border-primary"
                 )}
                 onClick={() => openSidebar(day)}
@@ -217,15 +231,23 @@ export function CalendarClient({ events }: CalendarClientProps) {
                   <span className={cn("text-sm font-medium", isToday && "text-primary font-bold")}>
                     {day.getDate()}
                   </span>
-                  {dayEvents.length > 0 && (
-                    <div className="flex items-center gap-1">
-                      <div className="h-2 w-2 bg-primary rounded-full"></div>
-                      <span className="text-xs text-muted-foreground">{dayEvents.length}</span>
+                </div>
+                <div className="space-y-1">
+                  {dayEvents.slice(0, 2).map((event) => (
+                    <div
+                      key={event.id}
+                      className="flex items-center justify-between"
+                    >
+                      <Badge className={cn("text-xs px-1 py-0 flex-1 truncate cursor-default", getCategoryColor(event.category))}>
+                        {event.time && `${event.time} `}{event.title}
+                      </Badge>
+                    </div>
+                  ))}
+                  {dayEvents.length > 2 && (
+                    <div className="text-xs text-muted-foreground">
+                      +{dayEvents.length - 2} more
                     </div>
                   )}
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  {dayEvents.length > 0 ? `${dayEvents.length} event${dayEvents.length > 1 ? 's' : ''}` : 'No events'}
                 </div>
               </div>
             )

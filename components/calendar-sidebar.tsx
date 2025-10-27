@@ -107,12 +107,17 @@ export function CalendarSidebar({
     id: string,
     title: string,
     description: string,
-    startDate: Date,
+    startDate: Date | null,
     endDate: Date | null,
     time: string,
     category: Event["category"],
   ) => {
     try {
+      if (!startDate) {
+        console.error("Start date is required")
+        return
+      }
+      
       const updatedEvent: Event = {
         id,
         title,
