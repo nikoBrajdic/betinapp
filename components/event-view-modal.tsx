@@ -41,8 +41,8 @@ export function EventViewModal({ open, onOpenChange, event, onEdit, onDelete, on
     onOpenChange(false)
   }
 
-  const handleEditSave = (title: string, description: string, startDate: Date, endDate: Date | null, time: string, category: Event["category"]) => {
-    onEditSave(event.id, title, description, startDate, endDate, time, category)
+  const handleEditSave = (id: string, title: string, description: string, startDate: Date | string | null, endDate: Date | string | null, time: string, category: Event["category"], created_at?: string) => {
+    onEditSave(id, title, description, startDate, endDate, time, category, created_at)
     setIsEditDialogOpen(false)
     onOpenChange(false)
   }
@@ -168,6 +168,8 @@ export function EventViewModal({ open, onOpenChange, event, onEdit, onDelete, on
         initialEndDate={event.end_date ? new Date(event.end_date) : null}
         initialTime={event.time || ""}
         initialCategory={event.category}
+        initialId={event.id}
+        initialCreatedAt={event.created_at}
         mode="edit"
       />
     </>

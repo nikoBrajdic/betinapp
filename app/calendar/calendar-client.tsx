@@ -30,24 +30,25 @@ interface CalendarClientProps {
 export function CalendarClient({ events }: CalendarClientProps) {
   const [currentDate, setCurrentDate] = useState(new Date())
   const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
   const router = useRouter()
 
   const handleAddEvent = async (
+    id: string,
     title: string,
     description: string,
-    startDate: Date,
-    endDate: Date | null,
+    startDate: Date | string | null,
+    endDate: Date | string | null,
     time: string,
     category: Event["category"],
+    created_at?: string,
   ) => {
     try {
       await createEvent({
         title,
         description,
-        startDate: startDate.toISOString().split('T')[0],
-        endDate: endDate ? endDate.toISOString().split('T')[0] : undefined,
+        startDate: startDate instanceof Date ? startDate.toISOString().split('T')[0] : startDate!,
+        endDate: endDate ? (endDate instanceof Date ? endDate.toISOString().split('T')[0] : endDate) : undefined,
         time: time || undefined,
         category,
       })
@@ -63,8 +64,8 @@ export function CalendarClient({ events }: CalendarClientProps) {
         title: event.title,
         description: event.description,
         startDate: event.start_date,
-        endDate: event.end_date,
-        time: event.time,
+        endDate: event.end_date || undefined,
+        time: event.time || undefined,
         category: event.category,
       })
       router.refresh()
@@ -151,16 +152,6 @@ export function CalendarClient({ events }: CalendarClientProps) {
     setSelectedDate(null)
   }
 
-  const openSidebar = (date: Date | null) => {
-    setSelectedDate(date)
-    setIsSidebarOpen(true)
-  }
-
-  const closeSidebar = () => {
-    setIsSidebarOpen(false)
-    setSelectedDate(null)
-  }
-
   const days = getDaysInMonth(currentDate)
   const monthNames = [
     "January", "February", "March", "April", "May", "June",
@@ -168,23 +159,21 @@ export function CalendarClient({ events }: CalendarClientProps) {
   ]
 
   return (
-    <div className="p-8">
+    <div className="flex h-screen">
+      {/* Main Calendar Area */}
+      <div className="flex-1 p-8">
         <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground mb-2">Calendar</h1>
-          <p className="text-muted-foreground">Click on any date to view events or add new ones</p>
+          <div>
+            <h1 className="text-3xl font-bold text-foreground mb-2">Calendar</h1>
+            <p className="text-muted-foreground">Click on any date to view events or add new ones</p>
+          </div>
+          <div className="flex gap-2">
+            <Button onClick={() => setIsDialogOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              New Event
+            </Button>
+          </div>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => openSidebar(null)}>
-            <CalendarIcon className="h-4 w-4 mr-2" />
-            Upcoming Events
-          </Button>
-          <Button onClick={() => setIsDialogOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            New Event
-          </Button>
-        </div>
-      </div>
 
       <Card className="p-6">
         <div className="flex items-center justify-between mb-6">
@@ -217,18 +206,24 @@ export function CalendarClient({ events }: CalendarClientProps) {
 
             const dayEvents = getEventsForDate(day)
             const isToday = day.toDateString() === new Date().toDateString()
+            const isSelected = selectedDate && day.toDateString() === selectedDate.toDateString()
 
             return (
               <div
                 key={day.toISOString()}
                 className={cn(
                   "h-24 p-1 border border-border rounded cursor-pointer hover:bg-muted/50 transition-colors",
-                  isToday && "bg-primary/10 border-primary"
+                  isToday && "bg-primary/10 border-primary",
+                  isSelected && "border-primary border-2 bg-primary/5"
                 )}
-                onClick={() => openSidebar(day)}
+                onClick={() => setSelectedDate(day)}
               >
                 <div className="flex items-center justify-between mb-1">
-                  <span className={cn("text-sm font-medium", isToday && "text-primary font-bold")}>
+                  <span className={cn(
+                    "text-sm font-medium", 
+                    isToday && "text-primary font-bold",
+                    isSelected && "text-primary font-bold"
+                  )}>
                     {day.getDate()}
                   </span>
                 </div>
@@ -254,23 +249,27 @@ export function CalendarClient({ events }: CalendarClientProps) {
           })}
         </div>
       </Card>
+      </div>
+
+      {/* Always Visible Sidebar */}
+      <CalendarSidebar
+        isOpen={true}
+        onClose={() => setSelectedDate(null)}
+        selectedDate={selectedDate}
+        events={events}
+        onAddEvent={openAddDialog}
+        onEditEvent={handleEditEvent}
+        onDeleteEvent={handleDeleteEvent}
+        isEventDialogOpen={isDialogOpen}
+      />
 
       <EventDialog
         open={isDialogOpen}
         onOpenChange={closeDialog}
         onSave={handleAddEvent}
         initialDate={selectedDate}
+        initialId=""
         mode="create"
-      />
-
-      <CalendarSidebar
-        isOpen={isSidebarOpen}
-        onClose={closeSidebar}
-        selectedDate={selectedDate}
-        events={events}
-        onAddEvent={openAddDialog}
-        onEditEvent={handleEditEvent}
-        onDeleteEvent={handleDeleteEvent}
       />
     </div>
   )

@@ -12,12 +12,14 @@ interface EventDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onSave: (
+    id: string,
     title: string,
     description: string,
-    startDate: Date,
-    endDate: Date | null,
+    startDate: Date | string | null,
+    endDate: Date | string | null,
     time: string,
     category: "family" | "maintenance" | "appointment" | "other",
+    created_at?: string,
   ) => void
   initialDate?: Date | null
   initialTitle?: string
@@ -26,6 +28,8 @@ interface EventDialogProps {
   initialEndDate?: Date | null
   initialTime?: string
   initialCategory?: "family" | "maintenance" | "appointment" | "other"
+  initialId?: string
+  initialCreatedAt?: string
   mode: "create" | "edit"
 }
 
@@ -40,6 +44,8 @@ export function EventDialog({
   initialEndDate = null,
   initialTime = "",
   initialCategory = "other",
+  initialId = "",
+  initialCreatedAt,
   mode
 }: EventDialogProps) {
   const [title, setTitle] = useState(initialTitle)
@@ -64,7 +70,7 @@ export function EventDialog({
 
   const handleSave = () => {
     if (title.trim() && startDate) {
-      onSave(title, description, new Date(startDate), isMultiDay && endDate ? new Date(endDate) : null, time, category)
+      onSave(initialId, title, description, new Date(startDate), isMultiDay && endDate ? new Date(endDate) : null, time, category, initialCreatedAt || undefined)
       setTitle("")
       setDescription("")
       setStartDate("")

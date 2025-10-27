@@ -29,14 +29,13 @@ interface JoinRequestsTableProps {
 export function JoinRequestsTable({ joinRequests }: JoinRequestsTableProps) {
   const [isApprovalDialogOpen, setIsApprovalDialogOpen] = useState(false)
   const [selectedRequest, setSelectedRequest] = useState<JoinRequest | null>(null)
-  const [selectedRole, setSelectedRole] = useState("admin")
   const router = useRouter()
 
   const handleApprove = async () => {
     if (!selectedRequest) return
     
     try {
-      await approveJoinRequest(selectedRequest.id, selectedRole)
+      await approveJoinRequest(selectedRequest.id)
       setIsApprovalDialogOpen(false)
       setSelectedRequest(null)
       router.refresh()
@@ -64,7 +63,6 @@ export function JoinRequestsTable({ joinRequests }: JoinRequestsTableProps) {
   const closeApprovalDialog = () => {
     setIsApprovalDialogOpen(false)
     setSelectedRequest(null)
-    setSelectedRole("admin")
   }
 
   const getStatusColor = (status: string) => {
@@ -197,18 +195,6 @@ export function JoinRequestsTable({ joinRequests }: JoinRequestsTableProps) {
               <Label>Name</Label>
               <p className="text-sm text-muted-foreground">{selectedRequest?.name || "Not provided"}</p>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="role">Assign Role</Label>
-              <Select value={selectedRole} onValueChange={setSelectedRole}>
-                <SelectTrigger id="role">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="admin">Admin</SelectItem>
-                  <SelectItem value="superadmin">Super Admin</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={closeApprovalDialog}>
@@ -216,7 +202,7 @@ export function JoinRequestsTable({ joinRequests }: JoinRequestsTableProps) {
             </Button>
             <Button onClick={handleApprove}>
               <CheckCircle className="h-4 w-4 mr-2" />
-              Approve & Add to Allowlist
+              Approve Request
             </Button>
           </DialogFooter>
         </DialogContent>

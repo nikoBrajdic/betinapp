@@ -90,7 +90,7 @@ export async function getJoinRequests() {
   return data
 }
 
-export async function approveJoinRequest(id: string, role: string) {
+export async function approveJoinRequest(id: string) {
   const supabase = await createClient()
   
   // Get the join request
@@ -102,15 +102,18 @@ export async function approveJoinRequest(id: string, role: string) {
 
   if (fetchError) throw fetchError
 
-  // Add to allowlist
-  const { error: allowlistError } = await supabase.from("allowlist").insert({
-    email: request.email,
-    role,
-  })
+  // Check if user is on the allowlist
+  const { data: allowlistEntry, error: allowlistError } = await supabase
+    .from("allowlist")
+    .select("*")
+    .eq("email", request.email)
+    .single()
 
-  if (allowlistError) throw allowlistError
+  if (allowlistError || !allowlistEntry) {
+    throw new Error("User not found in allowlist - this should not happen if the system is working correctly")
+  }
 
-  // Update join request status
+  // Update join request status to approved
   const { error: updateError } = await supabase
     .from("join_requests")
     .update({

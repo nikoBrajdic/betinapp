@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -10,6 +10,8 @@ import { cn } from "@/lib/utils"
 import { GuestStayDialog } from "@/components/guest-stay-dialog"
 import { createGuestStay, updateGuestStay, deleteGuestStay } from "@/lib/actions/guest-stays"
 import { useRouter } from "next/navigation"
+import { CalendarSidebar } from "@/components/calendar-sidebar"
+import { getEvents } from "@/lib/actions/events"
 
 interface GuestStay {
   id: string
@@ -20,17 +22,34 @@ interface GuestStay {
   status: "upcoming" | "current" | "past"
   notes: string
   updated_at: string
+  event_id?: string
+}
+
+interface Event {
+  id: string
+  title: string
+  description: string
+  start_date: string
+  end_date: string | null
+  time: string | null
+  category: "family" | "maintenance" | "appointment" | "other"
+  created_at: string
+  updated_at: string
 }
 
 interface GuestStaysClientProps {
   guests: GuestStay[]
+  events: Event[]
 }
 
-export function GuestStaysClient({ guests }: GuestStaysClientProps) {
+export function GuestStaysClient({ guests, events }: GuestStaysClientProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingGuest, setEditingGuest] = useState<GuestStay | null>(null)
+  const [highlightedEventId, setHighlightedEventId] = useState<string | null>(null)
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null)
   const router = useRouter()
+  const dragStartRef = useRef<boolean>(false)
 
   const filteredGuests = guests.filter(
     (guest) =>
@@ -104,18 +123,41 @@ export function GuestStaysClient({ guests }: GuestStaysClientProps) {
     }
   }
 
+  const handleGuestNameClick = (guest: GuestStay) => {
+    handleEditGuest(guest)
+  }
+
+  const handleRowClick = (guest: GuestStay) => {
+    if (!dragStartRef.current && guest.event_id) {
+      setHighlightedEventId(guest.event_id)
+      // Set the date to the start date of the guest stay
+      setSelectedDate(new Date(guest.from_date))
+    }
+    dragStartRef.current = false
+  }
+
+  const handleRowMouseDown = () => {
+    dragStartRef.current = false
+  }
+
+  const handleRowMouseMove = () => {
+    dragStartRef.current = true
+  }
+
   return (
-    <div className="p-8">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground mb-2">Guest Stays</h1>
-          <p className="text-muted-foreground">Manage guest accommodations and visits</p>
+    <div className="flex h-screen">
+      {/* Main Content */}
+      <div className="flex-1 p-8 overflow-y-auto">
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground mb-2">Guest Stays</h1>
+            <p className="text-muted-foreground">Manage guest accommodations and visits</p>
+          </div>
+          <Button onClick={handleAddGuest}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Guest Stay
+          </Button>
         </div>
-        <Button onClick={handleAddGuest}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Guest Stay
-        </Button>
-      </div>
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
@@ -192,8 +234,22 @@ export function GuestStaysClient({ guests }: GuestStaysClientProps) {
             </TableHeader>
             <TableBody>
               {filteredGuests.map((guest) => (
-                <TableRow key={guest.id}>
-                  <TableCell className="font-medium">{guest.guest_name}</TableCell>
+                <TableRow 
+                  key={guest.id}
+                  className="cursor-pointer hover:bg-muted/50"
+                  onClick={() => handleRowClick(guest)}
+                  onMouseDown={handleRowMouseDown}
+                  onMouseMove={handleRowMouseMove}
+                >
+                  <TableCell 
+                    className="font-medium cursor-pointer hover:text-primary"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleGuestNameClick(guest)
+                    }}
+                  >
+                    {guest.guest_name}
+                  </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
                       <MapPin className="h-4 w-4 text-muted-foreground" />
@@ -253,6 +309,19 @@ export function GuestStaysClient({ guests }: GuestStaysClientProps) {
           </Table>
         </Card>
       )}
+      </div>
+
+      {/* Calendar Preview Sidebar */}
+      <CalendarSidebar
+        isOpen={true}
+        onClose={() => setSelectedDate(null)}
+        selectedDate={selectedDate}
+        events={events}
+        onAddEvent={() => {}}
+        onEditEvent={() => {}}
+        onDeleteEvent={() => {}}
+        isEventDialogOpen={isDialogOpen}
+      />
 
       <GuestStayDialog
         open={isDialogOpen}
