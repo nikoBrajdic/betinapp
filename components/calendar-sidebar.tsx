@@ -74,6 +74,24 @@ export function CalendarSidebar({
     }
   }
 
+  const formatDateString = (dateStr: string) => {
+    // Simple date formatting for Murter, Croatia
+    const date = new Date(dateStr + 'T00:00:00') // Force local timezone
+    return date.toLocaleDateString("en-US", { 
+      weekday: "short", 
+      month: "short", 
+      day: "numeric" 
+    })
+  }
+
+  const getLocalDateString = (date: Date) => {
+    // Get date string in local timezone (Murter, Croatia)
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+
   const getUpcomingEvents = () => {
     const today = new Date()
     const daysAhead = parseInt(upcomingDays)
@@ -93,7 +111,7 @@ export function CalendarSidebar({
   }
 
   const getEventsForDate = (date: Date) => {
-    const dateStr = date.toISOString().split('T')[0]
+    const dateStr = getLocalDateString(date)
     return events.filter(event => {
       const startDate = event.start_date
       const endDate = event.end_date || event.start_date
@@ -195,7 +213,7 @@ export function CalendarSidebar({
             <div className="space-y-4">
               {sortedEventDates.map((dateStr) => {
                 const eventsForDate = groupedEvents[dateStr]
-                const isSelectedDate = selectedDate && dateStr === selectedDate.toISOString().split('T')[0]
+                const isSelectedDate = selectedDate && dateStr === getLocalDateString(selectedDate)
                 
                 return (
                   <div key={dateStr} className={cn(
@@ -204,11 +222,7 @@ export function CalendarSidebar({
                   )}>
                     <div className="flex items-center justify-between">
                       <h3 className="text-sm font-medium text-foreground">
-                        {new Date(dateStr).toLocaleDateString("en-US", { 
-                          weekday: "short", 
-                          month: "short", 
-                          day: "numeric" 
-                        })}
+                        {formatDateString(dateStr)}
                       </h3>
                       {isSelectedDate && (
                         <span className="text-xs text-primary font-medium">Selected</span>
@@ -234,10 +248,7 @@ export function CalendarSidebar({
                               <p className="text-sm text-muted-foreground line-clamp-2">{event.description}</p>
                               {event.end_date && event.end_date !== event.start_date && (
                                 <p className="text-xs text-muted-foreground mt-1">
-                                  Until {new Date(event.end_date).toLocaleDateString("en-US", { 
-                                    month: "short", 
-                                    day: "numeric"
-                                  })}
+                                  Until {formatDateString(event.end_date).split(' ').slice(1).join(' ')}
                                 </p>
                               )}
                             </div>

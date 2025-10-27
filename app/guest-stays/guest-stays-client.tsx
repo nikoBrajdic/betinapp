@@ -257,18 +257,26 @@ export function GuestStaysClient({ guests, events }: GuestStaysClientProps) {
                     </div>
                   </TableCell>
                   <TableCell>
-                    {new Date(guest.from_date).toLocaleDateString("en-US", { 
-                      month: "short", 
-                      day: "numeric",
-                      year: "numeric"
-                    })}
+                    {(() => {
+                      const [year, month, day] = guest.from_date.split('T')[0].split('-').map(Number)
+                      const date = new Date(year, month - 1, day)
+                      return date.toLocaleDateString("en-US", { 
+                        month: "short", 
+                        day: "numeric",
+                        year: "numeric"
+                      })
+                    })()}
                   </TableCell>
                   <TableCell>
-                    {new Date(guest.to_date).toLocaleDateString("en-US", { 
-                      month: "short", 
-                      day: "numeric",
-                      year: "numeric"
-                    })}
+                    {(() => {
+                      const [year, month, day] = guest.to_date.split('T')[0].split('-').map(Number)
+                      const date = new Date(year, month - 1, day)
+                      return date.toLocaleDateString("en-US", { 
+                        month: "short", 
+                        day: "numeric",
+                        year: "numeric"
+                      })
+                    })()}
                   </TableCell>
                   <TableCell>
                     <span className={cn("px-2 py-1 rounded-full text-xs font-medium", getStatusColor(guest.status))}>
@@ -277,11 +285,14 @@ export function GuestStaysClient({ guests, events }: GuestStaysClientProps) {
                   </TableCell>
                   <TableCell className="max-w-xs truncate">{guest.notes || "-"}</TableCell>
                   <TableCell>
-                    {new Date(guest.updated_at).toLocaleDateString("en-US", { 
-                      month: "short", 
-                      day: "numeric",
-                      year: "numeric"
-                    })}
+                    {(() => {
+                      const date = new Date(guest.updated_at)
+                      return date.toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric"
+                      })
+                    })()}
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
