@@ -10,14 +10,14 @@ import {
 } from "@/components/ui/dropdown-menu"
 import {
   Plus, Trash2, CheckSquare, MoreHorizontal,
-  Pencil, Copy, GripVertical,
+  Pencil, Copy, GripVertical, Grip,
 } from "lucide-react"
 import { TaskGroupDialog } from "@/components/task-group-dialog"
 import { cn } from "@/lib/utils"
 import {
   createTaskWithItems, updateTaskGroup, deleteTaskGroup,
   createTask, updateTask, deleteTask, toggleTaskCompletion,
-  duplicateTaskGroup,
+  duplicateTaskGroup, reorderTaskGroups,
 } from "@/lib/actions/tasks"
 import { useRouter } from "next/navigation"
 
@@ -219,6 +219,10 @@ function TaskList({
 export function TasksClient({ taskGroups }: TasksClientProps) {
   const [isGroupDialogOpen, setIsGroupDialogOpen] = useState(false)
   const [editingGroup, setEditingGroup] = useState<TaskGroup | null>(null)
+  const [orderedGroups, setOrderedGroups] = useState(taskGroups)
+  const orderedGroupsRef = useRef(taskGroups)
+  const dragGroupIndex = useRef<number | null>(null)
+  const [dragOverGroup, setDragOverGroup] = useState<number | null>(null)
   // Local task order per group (for drag reorder)
   const [localOrder, setLocalOrder] = useState<Record<string, Task[]>>(() =>
     Object.fromEntries(taskGroups.map(g => [g.id, g.tasks ?? []]))
@@ -227,6 +231,8 @@ export function TasksClient({ taskGroups }: TasksClientProps) {
 
   // Keep localOrder in sync when props update
   useEffect(() => {
+    setOrderedGroups(taskGroups)
+    orderedGroupsRef.current = taskGroups
     setLocalOrder(Object.fromEntries(taskGroups.map(g => [g.id, g.tasks ?? []])))
   }, [taskGroups])
 
@@ -273,6 +279,37 @@ export function TasksClient({ taskGroups }: TasksClientProps) {
     catch (e) { console.error(e) }
   }
 
+  const moveGroup = (from: number, to: number) => {
+    setOrderedGroups(current => {
+      const next = [...current]
+      const [moved] = next.splice(from, 1)
+      next.splice(to, 0, moved)
+      orderedGroupsRef.current = next
+      return next
+    })
+  }
+
+  const handleGroupDragEnter = (index: number) => {
+    if (dragGroupIndex.current === null || dragGroupIndex.current === index) return
+    moveGroup(dragGroupIndex.current, index)
+    dragGroupIndex.current = index
+    setDragOverGroup(index)
+  }
+
+  const handleGroupDragEnd = async () => {
+    dragGroupIndex.current = null
+    setDragOverGroup(null)
+
+    try {
+      await reorderTaskGroups(orderedGroupsRef.current.map(group => group.id))
+      refresh()
+    } catch (error) {
+      console.error("Failed to reorder task groups:", error)
+      setOrderedGroups(taskGroups)
+      orderedGroupsRef.current = taskGroups
+    }
+  }
+
   return (
     <div className="p-8">
       {taskGroups.length === 0 ? (
@@ -284,7 +321,7 @@ export function TasksClient({ taskGroups }: TasksClientProps) {
         </div>
       ) : (
         <div className="columns-1 md:columns-2 lg:columns-3 gap-5">
-          {taskGroups.map(group => {
+          {orderedGroups.map((group, index) => {
             const items = localOrder[group.id] ?? group.tasks ?? []
             const done = items.filter(t => t.completed).length
             const pending = items.filter(t => !t.completed)
@@ -294,10 +331,32 @@ export function TasksClient({ taskGroups }: TasksClientProps) {
             const dot = colorDot[group.color] ?? colorDot.blue
 
             return (
-              <Card key={group.id} className={cn("mb-5 break-inside-avoid p-5 border-2 flex flex-col shadow-none transition-all hover:shadow-md hover:-translate-y-0.5", bg)}>
+              <Card
+                key={group.id}
+                onDragEnter={() => handleGroupDragEnter(index)}
+                onDragOver={event => event.preventDefault()}
+                className={cn(
+                  "mb-5 break-inside-avoid p-5 border-2 flex flex-col shadow-none transition-all hover:shadow-md hover:-translate-y-0.5 group/card",
+                  bg,
+                  dragOverGroup === index && "border-dashed border-violet-300 bg-violet-50/40",
+                )}
+              >
                 {/* Header */}
                 <div className="flex items-center justify-between mb-1">
                   <div className="flex items-center gap-2 min-w-0">
+                    <div
+                      draggable
+                      role="button"
+                      aria-label="Drag task card"
+                      className="h-7 w-5 -ml-1 flex items-center justify-center cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 opacity-0 group-hover/card:opacity-100 transition-opacity"
+                      onDragStart={event => {
+                        dragGroupIndex.current = index
+                        event.dataTransfer.effectAllowed = "move"
+                      }}
+                      onDragEnd={handleGroupDragEnd}
+                    >
+                      <Grip className="h-4 w-4" />
+                    </div>
                     <div className={cn("w-2.5 h-2.5 rounded-full flex-shrink-0", dot)} />
                     <h3 className="font-semibold text-gray-800 truncate">{group.title}</h3>
                   </div>

@@ -5,6 +5,18 @@ import { revalidatePath } from "next/cache"
 
 export async function getTaskGroups() {
   const supabase = await createClient()
+  const ordered = await supabase
+    .from("task_groups")
+    .select(`
+      *,
+      tasks (*)
+    `)
+    .order("sort_order", { ascending: true, nullsFirst: false })
+    .order("created_at", { ascending: false })
+
+  if (!ordered.error) return ordered.data
+  if (ordered.error.code !== "42703") throw ordered.error
+
   const { data, error } = await supabase
     .from("task_groups")
     .select(`
@@ -17,6 +29,18 @@ export async function getTaskGroups() {
   return data
 }
 
+async function nextTaskGroupSortOrder(supabase: any) {
+  const { data, error } = await supabase
+    .from("task_groups")
+    .select("sort_order")
+    .order("sort_order", { ascending: false, nullsFirst: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (error) return null
+  return Number(data?.sort_order ?? -1) + 1
+}
+
 // Create a task with optional initial checklist items in one shot
 export async function createTaskWithItems(formData: {
   title: string
@@ -24,9 +48,16 @@ export async function createTaskWithItems(formData: {
   items?: string[]
 }) {
   const supabase = await createClient()
+  const sortOrder = await nextTaskGroupSortOrder(supabase)
+  const payload: { title: string; color: string; sort_order?: number } = {
+    title: formData.title,
+    color: formData.color || "blue",
+  }
+  if (sortOrder !== null) payload.sort_order = sortOrder
+
   const { data: group, error } = await supabase
     .from("task_groups")
-    .insert({ title: formData.title, color: formData.color || "blue" })
+    .insert(payload)
     .select()
     .single()
 
@@ -47,10 +78,14 @@ export async function createTaskGroup(formData: {
   color?: string
 }) {
   const supabase = await createClient()
-  const { error } = await supabase.from("task_groups").insert({
+  const sortOrder = await nextTaskGroupSortOrder(supabase)
+  const payload: { title: string; color: string; sort_order?: number } = {
     title: formData.title,
     color: formData.color || "blue",
-  })
+  }
+  if (sortOrder !== null) payload.sort_order = sortOrder
+
+  const { error } = await supabase.from("task_groups").insert(payload)
 
   if (error) throw error
   revalidatePath("/tasks")
@@ -160,9 +195,16 @@ export async function duplicateTaskGroup(id: string) {
     .single()
   if (error) throw error
 
+  const sortOrder = await nextTaskGroupSortOrder(supabase)
+  const payload: { title: string; color: string; sort_order?: number } = {
+    title: `${group.title} (copy)`,
+    color: group.color,
+  }
+  if (sortOrder !== null) payload.sort_order = sortOrder
+
   const { data: newGroup, error: newErr } = await supabase
     .from("task_groups")
-    .insert({ title: `${group.title} (copy)`, color: group.color })
+    .insert(payload)
     .select()
     .single()
   if (newErr) throw newErr
@@ -176,5 +218,21 @@ export async function duplicateTaskGroup(id: string) {
       }))
     )
   }
+  revalidatePath("/tasks")
+}
+
+export async function reorderTaskGroups(groupIds: string[]) {
+  const supabase = await createClient()
+
+  for (const [index, id] of groupIds.entries()) {
+    const { error } = await supabase
+      .from("task_groups")
+      .update({ sort_order: index, updated_at: new Date().toISOString() })
+      .eq("id", id)
+
+    if (error?.code === "42703") return
+    if (error) throw error
+  }
+
   revalidatePath("/tasks")
 }

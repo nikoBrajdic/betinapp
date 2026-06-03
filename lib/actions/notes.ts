@@ -5,11 +5,16 @@ import { revalidatePath } from "next/cache"
 
 export async function getNotes() {
   const supabase = await createClient()
-  const { data, error } = await supabase
+  const ordered = await supabase
     .from("notes")
     .select("*")
     .order("sort_order", { ascending: true, nullsFirst: false })
     .order("created_at", { ascending: false })
+
+  if (!ordered.error) return ordered.data
+  if (ordered.error.code !== "42703") throw ordered.error
+
+  const { data, error } = await supabase.from("notes").select("*").order("created_at", { ascending: false })
   if (error) throw error
   return data
 }
@@ -21,20 +26,29 @@ export async function createNote(formData: {
   type?: "text" | "table"
 }) {
   const supabase = await createClient()
-  const { data: latestNote } = await supabase
+  const { data: latestNote, error: latestError } = await supabase
     .from("notes")
     .select("sort_order")
     .order("sort_order", { ascending: false, nullsFirst: false })
     .limit(1)
     .maybeSingle()
 
-  const { error } = await supabase.from("notes").insert({
+  const payload: {
+    title: string
+    content: string
+    color: string
+    type: "text" | "table"
+    sort_order?: number
+  } = {
     title: formData.title,
     content: formData.content,
     color: formData.color,
     type: formData.type ?? "text",
-    sort_order: Number(latestNote?.sort_order ?? -1) + 1,
-  })
+  }
+
+  if (!latestError) payload.sort_order = Number(latestNote?.sort_order ?? -1) + 1
+
+  const { error } = await supabase.from("notes").insert(payload)
   if (error) throw error
   revalidatePath("/notes")
 }
@@ -69,6 +83,7 @@ export async function reorderNotes(noteIds: string[]) {
       .update({ sort_order: index, updated_at: new Date().toISOString() })
       .eq("id", id)
 
+    if (error?.code === "42703") return
     if (error) throw error
   }
 
