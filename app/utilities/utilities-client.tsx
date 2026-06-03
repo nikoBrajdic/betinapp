@@ -111,9 +111,13 @@ function isCounterMeter(name: string) {
   return isWaterMeter(name) || key.includes("struja")
 }
 
+function counterDigits(name: string) {
+  return isWaterMeter(name) ? 5 : 6
+}
+
 function formatReadingValue(name: string, value: number) {
   const normalized = String(Math.trunc(value))
-  return isCounterMeter(name) ? normalized.padStart(6, "0") : normalized
+  return isCounterMeter(name) ? normalized.padStart(counterDigits(name), "0") : normalized
 }
 
 function isReadingFresh(utility: Utility, now = new Date()) {

@@ -50,6 +50,10 @@ function isCounterMeter(name: string) {
   return isWaterMeter(name) || name.toLowerCase().includes("struja")
 }
 
+function counterDigits(name: string) {
+  return isWaterMeter(name) ? 5 : 6
+}
+
 function digitsOnly(value: string) {
   return value.replace(/\D/g, "")
 }
@@ -64,6 +68,7 @@ export function UtilityDialog({ open, onOpenChange, onSave, utilityName, unit, m
   const isElectricity = selectedMeter.toLowerCase().includes("struja")
   const isWater = isWaterMeter(selectedMeter)
   const isCounter = isCounterMeter(selectedMeter)
+  const digitCount = counterDigits(selectedMeter)
   const presentNames = namesForDate(stays, readingDate)
 
   useEffect(() => {
@@ -125,11 +130,11 @@ export function UtilityDialog({ open, onOpenChange, onSave, utilityName, unit, m
               id="usage"
               type={isCounter ? "text" : "number"}
               inputMode={isCounter ? "numeric" : undefined}
-              placeholder={isCounter ? "000048" : activeUnit ? `Enter reading in ${activeUnit}` : "Enter reading"}
+              placeholder={isCounter ? "48".padStart(digitCount, "0") : activeUnit ? `Enter reading in ${activeUnit}` : "Enter reading"}
               value={usage}
               onChange={(e) => setUsage(isCounter ? digitsOnly(e.target.value) : e.target.value)}
               onBlur={() => {
-                if (isCounter && usage) setUsage(usage.padStart(6, "0"))
+                if (isCounter && usage) setUsage(usage.padStart(digitCount, "0"))
               }}
             />
           </div>
