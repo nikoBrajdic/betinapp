@@ -10,7 +10,6 @@ import {
   CheckSquare,
   Calendar,
   Zap,
-  DollarSign,
   Home,
   BookOpen,
   Settings,
@@ -26,7 +25,6 @@ const navigation = [
   { name: "Tasks", href: "/tasks", icon: CheckSquare },
   { name: "Calendar", href: "/calendar", icon: Calendar },
   { name: "Utilities", href: "/utilities", icon: Zap },
-  { name: "Bills", href: "/bills", icon: DollarSign },
   { name: "Stays", href: "/guest-stays", icon: Home },
   { name: "Diary", href: "/diary", icon: BookOpen },
 ]

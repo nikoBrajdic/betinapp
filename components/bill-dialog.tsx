@@ -33,7 +33,7 @@ export function BillDialog({
   onSave,
   initialName = "",
   initialAmount = 0,
-  initialDueDate = null,
+  initialDueDate,
   initialCategory = "other",
   initialRecurring = false,
   mode,

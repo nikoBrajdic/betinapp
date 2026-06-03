@@ -1,29 +1,66 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { CURRENCY_SYMBOL } from "@/lib/currency"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 interface UtilityDialogProps {
+  [key: string]: any
   open: boolean
   onOpenChange: (open: boolean) => void
-  onSave: (usage: number, cost: number) => void
-  utilityName: string
-  unit: string
+  onSave: (...args: any[]) => void
+  utilityName?: string
+  unit?: string
+  meters?: Array<{ name: string; unit: string }>
+  initialReadingDate?: string
+  stays?: Array<{
+    id: string
+    guest_name: string
+    from_date: string
+    to_date: string
+  }>
 }
 
-export function UtilityDialog({ open, onOpenChange, onSave, utilityName, unit }: UtilityDialogProps) {
+function todayString() {
+  return new Date().toISOString().split("T")[0]
+}
+
+function namesForDate(stays: NonNullable<UtilityDialogProps["stays"]>, date: string) {
+  return stays
+    .filter(stay => stay.from_date <= date && stay.to_date >= date)
+    .map(stay => stay.guest_name)
+}
+
+function occupancyText(names: string[]) {
+  if (names.length === 0) return "No stays recorded"
+  if (names.length === 1) return names[0]
+  if (names.length === 2) return names.join(" and ")
+  return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`
+}
+
+export function UtilityDialog({ open, onOpenChange, onSave, utilityName, unit, meters = [], initialReadingDate, stays = [] }: UtilityDialogProps) {
   const [usage, setUsage] = useState("")
-  const [cost, setCost] = useState("")
+  const [readingDate, setReadingDate] = useState(initialReadingDate ?? todayString())
+  const [selectedMeter, setSelectedMeter] = useState(utilityName ?? meters[0]?.name ?? "")
+  const activeMeter = meters.find(meter => meter.name === selectedMeter)
+  const activeUnit = activeMeter?.unit ?? unit ?? ""
+  const presentNames = namesForDate(stays, readingDate)
+
+  useEffect(() => {
+    if (open) {
+      setReadingDate(initialReadingDate ?? todayString())
+      setSelectedMeter(utilityName ?? meters[0]?.name ?? "")
+    }
+  }, [open, initialReadingDate, utilityName, meters])
 
   const handleSave = () => {
-    if (usage && cost) {
-      onSave(Number.parseFloat(usage), Number.parseFloat(cost))
+    if (usage && readingDate && selectedMeter) {
+      onSave(Number.parseFloat(usage), readingDate, selectedMeter)
       setUsage("")
-      setCost("")
+      setReadingDate(todayString())
       onOpenChange(false)
     }
   }
@@ -32,37 +69,52 @@ export function UtilityDialog({ open, onOpenChange, onSave, utilityName, unit }:
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[400px]">
         <DialogHeader>
-          <DialogTitle>Update {utilityName} Reading</DialogTitle>
+          <DialogTitle>{utilityName ? `Update ${utilityName} Reading` : "New Reading"}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 py-4">
           <div className="space-y-2">
-            <Label htmlFor="usage">Usage ({unit})</Label>
+            <Label>Meter</Label>
+            <Select value={selectedMeter} onValueChange={setSelectedMeter} disabled={!!utilityName}>
+              <SelectTrigger>
+                <SelectValue placeholder="Choose meter" />
+              </SelectTrigger>
+              <SelectContent>
+                {meters.map(meter => (
+                  <SelectItem key={meter.name} value={meter.name}>{meter.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="readingDate">Date</Label>
+            <Input
+              id="readingDate"
+              type="date"
+              value={readingDate}
+              onChange={(e) => setReadingDate(e.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="usage">Reading{activeUnit ? ` (${activeUnit})` : ""}</Label>
             <Input
               id="usage"
               type="number"
-              placeholder={`Enter usage in ${unit}`}
+              placeholder={activeUnit ? `Enter reading in ${activeUnit}` : "Enter reading"}
               value={usage}
               onChange={(e) => setUsage(e.target.value)}
             />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="cost">Cost ({CURRENCY_SYMBOL})</Label>
-            <Input
-              id="cost"
-              type="number"
-              step="0.01"
-              placeholder="Enter cost"
-              value={cost}
-              onChange={(e) => setCost(e.target.value)}
-            />
+          <div className="rounded-xl bg-gray-50 px-3 py-2 text-sm">
+            <div className="text-gray-400">House on this date</div>
+            <div className="font-medium text-gray-700">{occupancyText(presentNames)}</div>
           </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={!usage || !cost}>
-            Update
+          <Button onClick={handleSave} disabled={!usage || !readingDate || !selectedMeter}>
+            {utilityName ? "Update" : "Add Reading"}
           </Button>
         </DialogFooter>
       </DialogContent>
