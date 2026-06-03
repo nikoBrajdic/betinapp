@@ -1,12 +1,9 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Plus, ChevronLeft, ChevronRight, CalendarIcon } from "lucide-react"
+import { ChevronLeft, ChevronRight } from "lucide-react"
 import { EventDialog } from "@/components/event-dialog"
-import { CalendarSidebar } from "@/components/calendar-sidebar"
 import { cn } from "@/lib/utils"
 import { getLocalDateString } from "@/lib/utils/date"
 import { createEvent, updateEvent, deleteEvent } from "@/lib/actions/events"
@@ -28,251 +25,187 @@ interface CalendarClientProps {
   events: Event[]
 }
 
+// Strip leading emoji from titles (for events created before emoji was removed)
+function cleanTitle(title: string): string {
+  let i = 0
+  while (i < title.length) {
+    const code = title.codePointAt(i) ?? 0
+    if (code <= 127) break
+    i += code > 0xFFFF ? 2 : 1
+  }
+  return title.slice(i).trim() || title.trim()
+}
+const categoryColor: Record<string, string> = {
+  family:      "bg-blue-100 text-blue-700",
+  maintenance: "bg-orange-100 text-orange-700",
+  appointment: "bg-green-100 text-green-700",
+  other:       "bg-gray-100 text-gray-600",
+}
+
+const monthNames = ["January","February","March","April","May","June","July","August","September","October","November","December"]
+
 export function CalendarClient({ events }: CalendarClientProps) {
   const [currentDate, setCurrentDate] = useState(new Date())
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
   const router = useRouter()
 
+  useEffect(() => {
+    const handler = () => setIsDialogOpen(true)
+    window.addEventListener("topbar:new", handler)
+    return () => window.removeEventListener("topbar:new", handler)
+  }, [])
+
+  // Notify EventsPanel of selected date
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent("calendar:date", { detail: selectedDate ? getLocalDateString(selectedDate) : null }))
+  }, [selectedDate])
+
   const handleAddEvent = async (
-    id: string,
-    title: string,
-    description: string,
-    startDate: Date | string | null,
-    endDate: Date | string | null,
-    time: string,
-    category: Event["category"],
-    created_at?: string,
+    _id: string, title: string, description: string,
+    startDate: Date | string | null, endDate: Date | string | null,
+    time: string, category: Event["category"],
   ) => {
     try {
       await createEvent({
-        title,
-        description,
-        startDate: startDate instanceof Date ? startDate.toISOString().split('T')[0] : startDate!,
-        endDate: endDate ? (endDate instanceof Date ? endDate.toISOString().split('T')[0] : endDate) : undefined,
-        time: time || undefined,
-        category,
+        title, description,
+        startDate: startDate instanceof Date ? startDate.toISOString().split("T")[0] : startDate!,
+        endDate: endDate ? (endDate instanceof Date ? endDate.toISOString().split("T")[0] : endDate) : undefined,
+        time: time || undefined, category,
       })
       router.refresh()
-    } catch (error) {
-      console.error("Failed to create event:", error)
-    }
-  }
-
-  const handleEditEvent = async (event: Event) => {
-    try {
-      await updateEvent(event.id, {
-        title: event.title,
-        description: event.description,
-        startDate: event.start_date,
-        endDate: event.end_date || undefined,
-        time: event.time || undefined,
-        category: event.category,
-      })
-      router.refresh()
-    } catch (error) {
-      console.error("Failed to update event:", error)
-    }
+    } catch (e) { console.error(e) }
   }
 
   const handleDeleteEvent = async (id: string) => {
-    try {
-      await deleteEvent(id)
-      router.refresh()
-    } catch (error) {
-      console.error("Failed to delete event:", error)
-    }
+    try { await deleteEvent(id); router.refresh() }
+    catch (e) { console.error(e) }
   }
 
-  const getDaysInMonth = (date: Date) => {
+  // Returns 42 cells (6 rows × 7) including prev/next month overflow
+  const getDays = (date: Date) => {
     const year = date.getFullYear()
     const month = date.getMonth()
-    const firstDay = new Date(year, month, 1)
-    const lastDay = new Date(year, month + 1, 0)
-    const daysInMonth = lastDay.getDate()
-    const startingDayOfWeek = firstDay.getDay()
+    const firstDow = new Date(year, month, 1).getDay()
+    const daysInMonth = new Date(year, month + 1, 0).getDate()
 
-    const days = []
-    
-    // Add empty cells for days before the first day of the month
-    for (let i = 0; i < startingDayOfWeek; i++) {
-      days.push(null)
+    const cells: { date: Date; current: boolean }[] = []
+
+    // Prev month trailing days
+    for (let i = firstDow - 1; i >= 0; i--) {
+      cells.push({ date: new Date(year, month, -i), current: false })
     }
-    
-    // Add days of the month
-    for (let day = 1; day <= daysInMonth; day++) {
-      days.push(new Date(year, month, day))
+    // Current month
+    for (let d = 1; d <= daysInMonth; d++) {
+      cells.push({ date: new Date(year, month, d), current: true })
     }
-    
-    return days
+    // Next month leading days
+    const remaining = 42 - cells.length
+    for (let d = 1; d <= remaining; d++) {
+      cells.push({ date: new Date(year, month + 1, d), current: false })
+    }
+    return cells
   }
 
   const getEventsForDate = (date: Date) => {
     const dateStr = getLocalDateString(date)
-    
-    return events.filter(event => {
-      const startDate = event.start_date
-      const endDate = event.end_date || event.start_date
-      
-      // Check if the date falls within the event's date range
-      return dateStr >= startDate && dateStr <= endDate
+    return events.filter(e => {
+      const end = e.end_date || e.start_date
+      return dateStr >= e.start_date && dateStr <= end
     })
   }
 
-  const getCategoryColor = (category: Event["category"]) => {
-    switch (category) {
-      case "family":
-        return "bg-blue-500/10 text-blue-700 dark:text-blue-400"
-      case "maintenance":
-        return "bg-orange-500/10 text-orange-700 dark:text-orange-400"
-      case "appointment":
-        return "bg-green-500/10 text-green-700 dark:text-green-400"
-      case "other":
-        return "bg-gray-500/10 text-gray-700 dark:text-gray-400"
-    }
-  }
-
-  const navigateMonth = (direction: "prev" | "next") => {
-    setCurrentDate(prev => {
-      const newDate = new Date(prev)
-      if (direction === "prev") {
-        newDate.setMonth(prev.getMonth() - 1)
-      } else {
-        newDate.setMonth(prev.getMonth() + 1)
-      }
-      return newDate
-    })
-  }
-
-  const openAddDialog = (date: Date) => {
-    setSelectedDate(date)
-    setIsDialogOpen(true)
-  }
-
-  const closeDialog = () => {
-    setIsDialogOpen(false)
+  const navigate = (dir: "prev" | "next") => {
+    setCurrentDate(prev => new Date(prev.getFullYear(), prev.getMonth() + (dir === "next" ? 1 : -1), 1))
     setSelectedDate(null)
   }
 
-  const days = getDaysInMonth(currentDate)
-  const monthNames = [
-    "January", "February", "March", "April", "May", "June",
-    "July", "August", "September", "October", "November", "December"
-  ]
+  const cells = getDays(currentDate)
+  const todayStr = getLocalDateString(new Date())
 
   return (
-    <div className="flex h-screen">
-      {/* Main Calendar Area */}
-      <div className="flex-1 p-8">
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground mb-2">Calendar</h1>
-            <p className="text-muted-foreground">Click on any date to view events or add new ones</p>
-          </div>
-          <div className="flex gap-2">
-            <Button onClick={() => setIsDialogOpen(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              New Event
-            </Button>
-          </div>
-        </div>
-
-      <Card className="p-6">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-semibold text-foreground">
+    <div className="p-5 h-full flex flex-col">
+      <div className="flex-1 flex flex-col">
+        {/* Month nav */}
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-base font-semibold text-gray-800">
             {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
           </h2>
-          <div className="flex gap-2">
-            <Button variant="outline" size="icon" onClick={() => navigateMonth("prev")}>
+          <div className="flex gap-1">
+            <Button variant="ghost" size="icon" className="h-7 w-7 cursor-pointer" onClick={() => navigate("prev")}>
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <Button variant="outline" size="icon" onClick={() => navigateMonth("next")}>
+            <Button variant="ghost" size="icon" className="h-7 w-7 cursor-pointer" onClick={() => navigate("next")}>
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
         </div>
 
-        <div className="grid grid-cols-7 gap-1 mb-2">
-          {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
-            <div key={day} className="p-2 text-center text-sm font-medium text-muted-foreground">
-              {day}
-            </div>
+        {/* Day headers */}
+        <div className="grid grid-cols-7 mb-1">
+          {["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map(d => (
+            <div key={d} className="py-1 text-center text-[11px] font-medium text-gray-400 uppercase tracking-wide">{d}</div>
           ))}
         </div>
 
-        <div className="grid grid-cols-7 gap-1">
-          {days.map((day, index) => {
-            if (!day) {
-              return <div key={index} className="h-24" />
-            }
-
-            const dayEvents = getEventsForDate(day)
-            const isToday = day.toDateString() === new Date().toDateString()
-            const isSelected = selectedDate && day.toDateString() === selectedDate.toDateString()
+        {/* Grid */}
+        <div className="grid grid-cols-7 flex-1">
+          {cells.map(({ date, current }, i) => {
+            const dateStr = getLocalDateString(date)
+            const dayEvents = getEventsForDate(date)
+            const isToday = dateStr === todayStr
+            const isSelected = selectedDate && getLocalDateString(selectedDate) === dateStr
 
             return (
               <div
-                key={day.toISOString()}
+                key={i}
+                onClick={() => { setSelectedDate(isSelected ? null : date) }}
                 className={cn(
-                  "h-24 p-1 border border-border rounded cursor-pointer hover:bg-muted/50 transition-colors",
-                  isToday && "bg-primary/10 border-primary",
-                  isSelected && "border-primary border-2 bg-primary/5"
+                  "min-h-[100px] p-1.5 border-t border-gray-100 cursor-pointer transition-colors",
+                  !current && "bg-gray-50/50",
+                  isSelected && "bg-blue-50",
+                  current && !isSelected && "hover:bg-gray-50"
                 )}
-                onClick={() => setSelectedDate(day)}
               >
-                <div className="flex items-center justify-between mb-1">
+                {/* Date number */}
+                <div className="flex justify-end mb-0.5">
                   <span className={cn(
-                    "text-sm font-medium", 
-                    isToday && "text-primary font-bold",
-                    isSelected && "text-primary font-bold"
+                    "text-xs font-medium w-5 h-5 flex items-center justify-center rounded-full",
+                    isToday ? "bg-[#1a1464] text-white font-bold" : current ? "text-gray-700" : "text-gray-300"
                   )}>
-                    {day.getDate()}
+                    {date.getDate()}
                   </span>
                 </div>
-                <div className="space-y-1">
-                  {dayEvents.slice(0, 2).map((event) => (
+
+                {/* Events */}
+                <div className="space-y-0.5">
+                  {dayEvents.slice(0, 3).map(event => (
                     <div
                       key={event.id}
-                      className="flex items-center justify-between"
+                      className={cn("text-[10px] px-1 py-0.5 rounded truncate leading-tight", categoryColor[event.category])}
                     >
-                      <Badge className={cn("text-xs px-1 py-0 flex-1 truncate cursor-default", getCategoryColor(event.category))}>
-                        {event.time && `${event.time} `}{event.title}
-                      </Badge>
+                      {cleanTitle(event.title)}
                     </div>
                   ))}
-                  {dayEvents.length > 2 && (
-                    <div className="text-xs text-muted-foreground">
-                      +{dayEvents.length - 2} more
-                    </div>
+                  {dayEvents.length > 3 && (
+                    <div className="text-[10px] text-gray-400 px-1">+{dayEvents.length - 3}</div>
                   )}
                 </div>
               </div>
             )
           })}
         </div>
-      </Card>
       </div>
-
-      {/* Always Visible Sidebar */}
-      <CalendarSidebar
-        isOpen={true}
-        onClose={() => setSelectedDate(null)}
-        selectedDate={selectedDate}
-        events={events}
-        onAddEvent={openAddDialog}
-        onEditEvent={handleEditEvent}
-        onDeleteEvent={handleDeleteEvent}
-        isEventDialogOpen={isDialogOpen}
-      />
 
       <EventDialog
         open={isDialogOpen}
-        onOpenChange={closeDialog}
+        onOpenChange={open => { if (!open) { setIsDialogOpen(false); setSelectedDate(null) } }}
         onSave={handleAddEvent}
         initialDate={selectedDate}
         initialId=""
         mode="create"
       />
+      </div>
     </div>
   )
 }

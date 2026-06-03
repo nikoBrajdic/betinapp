@@ -17,6 +17,31 @@ export async function getTaskGroups() {
   return data
 }
 
+// Create a task with optional initial checklist items in one shot
+export async function createTaskWithItems(formData: {
+  title: string
+  color?: string
+  items?: string[]
+}) {
+  const supabase = await createClient()
+  const { data: group, error } = await supabase
+    .from("task_groups")
+    .insert({ title: formData.title, color: formData.color || "blue" })
+    .select()
+    .single()
+
+  if (error) throw error
+
+  if (formData.items && formData.items.length > 0) {
+    const { error: itemsError } = await supabase.from("tasks").insert(
+      formData.items.map(title => ({ title, task_group_id: group.id, completed: false }))
+    )
+    if (itemsError) throw itemsError
+  }
+
+  revalidatePath("/tasks")
+}
+
 export async function createTaskGroup(formData: {
   title: string
   color?: string

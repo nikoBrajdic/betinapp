@@ -1,11 +1,12 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { Plus, Pencil, Trash2, FileText } from "lucide-react"
+import { Plus, Pencil, Trash2, FileText, Table } from "lucide-react"
 import { NoteDialog } from "@/components/note-dialog"
 import { NoteViewModal } from "@/components/note-view-modal"
+import { TableNotePreview } from "@/components/table-note-editor"
 import { createNote, updateNote, deleteNote } from "@/lib/actions/notes"
 import { useRouter } from "next/navigation"
 
@@ -14,6 +15,7 @@ interface Note {
   title: string
   content: string
   color: string
+  type: "text" | "table"
   created_at: string
   updated_at: string
 }
@@ -29,18 +31,25 @@ export function NotesClient({ notes }: NotesClientProps) {
   const [viewingNote, setViewingNote] = useState<Note | null>(null)
   const router = useRouter()
 
-  const handleAddNote = async (title: string, content: string) => {
+  useEffect(() => {
+    const handler = () => { setEditingNote(null); setIsDialogOpen(true) }
+    window.addEventListener("topbar:new", handler)
+    return () => window.removeEventListener("topbar:new", handler)
+  }, [])
+
+  const handleAddNote = async (title: string, content: string, type: "text" | "table") => {
     try {
-      await createNote({ title, content, color: "blue" })
+      await createNote({ title, content, color: "blue", type })
       router.refresh()
     } catch (error) {
       console.error("Failed to create note:", error)
     }
   }
 
-  const handleEditNote = async (id: string, title: string, content: string) => {
+  const handleEditNote = async (id: string, title: string, content: string, type?: "text" | "table") => {
     try {
-      await updateNote(id, { title, content, color: "blue" })
+      const note = notes.find(n => n.id === id)
+      await updateNote(id, { title, content, color: "blue", type: type ?? note?.type ?? "text" })
       router.refresh()
     } catch (error) {
       console.error("Failed to update note:", error)
@@ -62,8 +71,13 @@ export function NotesClient({ notes }: NotesClientProps) {
   }
 
   const openViewModal = (note: Note) => {
-    setViewingNote(note)
-    setIsViewModalOpen(true)
+    if (note.type === "table") {
+      // Table notes open directly in edit mode
+      openEditDialog(note)
+    } else {
+      setViewingNote(note)
+      setIsViewModalOpen(true)
+    }
   }
 
   const closeDialog = () => {
@@ -71,30 +85,14 @@ export function NotesClient({ notes }: NotesClientProps) {
     setEditingNote(null)
   }
 
-  const closeViewModal = () => {
-    setIsViewModalOpen(false)
-    setViewingNote(null)
-  }
-
   return (
     <div className="p-8">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground mb-2">Notes</h1>
-          <p className="text-muted-foreground">Keep track of important information and reminders</p>
-        </div>
-        <Button onClick={() => setIsDialogOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          New Note
-        </Button>
-      </div>
-
       {notes.length === 0 ? (
         <Card className="p-12 text-center">
           <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-foreground mb-2">No notes yet</h3>
           <p className="text-muted-foreground mb-4">Create your first note to get started</p>
-          <Button onClick={() => setIsDialogOpen(true)}>
+          <Button onClick={() => setIsDialogOpen(true)} className="cursor-pointer">
             <Plus className="h-4 w-4 mr-2" />
             Create Note
           </Button>
@@ -102,30 +100,37 @@ export function NotesClient({ notes }: NotesClientProps) {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {notes.map((note) => (
-            <Card 
-              key={note.id} 
-              className="p-6 hover:shadow-md transition-shadow cursor-pointer"
+            <Card
+              key={note.id}
+              className="p-5 hover:shadow-md transition-all cursor-pointer group border-2 hover:border-gray-200"
               onClick={() => openViewModal(note)}
             >
-              <div className="flex items-start justify-between mb-3">
-                <h3 className="text-lg font-semibold text-foreground line-clamp-1">{note.title}</h3>
-                <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditDialog(note)}>
-                    <Pencil className="h-4 w-4" />
+              <div className="flex items-start justify-between mb-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  {note.type === "table"
+                    ? <Table className="h-4 w-4 text-blue-500 flex-shrink-0" />
+                    : <FileText className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                  }
+                  <h3 className="text-sm font-semibold text-foreground line-clamp-1">{note.title}</h3>
+                </div>
+                <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 ml-2" onClick={e => e.stopPropagation()}>
+                  <Button variant="ghost" size="icon" className="h-7 w-7 cursor-pointer" onClick={() => openEditDialog(note)}>
+                    <Pencil className="h-3.5 w-3.5" />
                   </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-destructive hover:text-destructive"
-                    onClick={() => handleDeleteNote(note.id)}
-                  >
-                    <Trash2 className="h-4 w-4" />
+                  <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive cursor-pointer" onClick={() => handleDeleteNote(note.id)}>
+                    <Trash2 className="h-3.5 w-3.5" />
                   </Button>
                 </div>
               </div>
-              <p className="text-sm text-muted-foreground line-clamp-3 mb-3">{note.content}</p>
-              <p className="text-xs text-muted-foreground">
-                Updated {new Date(note.updated_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+
+              {note.type === "table" ? (
+                <TableNotePreview content={note.content} />
+              ) : (
+                <p className="text-sm text-muted-foreground line-clamp-3">{note.content}</p>
+              )}
+
+              <p className="text-xs text-muted-foreground mt-2">
+                {new Date(note.updated_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
               </p>
             </Card>
           ))}
@@ -135,15 +140,20 @@ export function NotesClient({ notes }: NotesClientProps) {
       <NoteDialog
         open={isDialogOpen}
         onOpenChange={closeDialog}
-        onSave={editingNote ? (title, content) => handleEditNote(editingNote.id, title, content) : handleAddNote}
+        onSave={
+          editingNote
+            ? (title, content, type) => handleEditNote(editingNote.id, title, content, type)
+            : handleAddNote
+        }
         initialTitle={editingNote?.title}
         initialContent={editingNote?.content}
+        initialType={editingNote?.type ?? "text"}
         mode={editingNote ? "edit" : "create"}
       />
 
       <NoteViewModal
         open={isViewModalOpen}
-        onOpenChange={closeViewModal}
+        onOpenChange={(open) => { if (!open) { setIsViewModalOpen(false); setViewingNote(null) } }}
         note={viewingNote}
         onEdit={openEditDialog}
         onDelete={handleDeleteNote}

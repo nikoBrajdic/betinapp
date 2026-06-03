@@ -104,7 +104,6 @@ export function ProfileClient({ user, profile, bills, guestStays, events }: Prof
     <div className="p-8">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-foreground mb-2">Profile</h1>
           <p className="text-muted-foreground">Manage your profile and view outstanding debts</p>
         </div>
       </div>

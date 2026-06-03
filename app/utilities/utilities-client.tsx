@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -28,6 +28,12 @@ interface UtilitiesClientProps {
 
 export function UtilitiesClient({ utilities }: UtilitiesClientProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
+
+  useEffect(() => {
+    const handler = () => setIsDialogOpen(true)
+    window.addEventListener("topbar:new", handler)
+    return () => window.removeEventListener("topbar:new", handler)
+  }, [])
   const [editingUtility, setEditingUtility] = useState<Utility | null>(null)
   const router = useRouter()
 
@@ -105,7 +111,6 @@ export function UtilitiesClient({ utilities }: UtilitiesClientProps) {
     <div className="p-8">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-foreground mb-2">Utilities</h1>
           <p className="text-muted-foreground">Monitor household utility usage and costs</p>
         </div>
       </div>
