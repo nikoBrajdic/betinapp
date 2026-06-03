@@ -68,10 +68,11 @@ export default async function DashboardPage() {
   const utilitySummary = `${readingsSummary} · ${billsSummary}`
 
   // Stays
-  const currentStay = guestStays.find((s: any) => s.status === "current")
+  const currentStays = guestStays.filter((s: any) => s.status === "current")
   const upcomingStays = guestStays.filter((s: any) => s.status === "upcoming")
-  const staysSummary = currentStay
-    ? `${currentStay.guest_name} is here now`
+  const currentStayNames = currentStays.map((s: any) => s.guest_name).join(", ")
+  const staysSummary = currentStays.length > 0
+    ? `${currentStayNames} ${currentStays.length === 1 ? "is" : "are"} here now`
     : upcomingStays.length > 0
     ? `${upcomingStays.length} upcoming stay${upcomingStays.length !== 1 ? "s" : ""}`
     : "No upcoming stays"
