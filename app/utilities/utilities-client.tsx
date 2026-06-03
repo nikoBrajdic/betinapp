@@ -25,7 +25,7 @@ import { ConfirmDeleteDialog } from "@/components/confirm-delete-dialog"
 import { BillDialog } from "@/components/bill-dialog"
 import { UtilityDialog } from "@/components/utility-dialog"
 import { deleteBill, createBill, updateBill } from "@/lib/actions/bills"
-import { createDefaultReadingUtilities, createUtilityReading, deleteUtilityReading, updateUtility } from "@/lib/actions/utilities"
+import { createDefaultReadingUtilities, createUtilityReading, deleteUtilityReading, updateUtilityReading } from "@/lib/actions/utilities"
 import { cn } from "@/lib/utils"
 import { formatMoney } from "@/lib/currency"
 
@@ -81,6 +81,7 @@ interface ReadingRow {
   date: string
   utility: Utility | null
   readingIds: string[]
+  parts?: Array<{ id: string; label: string; value: number }>
   previousDate?: string
   currentDate?: string
 }
@@ -176,7 +177,7 @@ function personNightsForPeriod(stays: Stay[], startDate?: string, endDate?: stri
 
 export function UtilitiesClient({ utilities, readings, bills, stays }: UtilitiesClientProps) {
   const [activeTab, setActiveTab] = useState("readings")
-  const [editingUtility, setEditingUtility] = useState<Utility | null>(null)
+  const [editingReading, setEditingReading] = useState<ReadingRow | null>(null)
   const [isReadingDialogOpen, setIsReadingDialogOpen] = useState(false)
   const [deleteReading, setDeleteReading] = useState<ReadingRow | null>(null)
   const [editingBill, setEditingBill] = useState<Bill | null>(null)
@@ -208,7 +209,7 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
         date: string
         utility: Utility | null
         readingIds: string[]
-        parts: Array<{ label: string; value: number }>
+        parts: Array<{ id: string; label: string; value: number }>
       }>>((groups, reading) => {
         const name = meterGroupName(reading.type)
         const date = dateOnly(reading.date)
@@ -232,7 +233,7 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
         groups[key].value += Number(reading.value)
         groups[key].readingIds.push(reading.id)
         if (part) {
-          groups[key].parts.push({ label: part, value: Number(reading.value) })
+          groups[key].parts.push({ id: reading.id, label: part, value: Number(reading.value) })
         }
 
         return groups
@@ -256,6 +257,7 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
           date: utility.updated_at ?? "",
           utility,
           readingIds: [],
+          parts: [],
         }
       })
 
@@ -278,21 +280,22 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
 
   const refresh = () => router.refresh()
 
-  const handleUpdateUtility = async (utility: Utility, usage: number, readingDate: string, _meterName?: string, details?: { secondaryUsage?: number }) => {
+  const handleUpdateReading = async (row: ReadingRow, usage: number, readingDate: string, _meterName?: string, details?: { secondaryUsage?: number }) => {
+    const utility = row.utility
+    if (!utility || row.readingIds.length === 0) return
+
     try {
-      await updateUtility(utility.id, {
-        name: utility.name,
-        currentUsage: usage,
-        maxUsage: utility.max_usage,
-        cost: utility.cost,
-        unit: utility.unit,
-        trend: usage > utility.current_usage ? "up" : usage < utility.current_usage ? "down" : "stable",
+      await updateUtilityReading({
+        type: row.name,
+        readingIds: row.readingIds,
+        value: usage,
+        maxValue: utility.max_usage,
         readingDate,
-        secondaryUsage: details?.secondaryUsage,
+        secondaryValue: details?.secondaryUsage,
       })
       refresh()
     } catch (error) {
-      console.error("Failed to update utility:", error)
+      console.error("Failed to update reading:", error)
     }
   }
 
@@ -543,8 +546,8 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
                             <DropdownMenuContent align="end">
                               <DropdownMenuItem
                                 className="cursor-pointer"
-                                onClick={() => row.utility && setEditingUtility(row.utility)}
-                                disabled={!row.utility}
+                                onClick={() => setEditingReading(row)}
+                                disabled={!row.utility || row.readingIds.length === 0}
                               >
                                 <Edit className="h-3.5 w-3.5 mr-2" /> Edit
                               </DropdownMenuItem>
@@ -625,15 +628,17 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
         </TabsContent>
       </Tabs>
 
-      {editingUtility && (
+      {editingReading && (
         <UtilityDialog
-          open={!!editingUtility}
-          onOpenChange={open => { if (!open) setEditingUtility(null) }}
-          onSave={(usage, readingDate) => handleUpdateUtility(editingUtility, usage, readingDate)}
-          utilityName={editingUtility.name}
-          unit={editingUtility.unit}
+          open={!!editingReading}
+          onOpenChange={open => { if (!open) setEditingReading(null) }}
+          onSave={(usage, readingDate, meterName, details) => handleUpdateReading(editingReading, usage, readingDate, meterName, details)}
+          utilityName={editingReading.name}
+          unit={editingReading.unit}
           meters={meterOptions}
-          initialReadingDate={editingUtility.updated_at ? new Date(editingUtility.updated_at).toISOString().split("T")[0] : undefined}
+          initialReadingDate={editingReading.date ? new Date(editingReading.date).toISOString().split("T")[0] : undefined}
+          initialUsage={editingReading.parts?.find(part => part.label === "1")?.value ?? editingReading.value}
+          initialSecondaryUsage={editingReading.parts?.find(part => part.label === "2")?.value}
           stays={stays}
         />
       )}

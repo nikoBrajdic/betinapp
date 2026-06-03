@@ -16,6 +16,8 @@ interface UtilityDialogProps {
   unit?: string
   meters?: Array<{ name: string; unit: string }>
   initialReadingDate?: string
+  initialUsage?: number
+  initialSecondaryUsage?: number
   stays?: Array<{
     id: string
     guest_name: string
@@ -58,7 +60,13 @@ function digitsOnly(value: string) {
   return value.replace(/\D/g, "")
 }
 
-export function UtilityDialog({ open, onOpenChange, onSave, utilityName, unit, meters = [], initialReadingDate, stays = [] }: UtilityDialogProps) {
+function formatInitialCounter(name: string, value?: number) {
+  if (typeof value !== "number") return ""
+  const normalized = String(Math.trunc(value))
+  return isCounterMeter(name) ? normalized.padStart(counterDigits(name), "0") : normalized
+}
+
+export function UtilityDialog({ open, onOpenChange, onSave, utilityName, unit, meters = [], initialReadingDate, initialUsage, initialSecondaryUsage, stays = [] }: UtilityDialogProps) {
   const [usage, setUsage] = useState("")
   const [secondaryUsage, setSecondaryUsage] = useState("")
   const [readingDate, setReadingDate] = useState(initialReadingDate ?? todayString())
@@ -75,10 +83,11 @@ export function UtilityDialog({ open, onOpenChange, onSave, utilityName, unit, m
     if (open) {
       setReadingDate(initialReadingDate ?? todayString())
       setSelectedMeter(utilityName ?? meters[0]?.name ?? "")
-      setUsage("")
-      setSecondaryUsage("")
+      const nextMeter = utilityName ?? meters[0]?.name ?? ""
+      setUsage(formatInitialCounter(nextMeter, initialUsage))
+      setSecondaryUsage(formatInitialCounter(nextMeter, initialSecondaryUsage))
     }
-  }, [open, initialReadingDate, utilityName, meters])
+  }, [open, initialReadingDate, initialUsage, initialSecondaryUsage, utilityName, meters])
 
   const handleSave = () => {
     if (usage && (!isElectricity || secondaryUsage) && readingDate && selectedMeter) {
