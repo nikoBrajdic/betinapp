@@ -1,16 +1,17 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { Plus, Pencil, Trash2, FileText, Table, MoreHorizontal } from "lucide-react"
+import { Plus, Pencil, Trash2, FileText, Table, MoreHorizontal, Grip } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { ConfirmDeleteDialog } from "@/components/confirm-delete-dialog"
 import { NoteDialog } from "@/components/note-dialog"
 import { NoteViewModal } from "@/components/note-view-modal"
 import { TableNotePreview } from "@/components/table-note-editor"
-import { createNote, updateNote, deleteNote } from "@/lib/actions/notes"
+import { createNote, updateNote, deleteNote, reorderNotes } from "@/lib/actions/notes"
 import { useRouter } from "next/navigation"
+import { cn } from "@/lib/utils"
 
 interface Note {
   id: string
@@ -27,12 +28,21 @@ interface NotesClientProps {
 }
 
 export function NotesClient({ notes }: NotesClientProps) {
+  const [orderedNotes, setOrderedNotes] = useState(notes)
+  const orderedNotesRef = useRef(notes)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [isViewModalOpen, setIsViewModalOpen] = useState(false)
   const [editingNote, setEditingNote] = useState<Note | null>(null)
   const [viewingNote, setViewingNote] = useState<Note | null>(null)
   const [deleteNote_, setDeleteNote_] = useState<Note | null>(null)
+  const dragNoteIndex = useRef<number | null>(null)
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
   const router = useRouter()
+
+  useEffect(() => {
+    setOrderedNotes(notes)
+    orderedNotesRef.current = notes
+  }, [notes])
 
   useEffect(() => {
     const handler = () => { setEditingNote(null); setIsDialogOpen(true) }
@@ -51,7 +61,7 @@ export function NotesClient({ notes }: NotesClientProps) {
 
   const handleEditNote = async (id: string, title: string, content: string, type?: "text" | "table") => {
     try {
-      const note = notes.find(n => n.id === id)
+      const note = orderedNotes.find(n => n.id === id)
       await updateNote(id, { title, content, color: "blue", type: type ?? note?.type ?? "text" })
       router.refresh()
     } catch (error) {
@@ -88,6 +98,36 @@ export function NotesClient({ notes }: NotesClientProps) {
     setEditingNote(null)
   }
 
+  const moveNote = (from: number, to: number) => {
+    setOrderedNotes(current => {
+      const next = [...current]
+      const [moved] = next.splice(from, 1)
+      next.splice(to, 0, moved)
+      orderedNotesRef.current = next
+      return next
+    })
+  }
+
+  const handleDragEnter = (index: number) => {
+    if (dragNoteIndex.current === null || dragNoteIndex.current === index) return
+    moveNote(dragNoteIndex.current, index)
+    dragNoteIndex.current = index
+    setDragOverIndex(index)
+  }
+
+  const handleDragEnd = async () => {
+    dragNoteIndex.current = null
+    setDragOverIndex(null)
+
+    try {
+      await reorderNotes(orderedNotesRef.current.map(note => note.id))
+      router.refresh()
+    } catch (error) {
+      console.error("Failed to reorder notes:", error)
+      setOrderedNotes(notes)
+    }
+  }
+
   return (
     <div className="p-8">
       {notes.length === 0 ? (
@@ -102,14 +142,33 @@ export function NotesClient({ notes }: NotesClientProps) {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {notes.map((note) => (
+          {orderedNotes.map((note, index) => (
             <Card
               key={note.id}
-              className="p-5 transition-all cursor-pointer group border-2 hover:border-gray-200 shadow-none hover:shadow-md hover:-translate-y-0.5"
+              onDragEnter={() => handleDragEnter(index)}
+              onDragOver={event => event.preventDefault()}
+              className={cn(
+                "p-5 transition-all cursor-pointer group border-2 hover:border-gray-200 shadow-none hover:shadow-md hover:-translate-y-0.5",
+                dragOverIndex === index && "border-dashed border-indigo-300 bg-indigo-50/30"
+              )}
               onClick={() => openViewModal(note)}
             >
               <div className="flex items-start justify-between mb-2">
                 <div className="flex items-center gap-2 min-w-0">
+                  <div
+                    draggable
+                    role="button"
+                    aria-label="Drag note"
+                    className="h-7 w-5 -ml-1 flex items-center justify-center cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={event => event.stopPropagation()}
+                    onDragStart={event => {
+                      dragNoteIndex.current = index
+                      event.dataTransfer.effectAllowed = "move"
+                    }}
+                    onDragEnd={handleDragEnd}
+                  >
+                    <Grip className="h-4 w-4" />
+                  </div>
                   {note.type === "table"
                     ? <Table className="h-4 w-4 text-blue-500 flex-shrink-0" />
                     : <FileText className="h-4 w-4 text-gray-400 flex-shrink-0" />
