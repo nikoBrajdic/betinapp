@@ -141,3 +141,46 @@ export async function updateUtility(
 
   revalidatePath("/utilities")
 }
+
+export async function deleteUtilityReading(formData: {
+  type: string
+  readingIds: string[]
+}) {
+  const supabase = await createClient()
+  const readingIds = formData.readingIds.filter(Boolean)
+
+  if (readingIds.length === 0) return
+
+  const { error } = await supabase
+    .from("utility_readings")
+    .delete()
+    .in("id", readingIds)
+
+  if (error) throw error
+
+  const isElectricity = formData.type.toLowerCase().includes("struja")
+  const readingTypes = isElectricity ? ["Struja 1", "Struja 2"] : [formData.type]
+  const { data: latestReadings } = await supabase
+    .from("utility_readings")
+    .select("*")
+    .in("type", readingTypes)
+    .order("date", { ascending: false })
+
+  const latestDate = latestReadings?.[0]?.date
+  const latestForMeter = latestDate
+    ? latestReadings.filter(reading => reading.date === latestDate)
+    : []
+  const latestUsage = latestForMeter.reduce((sum, reading) => sum + Number(reading.value), 0)
+  const latestMax = latestForMeter[0]?.max_value ?? 0
+
+  await supabase
+    .from("utilities")
+    .update({
+      current_usage: latestUsage,
+      max_usage: latestMax,
+      updated_at: latestDate ?? new Date(0).toISOString(),
+    })
+    .eq("name", formData.type)
+
+  revalidatePath("/utilities")
+}

@@ -25,7 +25,7 @@ import { ConfirmDeleteDialog } from "@/components/confirm-delete-dialog"
 import { BillDialog } from "@/components/bill-dialog"
 import { UtilityDialog } from "@/components/utility-dialog"
 import { deleteBill, createBill, updateBill } from "@/lib/actions/bills"
-import { createDefaultReadingUtilities, createUtilityReading, updateUtility } from "@/lib/actions/utilities"
+import { createDefaultReadingUtilities, createUtilityReading, deleteUtilityReading, updateUtility } from "@/lib/actions/utilities"
 import { cn } from "@/lib/utils"
 import { formatMoney } from "@/lib/currency"
 
@@ -70,6 +70,19 @@ interface UtilitiesClientProps {
   readings: UtilityReading[]
   bills: Bill[]
   stays: Stay[]
+}
+
+interface ReadingRow {
+  id: string
+  name: string
+  value: number
+  displayValue: string
+  unit: string
+  date: string
+  utility: Utility | null
+  readingIds: string[]
+  previousDate?: string
+  currentDate?: string
 }
 
 function utilityIcon(name: string) {
@@ -146,6 +159,7 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
   const [activeTab, setActiveTab] = useState("readings")
   const [editingUtility, setEditingUtility] = useState<Utility | null>(null)
   const [isReadingDialogOpen, setIsReadingDialogOpen] = useState(false)
+  const [deleteReading, setDeleteReading] = useState<ReadingRow | null>(null)
   const [editingBill, setEditingBill] = useState<Bill | null>(null)
   const [billDialogOpen, setBillDialogOpen] = useState(false)
   const [deleteBill_, setDeleteBill_] = useState<Bill | null>(null)
@@ -174,6 +188,7 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
         unit: string
         date: string
         utility: Utility | null
+        readingIds: string[]
         parts: Array<{ label: string; value: number }>
       }>>((groups, reading) => {
         const name = meterGroupName(reading.type)
@@ -190,11 +205,13 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
             unit: meter?.unit ?? "",
             date: reading.date,
             utility: meter ?? null,
+            readingIds: [],
             parts: [],
           }
         }
 
         groups[key].value += Number(reading.value)
+        groups[key].readingIds.push(reading.id)
         if (part) {
           groups[key].parts.push({ label: part, value: Number(reading.value) })
         }
@@ -219,6 +236,7 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
           unit: utility.unit,
           date: utility.updated_at ?? "",
           utility,
+          readingIds: [],
         }
       })
 
@@ -359,6 +377,19 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
     }
   }
 
+  const handleDeleteReading = async () => {
+    if (!deleteReading) return
+    try {
+      await deleteUtilityReading({
+        type: deleteReading.name,
+        readingIds: deleteReading.readingIds,
+      })
+      refresh()
+    } catch (error) {
+      console.error("Failed to delete reading:", error)
+    }
+  }
+
   return (
     <div className="p-6">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
@@ -480,15 +511,33 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
                           {nightSummary.people}
                         </TableCell>
                         <TableCell className="px-4 text-right">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 cursor-pointer text-gray-400 hover:text-gray-700"
-                            onClick={() => row.utility && setEditingUtility(row.utility)}
-                            disabled={!row.utility}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 cursor-pointer text-gray-400 hover:text-gray-700"
+                              >
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem
+                                className="cursor-pointer"
+                                onClick={() => row.utility && setEditingUtility(row.utility)}
+                                disabled={!row.utility}
+                              >
+                                <Edit className="h-3.5 w-3.5 mr-2" /> Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                className="cursor-pointer text-destructive focus:text-destructive"
+                                onClick={() => setDeleteReading(row)}
+                                disabled={row.readingIds.length === 0}
+                              >
+                                <Trash2 className="h-3.5 w-3.5 mr-2" /> Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </TableCell>
                       </TableRow>
                     )
@@ -599,6 +648,13 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
         onOpenChange={open => { if (!open) setDeleteBill_(null) }}
         onConfirm={handleDeleteBill}
         itemName={deleteBill_?.name}
+      />
+
+      <ConfirmDeleteDialog
+        open={!!deleteReading}
+        onOpenChange={open => { if (!open) setDeleteReading(null) }}
+        onConfirm={handleDeleteReading}
+        itemName={deleteReading ? `${deleteReading.name} ${shortDate(deleteReading.date)}` : undefined}
       />
     </div>
   )
