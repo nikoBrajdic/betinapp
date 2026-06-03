@@ -283,7 +283,7 @@ export function TasksClient({ taskGroups }: TasksClientProps) {
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div className="columns-1 md:columns-2 lg:columns-3 gap-5">
           {taskGroups.map(group => {
             const items = localOrder[group.id] ?? group.tasks ?? []
             const done = items.filter(t => t.completed).length
@@ -294,7 +294,7 @@ export function TasksClient({ taskGroups }: TasksClientProps) {
             const dot = colorDot[group.color] ?? colorDot.blue
 
             return (
-              <Card key={group.id} className={cn("p-5 border-2 flex flex-col shadow-none transition-all hover:shadow-md hover:-translate-y-0.5", bg)}>
+              <Card key={group.id} className={cn("mb-5 break-inside-avoid p-5 border-2 flex flex-col shadow-none transition-all hover:shadow-md hover:-translate-y-0.5", bg)}>
                 {/* Header */}
                 <div className="flex items-center justify-between mb-1">
                   <div className="flex items-center gap-2 min-w-0">
