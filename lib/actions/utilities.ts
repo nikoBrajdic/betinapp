@@ -34,8 +34,7 @@ export async function createDefaultReadingUtilities() {
   const existingNames = new Set((existing ?? []).map((utility: { name: string }) => utility.name.toLowerCase()))
   const defaults = [
     { name: "Voda", current_usage: 0, max_usage: 100, cost: 0, unit: "m3", trend: "stable" },
-    { name: "Struja 1", current_usage: 0, max_usage: 200000, cost: 0, unit: "kWh", trend: "stable" },
-    { name: "Struja 2", current_usage: 0, max_usage: 200000, cost: 0, unit: "kWh", trend: "stable" },
+    { name: "Struja", current_usage: 0, max_usage: 200000, cost: 0, unit: "kWh", trend: "stable" },
   ].filter(utility => !existingNames.has(utility.name.toLowerCase()))
 
   if (defaults.length > 0) {
@@ -52,23 +51,34 @@ export async function createUtilityReading(formData: {
   maxValue: number
   unit: string
   readingDate: string
+  secondaryValue?: number
 }) {
   const supabase = await createClient()
   const readingAt = new Date(`${formData.readingDate}T12:00:00`).toISOString()
+  const isElectricity = formData.type.toLowerCase().includes("struja")
+  const readings = isElectricity && typeof formData.secondaryValue === "number"
+    ? [
+      { type: "Struja 1", value: formData.value, max_value: formData.maxValue, date: readingAt },
+      { type: "Struja 2", value: formData.secondaryValue, max_value: formData.maxValue, date: readingAt },
+    ]
+    : [{
+      type: formData.type,
+      value: formData.value,
+      max_value: formData.maxValue,
+      date: readingAt,
+    }]
+  const currentUsage = isElectricity && typeof formData.secondaryValue === "number"
+    ? formData.value + formData.secondaryValue
+    : formData.value
 
-  const { error } = await supabase.from("utility_readings").insert({
-    type: formData.type,
-    value: formData.value,
-    max_value: formData.maxValue,
-    date: readingAt,
-  })
+  const { error } = await supabase.from("utility_readings").insert(readings)
 
   if (error) throw error
 
   await supabase
     .from("utilities")
     .update({
-      current_usage: formData.value,
+      current_usage: currentUsage,
       max_usage: formData.maxValue,
       unit: formData.unit,
       updated_at: readingAt,
@@ -88,18 +98,23 @@ export async function updateUtility(
     unit: string
     trend: string
     readingDate?: string
+    secondaryUsage?: number
   },
 ) {
   const supabase = await createClient()
   const updatedAt = formData.readingDate
     ? new Date(`${formData.readingDate}T12:00:00`).toISOString()
     : new Date().toISOString()
+  const isElectricity = formData.name.toLowerCase().includes("struja")
+  const currentUsage = isElectricity && typeof formData.secondaryUsage === "number"
+    ? formData.currentUsage + formData.secondaryUsage
+    : formData.currentUsage
 
   const { error } = await supabase
     .from("utilities")
     .update({
       name: formData.name,
-      current_usage: formData.currentUsage,
+      current_usage: currentUsage,
       max_usage: formData.maxUsage,
       cost: formData.cost,
       unit: formData.unit,
@@ -110,12 +125,19 @@ export async function updateUtility(
 
   if (error) throw error
 
-  await supabase.from("utility_readings").insert({
-    type: formData.name,
-    value: formData.currentUsage,
-    max_value: formData.maxUsage,
-    date: updatedAt,
-  })
+  await supabase.from("utility_readings").insert(
+    isElectricity && typeof formData.secondaryUsage === "number"
+      ? [
+        { type: "Struja 1", value: formData.currentUsage, max_value: formData.maxUsage, date: updatedAt },
+        { type: "Struja 2", value: formData.secondaryUsage, max_value: formData.maxUsage, date: updatedAt },
+      ]
+      : [{
+        type: formData.name,
+        value: formData.currentUsage,
+        max_value: formData.maxUsage,
+        date: updatedAt,
+      }],
+  )
 
   revalidatePath("/utilities")
 }

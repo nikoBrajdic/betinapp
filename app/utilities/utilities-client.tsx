@@ -79,6 +79,15 @@ function utilityIcon(name: string) {
   return Zap
 }
 
+function meterGroupName(name: string) {
+  return name.toLowerCase().startsWith("struja ") ? "Struja" : name
+}
+
+function electricityPart(name: string) {
+  const match = name.match(/struja\s*(\d+)/i)
+  return match?.[1]
+}
+
 function isReadingFresh(utility: Utility, now = new Date()) {
   if (!utility.updated_at) return false
   const updated = new Date(utility.updated_at)
@@ -145,6 +154,7 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
   const readingUtilities = useMemo(
     () => utilities.filter(utility => {
       const key = utility.name.toLowerCase()
+      if (/^struja\s+\d+$/.test(key)) return false
       return key.includes("water") || key.includes("voda") || key.includes("electric") || key.includes("struja")
     }),
     [utilities],
@@ -157,25 +167,60 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
 
   const readingRows = useMemo(() => {
     const rows = readings.length > 0
-      ? readings.map(reading => {
-        const meter = utilities.find(utility => utility.name === reading.type)
+      ? Object.values(readings.reduce<Record<string, {
+        id: string
+        name: string
+        value: number
+        unit: string
+        date: string
+        utility: Utility | null
+        parts: Array<{ label: string; value: number }>
+      }>>((groups, reading) => {
+        const name = meterGroupName(reading.type)
+        const date = dateOnly(reading.date)
+        const key = `${name}-${date}`
+        const meter = utilities.find(utility => utility.name === name)
+        const part = electricityPart(reading.type)
+
+        if (!groups[key]) {
+          groups[key] = {
+            id: key,
+            name,
+            value: 0,
+            unit: meter?.unit ?? "",
+            date: reading.date,
+            utility: meter ?? null,
+            parts: [],
+          }
+        }
+
+        groups[key].value += Number(reading.value)
+        if (part) {
+          groups[key].parts.push({ label: part, value: Number(reading.value) })
+        }
+
+        return groups
+      }, {})).map(row => ({
+        ...row,
+        displayValue: row.parts.length > 0
+          ? row.parts
+            .sort((a, b) => a.label.localeCompare(b.label))
+            .map(part => `${part.label}: ${part.value}`)
+            .join(" / ")
+          : String(row.value),
+      }))
+      : readingUtilities.map(utility => {
+        const name = meterGroupName(utility.name)
         return {
-          id: reading.id,
-          name: reading.type,
-          value: Number(reading.value),
-          unit: meter?.unit ?? "",
-          date: reading.date,
-          utility: meter ?? null,
+          id: utility.id,
+          name,
+          value: Number(utility.current_usage),
+          displayValue: String(Number(utility.current_usage)),
+          unit: utility.unit,
+          date: utility.updated_at ?? "",
+          utility,
         }
       })
-      : readingUtilities.map(utility => ({
-        id: utility.id,
-        name: utility.name,
-        value: Number(utility.current_usage),
-        unit: utility.unit,
-        date: utility.updated_at ?? "",
-        utility,
-      }))
 
     const previousByMeter = new Map<string, string>()
     return [...rows]
@@ -196,7 +241,7 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
 
   const refresh = () => router.refresh()
 
-  const handleUpdateUtility = async (utility: Utility, usage: number, readingDate: string) => {
+  const handleUpdateUtility = async (utility: Utility, usage: number, readingDate: string, _meterName?: string, details?: { secondaryUsage?: number }) => {
     try {
       await updateUtility(utility.id, {
         name: utility.name,
@@ -206,6 +251,7 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
         unit: utility.unit,
         trend: usage > utility.current_usage ? "up" : usage < utility.current_usage ? "down" : "stable",
         readingDate,
+        secondaryUsage: details?.secondaryUsage,
       })
       refresh()
     } catch (error) {
@@ -222,7 +268,7 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
     }
   }
 
-  const handleAddReading = async (usage: number, readingDate: string, utilityName: string) => {
+  const handleAddReading = async (usage: number, readingDate: string, utilityName: string, details?: { secondaryUsage?: number }) => {
     const utility = utilities.find(item => item.name === utilityName)
     if (!utility) return
 
@@ -233,6 +279,7 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
         maxValue: utility.max_usage,
         unit: utility.unit,
         readingDate,
+        secondaryValue: details?.secondaryUsage,
       })
       refresh()
     } catch (error) {
@@ -419,7 +466,7 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
                           </div>
                         </TableCell>
                         <TableCell>
-                          <span className="font-semibold text-gray-900">{row.value}</span>
+                          <span className="font-semibold text-gray-900">{row.displayValue}</span>
                           {row.unit && <span className="text-gray-400 ml-1">{row.unit}</span>}
                         </TableCell>
                         <TableCell className="text-gray-500">

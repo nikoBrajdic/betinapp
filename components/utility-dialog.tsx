@@ -43,23 +43,33 @@ function occupancyText(names: string[]) {
 
 export function UtilityDialog({ open, onOpenChange, onSave, utilityName, unit, meters = [], initialReadingDate, stays = [] }: UtilityDialogProps) {
   const [usage, setUsage] = useState("")
+  const [secondaryUsage, setSecondaryUsage] = useState("")
   const [readingDate, setReadingDate] = useState(initialReadingDate ?? todayString())
   const [selectedMeter, setSelectedMeter] = useState(utilityName ?? meters[0]?.name ?? "")
   const activeMeter = meters.find(meter => meter.name === selectedMeter)
   const activeUnit = activeMeter?.unit ?? unit ?? ""
+  const isElectricity = selectedMeter.toLowerCase().includes("struja")
   const presentNames = namesForDate(stays, readingDate)
 
   useEffect(() => {
     if (open) {
       setReadingDate(initialReadingDate ?? todayString())
       setSelectedMeter(utilityName ?? meters[0]?.name ?? "")
+      setUsage("")
+      setSecondaryUsage("")
     }
   }, [open, initialReadingDate, utilityName, meters])
 
   const handleSave = () => {
-    if (usage && readingDate && selectedMeter) {
-      onSave(Number.parseFloat(usage), readingDate, selectedMeter)
+    if (usage && (!isElectricity || secondaryUsage) && readingDate && selectedMeter) {
+      onSave(
+        Number.parseFloat(usage),
+        readingDate,
+        selectedMeter,
+        isElectricity ? { secondaryUsage: Number.parseFloat(secondaryUsage) } : undefined,
+      )
       setUsage("")
+      setSecondaryUsage("")
       setReadingDate(todayString())
       onOpenChange(false)
     }
@@ -95,15 +105,27 @@ export function UtilityDialog({ open, onOpenChange, onSave, utilityName, unit, m
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="usage">Reading{activeUnit ? ` (${activeUnit})` : ""}</Label>
+            <Label htmlFor="usage">{isElectricity ? "Struja 1" : "Reading"}{activeUnit ? ` (${activeUnit})` : ""}</Label>
             <Input
               id="usage"
               type="number"
-              placeholder={activeUnit ? `Enter reading in ${activeUnit}` : "Enter reading"}
+              placeholder={isElectricity ? "First counter" : activeUnit ? `Enter reading in ${activeUnit}` : "Enter reading"}
               value={usage}
               onChange={(e) => setUsage(e.target.value)}
             />
           </div>
+          {isElectricity && (
+            <div className="space-y-2">
+              <Label htmlFor="secondaryUsage">Struja 2{activeUnit ? ` (${activeUnit})` : ""}</Label>
+              <Input
+                id="secondaryUsage"
+                type="number"
+                placeholder="Second counter"
+                value={secondaryUsage}
+                onChange={(e) => setSecondaryUsage(e.target.value)}
+              />
+            </div>
+          )}
           <div className="rounded-xl bg-gray-50 px-3 py-2 text-sm">
             <div className="text-gray-400">House on this date</div>
             <div className="font-medium text-gray-700">{occupancyText(presentNames)}</div>
@@ -113,7 +135,7 @@ export function UtilityDialog({ open, onOpenChange, onSave, utilityName, unit, m
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={!usage || !readingDate || !selectedMeter}>
+          <Button onClick={handleSave} disabled={!usage || (isElectricity && !secondaryUsage) || !readingDate || !selectedMeter}>
             {utilityName ? "Update" : "Add Reading"}
           </Button>
         </DialogFooter>
