@@ -106,9 +106,14 @@ function isWaterMeter(name: string) {
   return key.includes("water") || key.includes("voda")
 }
 
+function isCounterMeter(name: string) {
+  const key = name.toLowerCase()
+  return isWaterMeter(name) || key.includes("struja")
+}
+
 function formatReadingValue(name: string, value: number) {
   const normalized = String(Math.trunc(value))
-  return isWaterMeter(name) ? normalized.padStart(6, "0") : normalized
+  return isCounterMeter(name) ? normalized.padStart(6, "0") : normalized
 }
 
 function isReadingFresh(utility: Utility, now = new Date()) {
@@ -232,7 +237,7 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
         displayValue: row.parts.length > 0
           ? row.parts
             .sort((a, b) => a.label.localeCompare(b.label))
-            .map(part => `${part.label}: ${part.value}`)
+            .map(part => `${part.label}: ${formatReadingValue(row.name, part.value)}`)
             .join(" / ")
           : formatReadingValue(row.name, row.value),
       }))

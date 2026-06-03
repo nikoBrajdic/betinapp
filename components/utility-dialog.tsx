@@ -46,6 +46,10 @@ function isWaterMeter(name: string) {
   return key.includes("water") || key.includes("voda")
 }
 
+function isCounterMeter(name: string) {
+  return isWaterMeter(name) || name.toLowerCase().includes("struja")
+}
+
 function digitsOnly(value: string) {
   return value.replace(/\D/g, "")
 }
@@ -59,6 +63,7 @@ export function UtilityDialog({ open, onOpenChange, onSave, utilityName, unit, m
   const activeUnit = activeMeter?.unit ?? unit ?? ""
   const isElectricity = selectedMeter.toLowerCase().includes("struja")
   const isWater = isWaterMeter(selectedMeter)
+  const isCounter = isCounterMeter(selectedMeter)
   const presentNames = namesForDate(stays, readingDate)
 
   useEffect(() => {
@@ -118,13 +123,13 @@ export function UtilityDialog({ open, onOpenChange, onSave, utilityName, unit, m
             <Label htmlFor="usage">{isElectricity ? "Struja 1" : "Reading"}{activeUnit ? ` (${activeUnit})` : ""}</Label>
             <Input
               id="usage"
-              type={isWater ? "text" : "number"}
-              inputMode={isWater ? "numeric" : undefined}
-              placeholder={isElectricity ? "First counter" : isWater ? "000048" : activeUnit ? `Enter reading in ${activeUnit}` : "Enter reading"}
+              type={isCounter ? "text" : "number"}
+              inputMode={isCounter ? "numeric" : undefined}
+              placeholder={isCounter ? "000048" : activeUnit ? `Enter reading in ${activeUnit}` : "Enter reading"}
               value={usage}
-              onChange={(e) => setUsage(isWater ? digitsOnly(e.target.value) : e.target.value)}
+              onChange={(e) => setUsage(isCounter ? digitsOnly(e.target.value) : e.target.value)}
               onBlur={() => {
-                if (isWater && usage) setUsage(usage.padStart(6, "0"))
+                if (isCounter && usage) setUsage(usage.padStart(6, "0"))
               }}
             />
           </div>
@@ -133,10 +138,14 @@ export function UtilityDialog({ open, onOpenChange, onSave, utilityName, unit, m
               <Label htmlFor="secondaryUsage">Struja 2{activeUnit ? ` (${activeUnit})` : ""}</Label>
               <Input
                 id="secondaryUsage"
-                type="number"
-                placeholder="Second counter"
+                type="text"
+                inputMode="numeric"
+                placeholder="000006"
                 value={secondaryUsage}
-                onChange={(e) => setSecondaryUsage(e.target.value)}
+                onChange={(e) => setSecondaryUsage(digitsOnly(e.target.value))}
+                onBlur={() => {
+                  if (secondaryUsage) setSecondaryUsage(secondaryUsage.padStart(6, "0"))
+                }}
               />
             </div>
           )}
