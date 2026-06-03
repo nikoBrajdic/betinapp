@@ -101,6 +101,16 @@ function electricityPart(name: string) {
   return match?.[1]
 }
 
+function isWaterMeter(name: string) {
+  const key = name.toLowerCase()
+  return key.includes("water") || key.includes("voda")
+}
+
+function formatReadingValue(name: string, value: number) {
+  const normalized = String(Math.trunc(value))
+  return isWaterMeter(name) ? normalized.padStart(6, "0") : normalized
+}
+
 function isReadingFresh(utility: Utility, now = new Date()) {
   if (!utility.updated_at) return false
   const updated = new Date(utility.updated_at)
@@ -224,7 +234,7 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
             .sort((a, b) => a.label.localeCompare(b.label))
             .map(part => `${part.label}: ${part.value}`)
             .join(" / ")
-          : String(row.value),
+          : formatReadingValue(row.name, row.value),
       }))
       : readingUtilities.map(utility => {
         const name = meterGroupName(utility.name)
@@ -232,7 +242,7 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
           id: utility.id,
           name,
           value: Number(utility.current_usage),
-          displayValue: String(Number(utility.current_usage)),
+          displayValue: formatReadingValue(name, Number(utility.current_usage)),
           unit: utility.unit,
           date: utility.updated_at ?? "",
           utility,

@@ -41,6 +41,15 @@ function occupancyText(names: string[]) {
   return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`
 }
 
+function isWaterMeter(name: string) {
+  const key = name.toLowerCase()
+  return key.includes("water") || key.includes("voda")
+}
+
+function digitsOnly(value: string) {
+  return value.replace(/\D/g, "")
+}
+
 export function UtilityDialog({ open, onOpenChange, onSave, utilityName, unit, meters = [], initialReadingDate, stays = [] }: UtilityDialogProps) {
   const [usage, setUsage] = useState("")
   const [secondaryUsage, setSecondaryUsage] = useState("")
@@ -49,6 +58,7 @@ export function UtilityDialog({ open, onOpenChange, onSave, utilityName, unit, m
   const activeMeter = meters.find(meter => meter.name === selectedMeter)
   const activeUnit = activeMeter?.unit ?? unit ?? ""
   const isElectricity = selectedMeter.toLowerCase().includes("struja")
+  const isWater = isWaterMeter(selectedMeter)
   const presentNames = namesForDate(stays, readingDate)
 
   useEffect(() => {
@@ -108,10 +118,14 @@ export function UtilityDialog({ open, onOpenChange, onSave, utilityName, unit, m
             <Label htmlFor="usage">{isElectricity ? "Struja 1" : "Reading"}{activeUnit ? ` (${activeUnit})` : ""}</Label>
             <Input
               id="usage"
-              type="number"
-              placeholder={isElectricity ? "First counter" : activeUnit ? `Enter reading in ${activeUnit}` : "Enter reading"}
+              type={isWater ? "text" : "number"}
+              inputMode={isWater ? "numeric" : undefined}
+              placeholder={isElectricity ? "First counter" : isWater ? "000048" : activeUnit ? `Enter reading in ${activeUnit}` : "Enter reading"}
               value={usage}
-              onChange={(e) => setUsage(e.target.value)}
+              onChange={(e) => setUsage(isWater ? digitsOnly(e.target.value) : e.target.value)}
+              onBlur={() => {
+                if (isWater && usage) setUsage(usage.padStart(6, "0"))
+              }}
             />
           </div>
           {isElectricity && (
