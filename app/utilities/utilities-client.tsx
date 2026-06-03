@@ -444,14 +444,12 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
                     <TableHead>Period</TableHead>
                     <TableHead>Stay nights</TableHead>
                     <TableHead>People</TableHead>
-                    <TableHead>Status</TableHead>
                     <TableHead className="w-[72px] text-right px-4">Action</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {readingRows.map(row => {
                     const Icon = utilityIcon(row.name)
-                    const fresh = row.utility ? isReadingFresh(row.utility) : false
                     const nightSummary = personNightsForPeriod(stays, row.previousDate, row.currentDate)
 
                     return (
@@ -480,11 +478,6 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
                         </TableCell>
                         <TableCell className="text-gray-600 whitespace-normal min-w-[240px]">
                           {nightSummary.people}
-                        </TableCell>
-                        <TableCell>
-                          <Badge className={cn("text-xs", fresh ? "bg-green-500/10 text-green-700" : "bg-amber-500/10 text-amber-700")}>
-                            {fresh ? "Logged" : "Due"}
-                          </Badge>
                         </TableCell>
                         <TableCell className="px-4 text-right">
                           <Button
