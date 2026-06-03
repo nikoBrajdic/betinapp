@@ -6,7 +6,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react"
 import { EventDialog } from "@/components/event-dialog"
 import { cn } from "@/lib/utils"
 import { getLocalDateString } from "@/lib/utils/date"
-import { createEvent, updateEvent, deleteEvent } from "@/lib/actions/events"
+import { createEvent, deleteEvent } from "@/lib/actions/events"
 import { useRouter } from "next/navigation"
 
 interface Event {
@@ -25,7 +25,6 @@ interface CalendarClientProps {
   events: Event[]
 }
 
-// Strip leading emoji from titles (for events created before emoji was removed)
 function cleanTitle(title: string): string {
   let i = 0
   while (i < title.length) {
@@ -35,6 +34,7 @@ function cleanTitle(title: string): string {
   }
   return title.slice(i).trim() || title.trim()
 }
+
 const categoryColor: Record<string, string> = {
   family:      "bg-blue-100 text-blue-700",
   maintenance: "bg-orange-100 text-orange-700",
@@ -56,7 +56,6 @@ export function CalendarClient({ events }: CalendarClientProps) {
     return () => window.removeEventListener("topbar:new", handler)
   }, [])
 
-  // Notify EventsPanel of selected date
   useEffect(() => {
     window.dispatchEvent(new CustomEvent("calendar:date", { detail: selectedDate ? getLocalDateString(selectedDate) : null }))
   }, [selectedDate])
@@ -77,29 +76,19 @@ export function CalendarClient({ events }: CalendarClientProps) {
     } catch (e) { console.error(e) }
   }
 
-  const handleDeleteEvent = async (id: string) => {
-    try { await deleteEvent(id); router.refresh() }
-    catch (e) { console.error(e) }
-  }
-
-  // Returns 42 cells (6 rows × 7) including prev/next month overflow
   const getDays = (date: Date) => {
     const year = date.getFullYear()
     const month = date.getMonth()
     const firstDow = new Date(year, month, 1).getDay()
     const daysInMonth = new Date(year, month + 1, 0).getDate()
-
     const cells: { date: Date; current: boolean }[] = []
 
-    // Prev month trailing days
     for (let i = firstDow - 1; i >= 0; i--) {
       cells.push({ date: new Date(year, month, -i), current: false })
     }
-    // Current month
     for (let d = 1; d <= daysInMonth; d++) {
       cells.push({ date: new Date(year, month, d), current: true })
     }
-    // Next month leading days
     const remaining = 42 - cells.length
     for (let d = 1; d <= remaining; d++) {
       cells.push({ date: new Date(year, month + 1, d), current: false })
@@ -125,76 +114,71 @@ export function CalendarClient({ events }: CalendarClientProps) {
 
   return (
     <div className="p-5 h-full flex flex-col">
-      <div className="flex-1 flex flex-col">
-        {/* Month nav */}
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-base font-semibold text-gray-800">
-            {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
-          </h2>
-          <div className="flex gap-1">
-            <Button variant="ghost" size="icon" className="h-7 w-7 cursor-pointer" onClick={() => navigate("prev")}>
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="icon" className="h-7 w-7 cursor-pointer" onClick={() => navigate("next")}>
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
+      {/* Month nav */}
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-base font-semibold text-gray-800">
+          {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
+        </h2>
+        <div className="flex gap-1">
+          <Button variant="ghost" size="icon" className="h-7 w-7 cursor-pointer" onClick={() => navigate("prev")}>
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <Button variant="ghost" size="icon" className="h-7 w-7 cursor-pointer" onClick={() => navigate("next")}>
+            <ChevronRight className="h-4 w-4" />
+          </Button>
         </div>
+      </div>
 
-        {/* Day headers */}
-        <div className="grid grid-cols-7 mb-1">
-          {["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map(d => (
-            <div key={d} className="py-1 text-center text-[11px] font-medium text-gray-400 uppercase tracking-wide">{d}</div>
-          ))}
-        </div>
+      {/* Day headers */}
+      <div className="grid grid-cols-7 mb-1">
+        {["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map(d => (
+          <div key={d} className="py-1 text-center text-[11px] font-medium text-gray-400 uppercase tracking-wide">{d}</div>
+        ))}
+      </div>
 
-        {/* Grid */}
-        <div className="grid grid-cols-7 flex-1">
-          {cells.map(({ date, current }, i) => {
-            const dateStr = getLocalDateString(date)
-            const dayEvents = getEventsForDate(date)
-            const isToday = dateStr === todayStr
-            const isSelected = selectedDate && getLocalDateString(selectedDate) === dateStr
+      {/* Grid */}
+      <div className="grid grid-cols-7 flex-1">
+        {cells.map(({ date, current }, i) => {
+          const dateStr = getLocalDateString(date)
+          const dayEvents = getEventsForDate(date)
+          const isToday = dateStr === todayStr
+          const isSelected = selectedDate && getLocalDateString(selectedDate) === dateStr
 
-            return (
-              <div
-                key={i}
-                onClick={() => { setSelectedDate(isSelected ? null : date) }}
-                className={cn(
-                  "min-h-[100px] p-1.5 border-t border-gray-100 cursor-pointer transition-colors",
-                  !current && "bg-gray-50/50",
-                  isSelected && "bg-blue-50",
-                  current && !isSelected && "hover:bg-gray-50"
-                )}
-              >
-                {/* Date number */}
-                <div className="flex justify-end mb-0.5">
-                  <span className={cn(
-                    "text-xs font-medium w-5 h-5 flex items-center justify-center rounded-full",
-                    isToday ? "bg-[#1a1464] text-white font-bold" : current ? "text-gray-700" : "text-gray-300"
-                  )}>
-                    {date.getDate()}
-                  </span>
-                </div>
-
-                {/* Events */}
-                <div className="space-y-0.5">
-                  {dayEvents.slice(0, 3).map(event => (
-                    <div
-                      key={event.id}
-                      className={cn("text-[10px] px-1 py-0.5 rounded truncate leading-tight", categoryColor[event.category])}
-                    >
-                      {cleanTitle(event.title)}
-                    </div>
-                  ))}
-                  {dayEvents.length > 3 && (
-                    <div className="text-[10px] text-gray-400 px-1">+{dayEvents.length - 3}</div>
-                  )}
-                </div>
+          return (
+            <div
+              key={i}
+              onClick={() => setSelectedDate(isSelected ? null : date)}
+              className={cn(
+                "min-h-[100px] p-1.5 border-t border-gray-100 cursor-pointer transition-colors",
+                !current && "bg-gray-50/50",
+                isSelected && "bg-blue-50",
+                current && !isSelected && "hover:bg-gray-50"
+              )}
+            >
+              <div className="flex justify-end mb-0.5">
+                <span className={cn(
+                  "text-xs font-medium w-5 h-5 flex items-center justify-center rounded-full",
+                  isToday ? "bg-[#1a1464] text-white font-bold" : current ? "text-gray-700" : "text-gray-300"
+                )}>
+                  {date.getDate()}
+                </span>
               </div>
-            )
-          })}
-        </div>
+              <div className="space-y-0.5">
+                {dayEvents.slice(0, 3).map(event => (
+                  <div
+                    key={event.id}
+                    className={cn("text-[10px] px-1 py-0.5 rounded truncate leading-tight", categoryColor[event.category])}
+                  >
+                    {cleanTitle(event.title)}
+                  </div>
+                ))}
+                {dayEvents.length > 3 && (
+                  <div className="text-[10px] text-gray-400 px-1">+{dayEvents.length - 3}</div>
+                )}
+              </div>
+            </div>
+          )
+        })}
       </div>
 
       <EventDialog
@@ -205,7 +189,6 @@ export function CalendarClient({ events }: CalendarClientProps) {
         initialId=""
         mode="create"
       />
-      </div>
     </div>
   )
 }

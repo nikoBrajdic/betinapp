@@ -151,3 +151,30 @@ export async function deleteTask(id: string) {
   if (error) throw error
   revalidatePath("/tasks")
 }
+export async function duplicateTaskGroup(id: string) {
+  const supabase = await createClient()
+  const { data: group, error } = await supabase
+    .from("task_groups")
+    .select("*, tasks(*)")
+    .eq("id", id)
+    .single()
+  if (error) throw error
+
+  const { data: newGroup, error: newErr } = await supabase
+    .from("task_groups")
+    .insert({ title: `${group.title} (copy)`, color: group.color })
+    .select()
+    .single()
+  if (newErr) throw newErr
+
+  if (group.tasks?.length > 0) {
+    await supabase.from("tasks").insert(
+      group.tasks.map((t: any) => ({
+        title: t.title,
+        task_group_id: newGroup.id,
+        completed: false,
+      }))
+    )
+  }
+  revalidatePath("/tasks")
+}

@@ -12,6 +12,7 @@ import {
   Zap,
   DollarSign,
   Home,
+  BookOpen,
   Settings,
   LogOut,
   ChevronsLeft,
@@ -27,6 +28,7 @@ const navigation = [
   { name: "Utilities", href: "/utilities", icon: Zap },
   { name: "Bills", href: "/bills", icon: DollarSign },
   { name: "Stays", href: "/guest-stays", icon: Home },
+  { name: "Diary", href: "/diary", icon: BookOpen },
 ]
 
 interface SidebarProps {

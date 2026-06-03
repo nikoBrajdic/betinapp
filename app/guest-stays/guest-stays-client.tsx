@@ -3,8 +3,9 @@
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Plus, Search, Pencil, Trash2, Users, MapPin } from "lucide-react"
+import { Plus, Pencil, Trash2, Users, MapPin, MoreHorizontal } from "lucide-react"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { ConfirmDeleteDialog } from "@/components/confirm-delete-dialog"
 import { cn } from "@/lib/utils"
 import { GuestStayDialog } from "@/components/guest-stay-dialog"
 import { createGuestStay, updateGuestStay, deleteGuestStay } from "@/lib/actions/guest-stays"
@@ -51,10 +52,11 @@ const typeConfig: Record<StayType, { label: string; badge: string }> = {
 }
 
 export function GuestStaysClient({ guests }: GuestStaysClientProps) {
-  const [search, setSearch] = useState("")
-  const [filter, setFilter] = useState<"all" | Status>("all")
+  const [search] = useState("")
+  const [filter] = useState<"all" | Status>("all")
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingStay, setEditingStay] = useState<Stay | null>(null)
+  const [deleteStay, setDeleteStay] = useState<Stay | null>(null)
   const router = useRouter()
 
   useEffect(() => {
@@ -75,7 +77,6 @@ export function GuestStaysClient({ guests }: GuestStaysClientProps) {
   }
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Delete this stay?")) return
     try { await deleteGuestStay(id); router.refresh() }
     catch (e) { console.error(e) }
   }
@@ -93,54 +94,14 @@ export function GuestStaysClient({ guests }: GuestStaysClientProps) {
 
   return (
     <div className="p-8">
-      {/* Stats row */}
-      <div className="flex gap-3 mb-6">
-        {(["all", "upcoming", "current", "past"] as const).map(f => {
-          const count = f === "all" ? guests.length : f === "upcoming" ? upcoming : f === "current" ? current : past
-          const active = filter === f
-          return (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              className={cn(
-                "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all cursor-pointer border-2",
-                active ? "border-gray-800 bg-gray-800 text-white" : "border-gray-200 text-gray-500 hover:border-gray-300"
-              )}
-            >
-              {f === "all" ? "All" : statusConfig[f].label}
-              <span className={cn("text-xs px-1.5 py-0.5 rounded-full", active ? "bg-white/20" : "bg-gray-100 text-gray-600")}>
-                {count}
-              </span>
-            </button>
-          )
-        })}
-      </div>
-
-      {/* Search */}
-      <div className="relative mb-6">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-        <Input
-          placeholder="Search by name or room…"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          className="pl-9"
-        />
-      </div>
-
       {/* Cards */}
       {filtered.length === 0 ? (
-        <Card className="p-12 text-center">
-          <Users className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold mb-2">{search ? "No stays found" : "No stays yet"}</h3>
-          <p className="text-muted-foreground mb-4">
-            {search ? "Try a different search" : "Add family or friends coming to stay"}
-          </p>
-          {!search && (
-            <Button onClick={() => setIsDialogOpen(true)} className="cursor-pointer">
-              <Plus className="h-4 w-4 mr-2" /> New Stay
-            </Button>
-          )}
-        </Card>
+        <div className="flex flex-col items-center justify-center py-24 gap-4">
+          <p className="text-gray-400 text-base">No stays yet</p>
+          <button onClick={() => setIsDialogOpen(true)} className="flex items-center gap-2 px-6 py-2.5 bg-rose-500 hover:bg-rose-600 text-white text-sm font-medium rounded-xl cursor-pointer transition-colors">
+            <Plus className="h-4 w-4" /> New Stay
+          </button>
+        </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map(stay => {
@@ -150,7 +111,7 @@ export function GuestStaysClient({ guests }: GuestStaysClientProps) {
               <Card
                 key={stay.id}
                 className={cn(
-                  "p-5 border-2 group hover:shadow-md transition-all",
+                  "p-5 border-2 group shadow-none transition-all hover:shadow-md hover:-translate-y-0.5",
                   stay.status === "current" ? "border-green-200 bg-green-50/30" :
                   stay.status === "upcoming" ? "border-blue-100" : "border-gray-100 opacity-75"
                 )}
@@ -160,15 +121,22 @@ export function GuestStaysClient({ guests }: GuestStaysClientProps) {
                     <div className={cn("w-2 h-2 rounded-full flex-shrink-0 mt-0.5", s.dot)} />
                     <h3 className="font-semibold text-gray-800">{stay.guest_name}</h3>
                   </div>
-                  <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Button variant="ghost" size="icon" className="h-7 w-7 cursor-pointer"
-                      onClick={() => { setEditingStay(stay); setIsDialogOpen(true) }}>
-                      <Pencil className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 cursor-pointer text-destructive hover:text-destructive"
-                      onClick={() => handleDelete(stay.id)}>
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
+                  <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 cursor-pointer text-gray-400 hover:text-gray-700">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem className="cursor-pointer" onClick={() => { setEditingStay(stay); setIsDialogOpen(true) }}>
+                          <Pencil className="h-3.5 w-3.5 mr-2" /> Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem className="cursor-pointer text-destructive focus:text-destructive" onClick={() => setDeleteStay(stay)}>
+                          <Trash2 className="h-3.5 w-3.5 mr-2" /> Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 </div>
 
@@ -200,6 +168,13 @@ export function GuestStaysClient({ guests }: GuestStaysClientProps) {
         onOpenChange={open => { if (!open) { setIsDialogOpen(false); setEditingStay(null) } }}
         stay={editingStay}
         onSave={handleSave}
+      />
+
+      <ConfirmDeleteDialog
+        open={!!deleteStay}
+        onOpenChange={open => { if (!open) setDeleteStay(null) }}
+        onConfirm={() => deleteStay && handleDelete(deleteStay.id)}
+        itemName={deleteStay?.guest_name}
       />
     </div>
   )

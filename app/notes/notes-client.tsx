@@ -3,7 +3,9 @@
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { Plus, Pencil, Trash2, FileText, Table } from "lucide-react"
+import { Plus, Pencil, Trash2, FileText, Table, MoreHorizontal } from "lucide-react"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { ConfirmDeleteDialog } from "@/components/confirm-delete-dialog"
 import { NoteDialog } from "@/components/note-dialog"
 import { NoteViewModal } from "@/components/note-view-modal"
 import { TableNotePreview } from "@/components/table-note-editor"
@@ -29,6 +31,7 @@ export function NotesClient({ notes }: NotesClientProps) {
   const [isViewModalOpen, setIsViewModalOpen] = useState(false)
   const [editingNote, setEditingNote] = useState<Note | null>(null)
   const [viewingNote, setViewingNote] = useState<Note | null>(null)
+  const [deleteNote_, setDeleteNote_] = useState<Note | null>(null)
   const router = useRouter()
 
   useEffect(() => {
@@ -88,21 +91,21 @@ export function NotesClient({ notes }: NotesClientProps) {
   return (
     <div className="p-8">
       {notes.length === 0 ? (
-        <Card className="p-12 text-center">
-          <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-foreground mb-2">No notes yet</h3>
-          <p className="text-muted-foreground mb-4">Create your first note to get started</p>
-          <Button onClick={() => setIsDialogOpen(true)} className="cursor-pointer">
-            <Plus className="h-4 w-4 mr-2" />
-            Create Note
-          </Button>
-        </Card>
+        <div className="flex flex-col items-center justify-center py-24 gap-4">
+          <p className="text-gray-400 text-base">No notes yet</p>
+          <button
+            onClick={() => setIsDialogOpen(true)}
+            className="flex items-center gap-2 px-6 py-2.5 bg-indigo-500 hover:bg-indigo-600 text-white text-sm font-medium rounded-xl cursor-pointer transition-colors"
+          >
+            <Plus className="h-4 w-4" /> New Note
+          </button>
+        </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {notes.map((note) => (
             <Card
               key={note.id}
-              className="p-5 hover:shadow-md transition-all cursor-pointer group border-2 hover:border-gray-200"
+              className="p-5 transition-all cursor-pointer group border-2 hover:border-gray-200 shadow-none hover:shadow-md hover:-translate-y-0.5"
               onClick={() => openViewModal(note)}
             >
               <div className="flex items-start justify-between mb-2">
@@ -113,13 +116,22 @@ export function NotesClient({ notes }: NotesClientProps) {
                   }
                   <h3 className="text-sm font-semibold text-foreground line-clamp-1">{note.title}</h3>
                 </div>
-                <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 ml-2" onClick={e => e.stopPropagation()}>
-                  <Button variant="ghost" size="icon" className="h-7 w-7 cursor-pointer" onClick={() => openEditDialog(note)}>
-                    <Pencil className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive cursor-pointer" onClick={() => handleDeleteNote(note.id)}>
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
+                <div className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 ml-2" onClick={e => e.stopPropagation()}>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 cursor-pointer text-gray-400 hover:text-gray-700">
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem className="cursor-pointer" onClick={() => openEditDialog(note)}>
+                        <Pencil className="h-3.5 w-3.5 mr-2" /> Edit
+                      </DropdownMenuItem>
+                      <DropdownMenuItem className="cursor-pointer text-destructive focus:text-destructive" onClick={() => setDeleteNote_(note)}>
+                        <Trash2 className="h-3.5 w-3.5 mr-2" /> Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </div>
 
@@ -158,6 +170,13 @@ export function NotesClient({ notes }: NotesClientProps) {
         onEdit={openEditDialog}
         onDelete={handleDeleteNote}
         onEditSave={handleEditNote}
+      />
+
+      <ConfirmDeleteDialog
+        open={!!deleteNote_}
+        onOpenChange={open => { if (!open) setDeleteNote_(null) }}
+        onConfirm={() => deleteNote_ && handleDeleteNote(deleteNote_.id)}
+        itemName={deleteNote_?.title}
       />
     </div>
   )

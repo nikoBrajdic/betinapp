@@ -11,6 +11,7 @@ const pageConfig: Record<string, { title: string; subtitle?: string; action?: st
   "/utilities":    { title: "Utilities",    subtitle: "Monitor household utility usage and costs",         action: "New Reading" },
   "/bills":        { title: "Bills",        subtitle: "Track and manage your household bills",            action: "New Bill" },
   "/guest-stays":  { title: "Stays",  subtitle: "Family and friends coming to visit",  action: "New Stay" },
+  "/diary":        { title: "Diary",  subtitle: "Household updates and memories",       action: "New Entry" },
   "/admin/manage": { title: "Admin Management", subtitle: "Manage users, invites and access control" },
 }
 

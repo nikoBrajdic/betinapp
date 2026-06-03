@@ -11,6 +11,7 @@ interface Note {
   title: string
   content: string
   color: string
+  type: "text" | "table"
   created_at: string
   updated_at: string
 }
@@ -21,7 +22,7 @@ interface NoteViewModalProps {
   note: Note | null
   onEdit: (note: Note) => void
   onDelete: (id: string) => void
-  onEditSave: (id: string, title: string, content: string) => void
+  onEditSave: (id: string, title: string, content: string, type?: "text" | "table") => void
 }
 
 export function NoteViewModal({ open, onOpenChange, note, onEdit, onDelete, onEditSave }: NoteViewModalProps) {
@@ -38,8 +39,8 @@ export function NoteViewModal({ open, onOpenChange, note, onEdit, onDelete, onEd
     onOpenChange(false)
   }
 
-  const handleEditSave = (title: string, content: string) => {
-    onEditSave(note.id, title, content)
+  const handleEditSave = (title: string, content: string, type: "text" | "table") => {
+    onEditSave(note.id, title, content, type)
     setIsEditDialogOpen(false)
     onOpenChange(false)
   }
@@ -90,6 +91,7 @@ export function NoteViewModal({ open, onOpenChange, note, onEdit, onDelete, onEd
         onSave={handleEditSave}
         initialTitle={note.title}
         initialContent={note.content}
+        initialType={note.type}
         mode="edit"
       />
     </>

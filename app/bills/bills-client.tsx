@@ -167,7 +167,7 @@ export function BillsClient({ bills }: BillsClientProps) {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <Card className="p-6">
+        <Card className="p-6 shadow-none">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-muted-foreground">Total Bills</p>
@@ -176,7 +176,7 @@ export function BillsClient({ bills }: BillsClientProps) {
             <DollarSign className="h-8 w-8 text-muted-foreground" />
           </div>
         </Card>
-        <Card className="p-6">
+        <Card className="p-6 shadow-none">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-muted-foreground">Pending</p>
@@ -185,7 +185,7 @@ export function BillsClient({ bills }: BillsClientProps) {
             <Clock className="h-8 w-8 text-yellow-600" />
           </div>
         </Card>
-        <Card className="p-6">
+        <Card className="p-6 shadow-none">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-muted-foreground">Paid</p>
@@ -197,7 +197,7 @@ export function BillsClient({ bills }: BillsClientProps) {
       </div>
 
       {bills.length === 0 ? (
-        <Card className="p-12 text-center">
+        <Card className="p-12 text-center shadow-none">
           <DollarSign className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-foreground mb-2">No bills yet</h3>
           <p className="text-muted-foreground mb-4">Add your first bill to get started</p>
@@ -209,7 +209,7 @@ export function BillsClient({ bills }: BillsClientProps) {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {bills.map((bill) => (
-            <Card key={bill.id} className="p-6 hover:shadow-md transition-shadow">
+            <Card key={bill.id} className="p-6 shadow-none transition-all hover:shadow-md hover:-translate-y-0.5">
               <div className="flex items-start justify-between mb-4">
                 <div className="flex-1">
                   <h3 className="text-lg font-semibold text-foreground mb-1">{bill.name}</h3>
