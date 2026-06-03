@@ -414,7 +414,7 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
 
   return (
     <div className="p-6">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
         <Card className={cn("p-5 shadow-none border-2", monthlyReadingDue ? "border-amber-200 bg-amber-50/40" : "border-green-100 bg-green-50/30")}>
           <div className="flex items-start justify-between gap-4">
             <div>
@@ -433,16 +433,6 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
               <p className="text-xs text-gray-400 mt-1">{formatMoney(unpaidTotal)} due</p>
             </div>
             <ReceiptText className="h-7 w-7 text-blue-500" />
-          </div>
-        </Card>
-        <Card className="p-5 shadow-none border-2 border-emerald-100">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="text-sm font-medium text-gray-500">Tracked meters</p>
-              <p className="text-2xl font-bold text-gray-900 mt-1">{readingUtilities.length || utilities.length}</p>
-              <p className="text-xs text-gray-400 mt-1">Water and electricity numbers</p>
-            </div>
-            <Droplets className="h-7 w-7 text-emerald-500" />
           </div>
         </Card>
       </div>
