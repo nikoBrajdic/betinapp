@@ -59,6 +59,7 @@ function genId() {
 function NoteBlocksEditor({ blocks, onChange }: { blocks: NoteBlock[]; onChange: (blocks: NoteBlock[]) => void }) {
   const [uploadingId, setUploadingId] = useState<string | null>(null)
   const [focusedBlockId, setFocusedBlockId] = useState<string | null>(null)
+  const [focusPosition, setFocusPosition] = useState<number | null>(null)
   const fileRefs = useRef<Record<string, HTMLInputElement | null>>({})
   const textRefs = useRef<Record<string, HTMLTextAreaElement | null>>({})
 
@@ -67,15 +68,19 @@ function NoteBlocksEditor({ blocks, onChange }: { blocks: NoteBlock[]; onChange:
     const el = textRefs.current[focusedBlockId]
     if (!el) return
     el.focus()
-    el.setSelectionRange(0, 0)
-  }, [blocks, focusedBlockId])
+    const pos = focusPosition ?? 0
+    el.setSelectionRange(pos, pos)
+  }, [focusedBlockId, focusPosition])
 
   const updateBlock = (id: string, nextBlock: NoteBlock) => {
     onChange(blocks.map(block => block.id === id ? nextBlock : block))
   }
 
   const addTextBlock = () => {
-    onChange([...blocks, { id: genId(), type: "paragraph", text: "" }])
+    const nextBlock: NoteBlock = { id: genId(), type: "paragraph", text: "" }
+    onChange([...blocks, nextBlock])
+    setFocusedBlockId(nextBlock.id)
+    setFocusPosition(0)
   }
 
   const addImageBlock = (afterId?: string) => {
@@ -104,6 +109,23 @@ function NoteBlocksEditor({ blocks, onChange }: { blocks: NoteBlock[]; onChange:
       ...blocks.slice(index + 1),
     ])
     setFocusedBlockId(nextBlock.id)
+    setFocusPosition(0)
+  }
+
+  const mergeWithPreviousTextBlock = (block: Extract<NoteBlock, { type: "paragraph" }>) => {
+    const index = blocks.findIndex(item => item.id === block.id)
+    if (index <= 0) return
+    const previous = blocks[index - 1]
+    if (!previous || previous.type !== "paragraph") return
+
+    const previousText = previous.text
+    onChange([
+      ...blocks.slice(0, index - 1),
+      { ...previous, text: previousText + block.text },
+      ...blocks.slice(index + 1),
+    ])
+    setFocusedBlockId(previous.id)
+    setFocusPosition(previousText.length)
   }
 
   const addImages = async (block: Extract<NoteBlock, { type: "image" }>, files: FileList | File[]) => {
@@ -199,6 +221,15 @@ function NoteBlocksEditor({ blocks, onChange }: { blocks: NoteBlock[]; onChange:
                     const start = event.currentTarget.selectionStart ?? block.text.length
                     const end = event.currentTarget.selectionEnd ?? start
                     splitTextBlock(block, block.text.slice(0, start), block.text.slice(end))
+                  }
+                  if (event.key === "Backspace") {
+                    const start = event.currentTarget.selectionStart ?? 0
+                    const end = event.currentTarget.selectionEnd ?? start
+                    if (start === 0 && end === 0) {
+                      event.preventDefault()
+                      if (block.text === "") deleteBlock(block.id)
+                      else mergeWithPreviousTextBlock(block)
+                    }
                   }
                 }}
                 placeholder="Write something..."

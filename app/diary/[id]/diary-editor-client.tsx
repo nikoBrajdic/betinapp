@@ -52,11 +52,11 @@ async function uploadImage(file: File, entryId: string): Promise<string> {
 
 // ── Auto-resize textarea ──────────────────────────────────────────────────────
 function AutoTextarea({
-  value, onChange, onKeyDown, placeholder, className, autoFocus,
+  value, onChange, onKeyDown, placeholder, className, autoFocus, focusPosition,
 }: {
   value: string; onChange: (v: string) => void
   onKeyDown?: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void
-  placeholder?: string; className?: string; autoFocus?: boolean
+  placeholder?: string; className?: string; autoFocus?: boolean; focusPosition?: number | null
 }) {
   const ref = useRef<HTMLTextAreaElement>(null)
   useEffect(() => {
@@ -65,9 +65,10 @@ function AutoTextarea({
   useEffect(() => {
     if (autoFocus && ref.current) {
       ref.current.focus()
-      ref.current.setSelectionRange(0, 0)
+      const pos = focusPosition ?? 0
+      ref.current.setSelectionRange(pos, pos)
     }
-  }, [autoFocus])
+  }, [autoFocus, focusPosition])
   return (
     <textarea
       ref={ref} value={value} rows={1} placeholder={placeholder}
@@ -247,12 +248,12 @@ function ImageBlock({
 
 // ── Single block row ──────────────────────────────────────────────────────────
 function BlockRow({
-  block, focused, onFocus, onChange, onDelete, onEnter, onBackspaceEmpty,
+  block, focused, focusPosition, onFocus, onChange, onDelete, onEnter, onBackspaceStart, onBackspaceEmpty,
   onDragStart, onDragEnter, onDragEnd, isDragOver, entryId, onAddImageAfter,
 }: {
-  block: Block; focused: boolean; onFocus: () => void
+  block: Block; focused: boolean; focusPosition?: number | null; onFocus: () => void
   onChange: (b: Block) => void; onDelete: () => void
-  onEnter: (before: string, after: string) => void; onBackspaceEmpty: () => void
+  onEnter: (before: string, after: string) => void; onBackspaceStart: () => void; onBackspaceEmpty: () => void
   onDragStart: () => void; onDragEnter: () => void; onDragEnd: () => void
   isDragOver: boolean; entryId: string; onAddImageAfter: () => void
 }) {
@@ -264,14 +265,22 @@ function BlockRow({
       const end = e.currentTarget.selectionEnd ?? start
       onEnter(text.slice(0, start), text.slice(end))
     }
-    if (e.key === "Backspace" && text === "") { e.preventDefault(); onBackspaceEmpty() }
+    if (e.key === "Backspace") {
+      const start = e.currentTarget.selectionStart ?? 0
+      const end = e.currentTarget.selectionEnd ?? start
+      if (start === 0 && end === 0) {
+        e.preventDefault()
+        if (text === "") onBackspaceEmpty()
+        else onBackspaceStart()
+      }
+    }
   }
 
   return (
     <div
       className={cn(
         "group/block relative flex items-start gap-1 rounded-lg transition-colors",
-        isDragOver && "bg-amber-50 border border-dashed border-amber-300"
+        isDragOver && "before:absolute before:-top-1 before:left-6 before:right-1 before:h-0.5 before:rounded-full before:bg-amber-400"
       )}
       onDragOver={e => e.preventDefault()}
       onDragEnter={onDragEnter}
@@ -292,7 +301,8 @@ function BlockRow({
           <AutoTextarea
             value={block.text} onChange={text => onChange({ ...block, text })}
             onKeyDown={handleKey} placeholder="Heading…"
-            autoFocus={focused && block.text === ""}
+            autoFocus={focused}
+            focusPosition={focusPosition}
             className="text-xl font-semibold text-gray-800 py-0.5"
           />
         )}
@@ -300,7 +310,8 @@ function BlockRow({
           <AutoTextarea
             value={block.text} onChange={text => onChange({ ...block, text })}
             onKeyDown={handleKey} placeholder="Write something…"
-            autoFocus={focused && block.text === ""}
+            autoFocus={focused}
+            focusPosition={focusPosition}
             className={cn("text-base text-gray-700 py-0.5", block.bold && "font-semibold")}
           />
         )}
@@ -395,6 +406,7 @@ export function DiaryEditorClient({ entry }: { entry: DiaryEntry }) {
   )
   const [isEditing, setIsEditing] = useState(false)
   const [focusedId, setFocusedId] = useState<string | null>(null)
+  const [focusPosition, setFocusPosition] = useState<number | null>(null)
   const [saving, setSaving] = useState(false)
   const [savedAt, setSavedAt] = useState<Date | null>(null)
   const [globalDragOver, setGlobalDragOver] = useState(false)
@@ -431,6 +443,7 @@ export function DiaryEditorClient({ entry }: { entry: DiaryEntry }) {
     }
     setBlocksAndSave(next)
     setFocusedId(newBlock.id)
+    setFocusPosition(0)
   }
 
   const deleteBlock = (id: string) => {
@@ -438,6 +451,7 @@ export function DiaryEditorClient({ entry }: { entry: DiaryEntry }) {
     const next = blocks.filter(b => b.id !== id)
     setBlocksAndSave(next)
     setFocusedId(next[Math.max(0, idx - 1)]?.id ?? null)
+    setFocusPosition(null)
   }
 
   const updateBlock = (id: string, updated: Block) => {
@@ -462,6 +476,29 @@ export function DiaryEditorClient({ entry }: { entry: DiaryEntry }) {
 
     setBlocksAndSave(next)
     setFocusedId(newBlock.id)
+    setFocusPosition(0)
+  }
+
+  const mergeWithPreviousBlock = (id: string) => {
+    const idx = blocks.findIndex(b => b.id === id)
+    if (idx <= 0) return
+    const block = blocks[idx]
+    const prev = blocks[idx - 1]
+    if (!block || !prev) return
+    if ((block.type !== "paragraph" && block.type !== "heading") || (prev.type !== "paragraph" && prev.type !== "heading")) return
+
+    const prevText = prev.text
+    const nextPrev: Block = prev.type === "heading"
+      ? { ...prev, text: prevText + block.text }
+      : { ...prev, text: prevText + block.text }
+    const next = [
+      ...blocks.slice(0, idx - 1),
+      nextPrev,
+      ...blocks.slice(idx + 1),
+    ]
+    setBlocksAndSave(next)
+    setFocusedId(prev.id)
+    setFocusPosition(prevText.length)
   }
 
   // Global drag-and-drop for image files onto the editor
@@ -588,7 +625,7 @@ export function DiaryEditorClient({ entry }: { entry: DiaryEntry }) {
             onKeyDown={e => {
               if (e.key === "Enter") { e.preventDefault()
                 if (blocks.length === 0) addBlock("paragraph")
-                else setFocusedId(blocks[0].id)
+                else { setFocusedId(blocks[0].id); setFocusPosition(0) }
               }
             }}
             placeholder="Title…"
@@ -615,10 +652,12 @@ export function DiaryEditorClient({ entry }: { entry: DiaryEntry }) {
             key={block.id}
             block={block}
             focused={focusedId === block.id}
-            onFocus={() => setFocusedId(block.id)}
+            focusPosition={focusedId === block.id ? focusPosition : null}
+            onFocus={() => { setFocusedId(block.id); setFocusPosition(null) }}
             onChange={updated => updateBlock(block.id, updated)}
             onDelete={() => deleteBlock(block.id)}
             onEnter={(before, after) => splitTextBlock(block.id, before, after)}
+            onBackspaceStart={() => mergeWithPreviousBlock(block.id)}
             onBackspaceEmpty={() => deleteBlock(block.id)}
             onDragStart={() => handleBlockDragStart(idx)}
             onDragEnter={() => handleBlockDragEnter(idx)}

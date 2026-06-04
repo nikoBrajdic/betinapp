@@ -59,23 +59,26 @@ function AddItemRow({ groupId, onAdded }: { groupId: string; onAdded: () => void
     setTimeout(() => inputRef.current?.focus(), 20)
   }
 
-  const submit = async () => {
+  const submit = async (keepOpen = true) => {
     const v = value.trim()
-    if (!v) { setAdding(false); return }
+    if (!v) { setAdding(false); setValue(""); return }
     if (submitting.current) return
     submitting.current = true
-    await createTask({ title: v, taskGroupId: groupId })
-    setValue("")
-    submitting.current = false
-    onAdded()
-    // Stay open so user can keep adding
-    setTimeout(() => inputRef.current?.focus(), 20)
+    try {
+      await createTask({ title: v, taskGroupId: groupId })
+      setValue("")
+      if (!keepOpen) setAdding(false)
+      onAdded()
+      if (keepOpen) setTimeout(() => inputRef.current?.focus(), 20)
+    } finally {
+      submitting.current = false
+    }
   }
 
   const handleBlur = () => {
     setTimeout(() => {
       if (!submitting.current) {
-        if (value.trim()) submit()
+        if (value.trim()) submit(false)
         else { setAdding(false); setValue("") }
       }
     }, 150)
@@ -98,7 +101,7 @@ function AddItemRow({ groupId, onAdded }: { groupId: string; onAdded: () => void
         onChange={e => setValue(e.target.value)}
         onBlur={handleBlur}
         onKeyDown={e => {
-          if (e.key === "Enter") submit()
+          if (e.key === "Enter") { e.preventDefault(); submit() }
           if (e.key === "Escape") { setAdding(false); setValue("") }
         }}
         placeholder="Add item…"
@@ -107,7 +110,7 @@ function AddItemRow({ groupId, onAdded }: { groupId: string; onAdded: () => void
       {value.trim() && (
         <button
           onMouseDown={event => event.preventDefault()}
-          onClick={submit}
+          onClick={() => submit()}
           className="text-xs font-semibold text-gray-500 hover:text-gray-900 cursor-pointer transition-colors flex-shrink-0"
         >
           Add
@@ -166,8 +169,8 @@ function TaskList({
           onDragEnd={handleDrop}
           onDragOver={e => e.preventDefault()}
           className={cn(
-            "flex items-center gap-2 group/item rounded-lg px-1 py-0.5 transition-colors",
-            dragOver === idx && "bg-white/70 border border-dashed border-gray-300"
+            "relative flex items-center gap-2 group/item rounded-lg px-1 py-0.5 transition-colors",
+            dragOver === idx && "before:absolute before:-top-0.5 before:left-6 before:right-1 before:h-0.5 before:rounded-full before:bg-violet-400"
           )}
         >
           {/* Drag handle */}
@@ -341,7 +344,7 @@ export function TasksClient({ taskGroups }: TasksClientProps) {
                 className={cn(
                   "relative mb-5 break-inside-avoid p-5 pt-7 border-2 flex flex-col shadow-none transition-all hover:shadow-md hover:-translate-y-0.5 group/card",
                   bg,
-                  dragOverGroup === index && "border-dashed border-violet-300 bg-violet-50/40",
+                  dragOverGroup === index && "before:absolute before:-top-2 before:left-4 before:right-4 before:h-0.5 before:rounded-full before:bg-violet-500",
                 )}
               >
                 <div

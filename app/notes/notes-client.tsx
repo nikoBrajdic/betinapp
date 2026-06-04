@@ -149,8 +149,8 @@ export function NotesClient({ notes }: NotesClientProps) {
               onDragEnter={() => handleDragEnter(index)}
               onDragOver={event => event.preventDefault()}
               className={cn(
-                "p-5 transition-all cursor-pointer group border-2 hover:border-gray-200 shadow-none hover:shadow-md hover:-translate-y-0.5",
-                dragOverIndex === index && "border-dashed border-indigo-300 bg-indigo-50/30"
+                "relative p-5 transition-all cursor-pointer group border-2 hover:border-gray-200 shadow-none hover:shadow-md hover:-translate-y-0.5",
+                dragOverIndex === index && "before:absolute before:-top-2 before:left-4 before:right-4 before:h-0.5 before:rounded-full before:bg-indigo-500"
               )}
               onClick={() => openViewModal(note)}
             >
