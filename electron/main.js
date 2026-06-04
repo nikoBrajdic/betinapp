@@ -1,7 +1,7 @@
 const { app, BrowserWindow, shell } = require('electron')
 const path = require('path')
 
-const APP_URL = process.env.ELECTRON_APP_URL || 'https://betinapp.vercel.app'
+const APP_URL = process.env.ELECTRON_APP_URL || 'https://betin-app.vercel.app'
 
 function createWindow() {
   const win = new BrowserWindow({
