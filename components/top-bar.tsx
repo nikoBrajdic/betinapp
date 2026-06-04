@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation"
 import { Plus } from "lucide-react"
 
 const pageConfig: Record<string, { title: string; subtitle?: string; action?: string }> = {
-  "/":             { title: "Betinapp", subtitle: "Making life at the coast easier, since 2026" },
+  "/":             { title: "Dashboard", subtitle: "Making life at the coast easier, since 2026" },
   "/notes":        { title: "Notes",        subtitle: "Keep track of important information and reminders", action: "New Note" },
   "/tasks":        { title: "Tasks",        subtitle: "Household checklist — anyone can pitch in",        action: "New Task" },
   "/calendar":     { title: "Calendar",     subtitle: "Click on any date to view or add events",          action: "New Event" },
