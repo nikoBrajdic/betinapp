@@ -12,7 +12,7 @@ const pageConfig: Record<string, { title: string; subtitle?: string; action?: st
   "/bills":        { title: "Utilities",    subtitle: "Readings and household bills" },
   "/guest-stays":  { title: "Stays",  subtitle: "Family and friends coming to visit",  action: "New Stay" },
   "/diary":        { title: "Diary",  subtitle: "Household updates and memories",       action: "New Entry" },
-  "/admin/manage": { title: "Admin Management", subtitle: "Manage users, invites and access control" },
+  "/admin/manage": { title: "Manage Users", subtitle: "Manage users, invites and access control" },
 }
 
 export function TopBar() {

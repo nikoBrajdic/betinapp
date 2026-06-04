@@ -175,7 +175,7 @@ export function Sidebar({ user }: SidebarProps) {
               )}
             >
               <Settings className="h-[18px] w-[18px] flex-shrink-0" />
-              {!collapsed && <span>Manage Admins</span>}
+              {!collapsed && <span>Manage Users</span>}
             </Link>
           </>
         )}
