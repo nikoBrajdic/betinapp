@@ -231,6 +231,7 @@ export function TasksClient({ taskGroups }: TasksClientProps) {
 
   // Keep localOrder in sync when props update
   useEffect(() => {
+    if (dragGroupIndex.current !== null) return
     setOrderedGroups(taskGroups)
     orderedGroupsRef.current = taskGroups
     setLocalOrder(Object.fromEntries(taskGroups.map(g => [g.id, g.tasks ?? []])))
@@ -302,7 +303,6 @@ export function TasksClient({ taskGroups }: TasksClientProps) {
 
     try {
       await reorderTaskGroups(orderedGroupsRef.current.map(group => group.id))
-      refresh()
     } catch (error) {
       console.error("Failed to reorder task groups:", error)
       setOrderedGroups(taskGroups)
