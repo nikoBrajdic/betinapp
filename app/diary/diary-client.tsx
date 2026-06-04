@@ -11,6 +11,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { ConfirmDeleteDialog } from "@/components/confirm-delete-dialog"
 import { BookOpen, Plus, Trash2, Image as ImageIcon, MoreHorizontal } from "lucide-react"
 import { createDiaryEntry, deleteDiaryEntry, type DiaryEntry } from "@/lib/actions/diary"
+import { trackSave } from "@/lib/save-events"
 
 interface DiaryClientProps {
   entries: DiaryEntry[]
@@ -52,14 +53,14 @@ export function DiaryClient({ entries }: DiaryClientProps) {
     if (!newTitle.trim()) return
     setCreating(true)
     try {
-      const entry = await createDiaryEntry(newTitle.trim())
+      const entry = await trackSave(createDiaryEntry(newTitle.trim()))
       router.push(`/diary/${entry.id}`)
     } catch (e) { console.error(e); setCreating(false) }
   }
 
   const handleDelete = async () => {
     if (!deleteId) return
-    try { await deleteDiaryEntry(deleteId); router.refresh() }
+    try { await trackSave(deleteDiaryEntry(deleteId)); router.refresh() }
     catch (e) { console.error(e) }
   }
 

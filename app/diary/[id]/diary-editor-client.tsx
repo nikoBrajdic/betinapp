@@ -8,6 +8,7 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { updateDiaryEntry, type DiaryEntry, type Block, type ImageItem } from "@/lib/actions/diary"
+import { trackSave } from "@/lib/save-events"
 import { createClient } from "@/lib/supabase/client"
 
 // ── Utilities ─────────────────────────────────────────────────────────────────
@@ -420,7 +421,7 @@ export function DiaryEditorClient({ entry }: { entry: DiaryEntry }) {
     if (saveTimer.current) clearTimeout(saveTimer.current)
     setSaving(true)
     saveTimer.current = setTimeout(async () => {
-      try { await updateDiaryEntry(entry.id, { title: t, content: b }); setSavedAt(new Date()) }
+      try { await trackSave(updateDiaryEntry(entry.id, { title: t, content: b })); setSavedAt(new Date()) }
       catch (e) { console.error(e) }
       setSaving(false)
     }, 1200)

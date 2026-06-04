@@ -5,6 +5,7 @@ import "./globals.css"
 import { Sidebar } from "@/components/sidebar"
 import { TopBar } from "@/components/top-bar"
 import { EventsPanel } from "@/components/events-panel"
+import { SaveIndicator } from "@/components/save-indicator"
 import { getCurrentUser } from "@/lib/actions/auth"
 import { getEvents } from "@/lib/actions/events"
 
@@ -44,6 +45,7 @@ export default async function RootLayout({
                   <main className="flex-1 overflow-y-auto">
                     {children}
                   </main>
+                  <SaveIndicator />
                 </div>
 
                 {/* Events panel — renders itself only on /calendar */}

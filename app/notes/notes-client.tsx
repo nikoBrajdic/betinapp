@@ -11,6 +11,7 @@ import { NoteViewModal } from "@/components/note-view-modal"
 import { TableNotePreview } from "@/components/table-note-editor"
 import { NoteBlocksView, noteCoverImage, notePreviewText } from "@/components/note-rich-content"
 import { createNote, updateNote, deleteNote, reorderNotes } from "@/lib/actions/notes"
+import { trackSave } from "@/lib/save-events"
 import { useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
 
@@ -53,7 +54,7 @@ export function NotesClient({ notes }: NotesClientProps) {
 
   const handleAddNote = async (title: string, content: string, type: "text" | "table") => {
     try {
-      await createNote({ title, content, color: "blue", type })
+      await trackSave(createNote({ title, content, color: "blue", type }))
       router.refresh()
     } catch (error) {
       console.error("Failed to create note:", error)
@@ -63,7 +64,7 @@ export function NotesClient({ notes }: NotesClientProps) {
   const handleEditNote = async (id: string, title: string, content: string, type?: "text" | "table") => {
     try {
       const note = orderedNotes.find(n => n.id === id)
-      await updateNote(id, { title, content, color: "blue", type: type ?? note?.type ?? "text" })
+      await trackSave(updateNote(id, { title, content, color: "blue", type: type ?? note?.type ?? "text" }))
       router.refresh()
     } catch (error) {
       console.error("Failed to update note:", error)
@@ -72,7 +73,7 @@ export function NotesClient({ notes }: NotesClientProps) {
 
   const handleDeleteNote = async (id: string) => {
     try {
-      await deleteNote(id)
+      await trackSave(deleteNote(id))
       router.refresh()
     } catch (error) {
       console.error("Failed to delete note:", error)
@@ -121,7 +122,7 @@ export function NotesClient({ notes }: NotesClientProps) {
     setDragOverIndex(null)
 
     try {
-      await reorderNotes(orderedNotesRef.current.map(note => note.id))
+      await trackSave(reorderNotes(orderedNotesRef.current.map(note => note.id)))
       router.refresh()
     } catch (error) {
       console.error("Failed to reorder notes:", error)

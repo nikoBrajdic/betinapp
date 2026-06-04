@@ -19,6 +19,7 @@ import {
   createTask, updateTask, deleteTask, toggleTaskCompletion,
   duplicateTaskGroup, reorderTaskGroups,
 } from "@/lib/actions/tasks"
+import { trackSave } from "@/lib/save-events"
 import { useRouter } from "next/navigation"
 
 interface Task {
@@ -65,7 +66,7 @@ function AddItemRow({ groupId, onAdded }: { groupId: string; onAdded: () => void
     if (submitting.current) return
     submitting.current = true
     try {
-      await createTask({ title: v, taskGroupId: groupId })
+      await trackSave(createTask({ title: v, taskGroupId: groupId }))
       setValue("")
       if (!keepOpen) setAdding(false)
       onAdded()
@@ -252,37 +253,37 @@ export function TasksClient({ taskGroups }: TasksClientProps) {
   const refresh = () => router.refresh()
 
   const handleCreateTask = async (title: string, color: string, items?: string[]) => {
-    try { await createTaskWithItems({ title, color, items }); refresh() }
+    try { await trackSave(createTaskWithItems({ title, color, items })); refresh() }
     catch (e) { console.error(e) }
   }
 
   const handleEditTask = async (id: string, title: string, color: string) => {
-    try { await updateTaskGroup(id, { title, color }); refresh() }
+    try { await trackSave(updateTaskGroup(id, { title, color })); refresh() }
     catch (e) { console.error(e) }
   }
 
   const handleDeleteTask = async (id: string) => {
-    try { await deleteTaskGroup(id); refresh() }
+    try { await trackSave(deleteTaskGroup(id)); refresh() }
     catch (e) { console.error(e) }
   }
 
   const handleDuplicate = async (id: string) => {
-    try { await duplicateTaskGroup(id); refresh() }
+    try { await trackSave(duplicateTaskGroup(id)); refresh() }
     catch (e) { console.error(e) }
   }
 
   const handleEditItem = async (id: string, title: string) => {
-    try { await updateTask(id, { title }); refresh() }
+    try { await trackSave(updateTask(id, { title })); refresh() }
     catch (e) { console.error(e) }
   }
 
   const handleDeleteItem = async (id: string) => {
-    try { await deleteTask(id); refresh() }
+    try { await trackSave(deleteTask(id)); refresh() }
     catch (e) { console.error(e) }
   }
 
   const handleToggle = async (id: string) => {
-    try { await toggleTaskCompletion(id); refresh() }
+    try { await trackSave(toggleTaskCompletion(id)); refresh() }
     catch (e) { console.error(e) }
   }
 
@@ -308,7 +309,7 @@ export function TasksClient({ taskGroups }: TasksClientProps) {
     setDragOverGroup(null)
 
     try {
-      await reorderTaskGroups(orderedGroupsRef.current.map(group => group.id))
+      await trackSave(reorderTaskGroups(orderedGroupsRef.current.map(group => group.id)))
     } catch (error) {
       console.error("Failed to reorder task groups:", error)
       setOrderedGroups(taskGroups)

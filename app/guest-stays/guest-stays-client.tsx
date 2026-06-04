@@ -9,6 +9,7 @@ import { ConfirmDeleteDialog } from "@/components/confirm-delete-dialog"
 import { cn } from "@/lib/utils"
 import { GuestStayDialog } from "@/components/guest-stay-dialog"
 import { createGuestStay, updateGuestStay, deleteGuestStay } from "@/lib/actions/guest-stays"
+import { trackSave } from "@/lib/save-events"
 import { useRouter } from "next/navigation"
 
 type StayType = "family" | "friend"
@@ -68,16 +69,16 @@ export function GuestStaysClient({ guests }: GuestStaysClientProps) {
   const handleSave = async (data: Parameters<typeof createGuestStay>[0]) => {
     try {
       if (editingStay) {
-        await updateGuestStay(editingStay.id, data)
+        await trackSave(updateGuestStay(editingStay.id, data))
       } else {
-        await createGuestStay(data)
+        await trackSave(createGuestStay(data))
       }
       router.refresh()
     } catch (e) { console.error(e) }
   }
 
   const handleDelete = async (id: string) => {
-    try { await deleteGuestStay(id); router.refresh() }
+    try { await trackSave(deleteGuestStay(id)); router.refresh() }
     catch (e) { console.error(e) }
   }
 

@@ -26,6 +26,7 @@ import { BillDialog } from "@/components/bill-dialog"
 import { UtilityDialog } from "@/components/utility-dialog"
 import { deleteBill, createBill, updateBill } from "@/lib/actions/bills"
 import { createDefaultReadingUtilities, createUtilityReading, deleteUtilityReading, updateUtilityReading } from "@/lib/actions/utilities"
+import { trackSave } from "@/lib/save-events"
 import { cn } from "@/lib/utils"
 import { formatMoney } from "@/lib/currency"
 
@@ -285,14 +286,14 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
     if (!utility || row.readingIds.length === 0) return
 
     try {
-      await updateUtilityReading({
+      await trackSave(updateUtilityReading({
         type: row.name,
         readingIds: row.readingIds,
         value: usage,
         maxValue: utility.max_usage,
         readingDate,
         secondaryValue: details?.secondaryUsage,
-      })
+      }))
       refresh()
     } catch (error) {
       console.error("Failed to update reading:", error)
@@ -301,7 +302,7 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
 
   const handleSetupReadings = async () => {
     try {
-      await createDefaultReadingUtilities()
+      await trackSave(createDefaultReadingUtilities())
       refresh()
     } catch (error) {
       console.error("Failed to set up readings:", error)
@@ -313,14 +314,14 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
     if (!utility) return
 
     try {
-      await createUtilityReading({
+      await trackSave(createUtilityReading({
         type: utility.name,
         value: usage,
         maxValue: utility.max_usage,
         unit: utility.unit,
         readingDate,
         secondaryValue: details?.secondaryUsage,
-      })
+      }))
       refresh()
     } catch (error) {
       console.error("Failed to create utility reading:", error)
@@ -335,14 +336,14 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
     recurring: boolean,
   ) => {
     try {
-      await createBill({
+      await trackSave(createBill({
         name,
         amount,
         dueDate: dueDate.toISOString().split("T")[0],
         paid: false,
         category,
         recurring,
-      })
+      }))
       refresh()
     } catch (error) {
       console.error("Failed to create bill:", error)
@@ -359,14 +360,14 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
   ) => {
     const existing = bills.find(bill => bill.id === id)
     try {
-      await updateBill(id, {
+      await trackSave(updateBill(id, {
         name,
         amount,
         dueDate: dueDate.toISOString().split("T")[0],
         paid: existing?.paid ?? false,
         category,
         recurring,
-      })
+      }))
       refresh()
     } catch (error) {
       console.error("Failed to update bill:", error)
@@ -375,14 +376,14 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
 
   const handleToggleBill = async (bill: Bill) => {
     try {
-      await updateBill(bill.id, {
+      await trackSave(updateBill(bill.id, {
         name: bill.name,
         amount: bill.amount,
         dueDate: bill.due_date,
         paid: !bill.paid,
         category: bill.category,
         recurring: bill.recurring,
-      })
+      }))
       refresh()
     } catch (error) {
       console.error("Failed to update bill:", error)
@@ -392,7 +393,7 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
   const handleDeleteBill = async () => {
     if (!deleteBill_) return
     try {
-      await deleteBill(deleteBill_.id)
+      await trackSave(deleteBill(deleteBill_.id))
       refresh()
     } catch (error) {
       console.error("Failed to delete bill:", error)
@@ -402,10 +403,10 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
   const handleDeleteReading = async () => {
     if (!deleteReading) return
     try {
-      await deleteUtilityReading({
+      await trackSave(deleteUtilityReading({
         type: deleteReading.name,
         readingIds: deleteReading.readingIds,
-      })
+      }))
       refresh()
     } catch (error) {
       console.error("Failed to delete reading:", error)

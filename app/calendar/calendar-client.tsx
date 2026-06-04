@@ -7,6 +7,7 @@ import { EventDialog } from "@/components/event-dialog"
 import { cn } from "@/lib/utils"
 import { getLocalDateString } from "@/lib/utils/date"
 import { createEvent, deleteEvent } from "@/lib/actions/events"
+import { trackSave } from "@/lib/save-events"
 import { useRouter } from "next/navigation"
 
 interface Event {
@@ -66,12 +67,12 @@ export function CalendarClient({ events }: CalendarClientProps) {
     time: string, category: Event["category"],
   ) => {
     try {
-      await createEvent({
+      await trackSave(createEvent({
         title, description,
         startDate: startDate instanceof Date ? startDate.toISOString().split("T")[0] : startDate!,
         endDate: endDate ? (endDate instanceof Date ? endDate.toISOString().split("T")[0] : endDate) : undefined,
         time: time || undefined, category,
-      })
+      }))
       router.refresh()
     } catch (e) { console.error(e) }
   }
