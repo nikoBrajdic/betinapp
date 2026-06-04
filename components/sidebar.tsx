@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
+import { usePresence } from "@/hooks/use-presence"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
@@ -106,6 +107,9 @@ export function Sidebar({ user }: SidebarProps) {
   const displayName = user.profile?.full_name || user.email?.split("@")[0] || "User"
   const role = user.profile?.role === "superadmin" ? "Super Admin" : "Admin"
 
+  const online = usePresence({ name: displayName, email: user.email ?? "", initials })
+  const others = online.filter(u => u.email !== user.email)
+
   return (
     <aside
       className={cn(
@@ -182,6 +186,27 @@ export function Sidebar({ user }: SidebarProps) {
           <div className="mx-2 border-t border-white/10 mt-2" />
           <MiniCalendar />
         </>
+      )}
+
+      {/* Online now */}
+      {others.length > 0 && (
+        <div className={cn("px-3 pb-3", collapsed && "px-2 flex justify-center")}>
+          {!collapsed && (
+            <p className="text-[10px] text-white/30 uppercase tracking-widest mb-2 font-medium">Online now</p>
+          )}
+          <div className="flex flex-wrap gap-1.5">
+            {others.map(u => (
+              <div
+                key={u.email}
+                title={u.name}
+                className="relative h-7 w-7 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0"
+              >
+                <span className="text-[10px] font-semibold text-white">{u.initials}</span>
+                <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-green-400 border-2 border-[#1a1464]" />
+              </div>
+            ))}
+          </div>
+        </div>
       )}
 
       {/* User + sign out */}
