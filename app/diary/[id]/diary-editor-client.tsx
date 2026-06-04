@@ -62,7 +62,12 @@ function AutoTextarea({
   useEffect(() => {
     if (ref.current) { ref.current.style.height = "auto"; ref.current.style.height = ref.current.scrollHeight + "px" }
   }, [value])
-  useEffect(() => { if (autoFocus) ref.current?.focus() }, [autoFocus])
+  useEffect(() => {
+    if (autoFocus && ref.current) {
+      ref.current.focus()
+      ref.current.setSelectionRange(0, 0)
+    }
+  }, [autoFocus])
   return (
     <textarea
       ref={ref} value={value} rows={1} placeholder={placeholder}
@@ -247,13 +252,18 @@ function BlockRow({
 }: {
   block: Block; focused: boolean; onFocus: () => void
   onChange: (b: Block) => void; onDelete: () => void
-  onEnter: () => void; onBackspaceEmpty: () => void
+  onEnter: (before: string, after: string) => void; onBackspaceEmpty: () => void
   onDragStart: () => void; onDragEnter: () => void; onDragEnd: () => void
   isDragOver: boolean; entryId: string; onAddImageAfter: () => void
 }) {
   const handleKey = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     const text = (block as any).text ?? ""
-    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onEnter() }
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault()
+      const start = e.currentTarget.selectionStart ?? text.length
+      const end = e.currentTarget.selectionEnd ?? start
+      onEnter(text.slice(0, start), text.slice(end))
+    }
     if (e.key === "Backspace" && text === "") { e.preventDefault(); onBackspaceEmpty() }
   }
 
@@ -434,6 +444,26 @@ export function DiaryEditorClient({ entry }: { entry: DiaryEntry }) {
     setBlocksAndSave(blocks.map(b => b.id === id ? updated : b))
   }
 
+  const splitTextBlock = (id: string, before: string, after: string) => {
+    const idx = blocks.findIndex(b => b.id === id)
+    const block = blocks[idx]
+    if (!block || (block.type !== "paragraph" && block.type !== "heading")) return
+
+    const newBlock: Block = { id: genId(), type: "paragraph", text: after, bold: false }
+    const updatedCurrent: Block = block.type === "heading"
+      ? { ...block, text: before }
+      : { ...block, text: before }
+    const next = [
+      ...blocks.slice(0, idx),
+      updatedCurrent,
+      newBlock,
+      ...blocks.slice(idx + 1),
+    ]
+
+    setBlocksAndSave(next)
+    setFocusedId(newBlock.id)
+  }
+
   // Global drag-and-drop for image files onto the editor
   const handleGlobalDrop = async (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault(); setGlobalDragOver(false)
@@ -588,7 +618,7 @@ export function DiaryEditorClient({ entry }: { entry: DiaryEntry }) {
             onFocus={() => setFocusedId(block.id)}
             onChange={updated => updateBlock(block.id, updated)}
             onDelete={() => deleteBlock(block.id)}
-            onEnter={() => addBlock("paragraph", block.id)}
+            onEnter={(before, after) => splitTextBlock(block.id, before, after)}
             onBackspaceEmpty={() => deleteBlock(block.id)}
             onDragStart={() => handleBlockDragStart(idx)}
             onDragEnter={() => handleBlockDragEnter(idx)}
