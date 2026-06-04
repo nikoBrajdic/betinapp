@@ -173,11 +173,6 @@ function ImageBlock({
                     objectFit: "cover"
                   }}
                 />
-                {block.images.length > 1 && (
-                  <div className="absolute left-2 top-2 rounded-full bg-black/55 px-2 py-0.5 text-[11px] font-medium text-white shadow-sm">
-                    {i + 1}/{block.images.length}
-                  </div>
-                )}
                 <div
                   className="absolute right-2 top-2 flex items-center gap-1 rounded-full bg-white/90 p-1 shadow-sm opacity-0 group-hover/img:opacity-100 transition-opacity"
                   onClick={e => e.stopPropagation()}
@@ -210,14 +205,6 @@ function ImageBlock({
               </div>
             ))}
           </div>
-          {block.images.length < 3 && (
-            <button
-              onClick={() => fileRef.current?.click()}
-              className="mt-2 flex items-center gap-1.5 text-sm text-gray-400 hover:text-amber-600 cursor-pointer transition-colors"
-            >
-              <Plus className="h-3.5 w-3.5" /> Add photo to row
-            </button>
-          )}
         </div>
       )}
 
@@ -342,7 +329,7 @@ function BlockRow({
             </button>
           )}
         </>)}
-        {block.type !== "image" && (
+        {block.type !== "image" ? (
           <button
             onClick={onAddImageAfter}
             className="p-1.5 rounded-lg text-gray-400 hover:text-amber-600 hover:bg-amber-50 cursor-pointer transition-colors"
@@ -350,12 +337,35 @@ function BlockRow({
           >
             <ImageIcon className="h-4 w-4" />
           </button>
+        ) : (
+          <button
+            onClick={() => (document.getElementById(`img-add-${block.id}`) as HTMLElement)?.click()}
+            disabled={block.images.length >= 3}
+            className={cn(
+              "flex items-center gap-1 rounded-lg px-1.5 py-1.5 transition-colors",
+              block.images.length >= 3
+                ? "text-amber-600 bg-amber-50 cursor-default"
+                : "text-gray-400 hover:text-amber-600 hover:bg-amber-50 cursor-pointer"
+            )}
+            title={block.images.length >= 3 ? "Image row is full" : "Add photo to row"}
+          >
+            <ImageIcon className="h-4 w-4" />
+            <span className="text-xs font-medium">{block.images.length}/3</span>
+          </button>
         )}
-        {block.type !== "image" && (
+        {block.type !== "image" ? (
           <button
             onClick={onDelete}
             className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 cursor-pointer transition-colors"
             title="Delete block"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        ) : (
+          <button
+            onClick={onDelete}
+            className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 cursor-pointer transition-colors"
+            title="Delete image block"
           >
             <Trash2 className="h-4 w-4" />
           </button>
