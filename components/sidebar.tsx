@@ -200,12 +200,14 @@ export function Sidebar({ user }: SidebarProps) {
               <div
                 key={u.email}
                 title={u.name}
-                className="relative h-7 w-7 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0 overflow-hidden"
+                className="relative h-7 w-7 flex-shrink-0"
               >
-                {u.avatarUrl
-                  ? <img src={u.avatarUrl} alt={u.name} className="h-full w-full object-cover" referrerPolicy="no-referrer" />
-                  : <span className="text-[10px] font-semibold text-white">{u.initials}</span>
-                }
+                <div className="h-7 w-7 rounded-full bg-white/20 flex items-center justify-center overflow-hidden">
+                  {u.avatarUrl
+                    ? <img src={u.avatarUrl} alt={u.name} className="h-full w-full object-cover" referrerPolicy="no-referrer" />
+                    : <span className="text-[10px] font-semibold text-white">{u.initials}</span>
+                  }
+                </div>
                 <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-green-400 border-2 border-[#1a1464]" />
               </div>
             ))}
@@ -219,9 +221,9 @@ export function Sidebar({ user }: SidebarProps) {
           "flex items-center gap-3 mb-1",
           collapsed && "justify-center"
         )}>
-          <div className="h-8 w-8 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0 overflow-hidden">
+          <div className="h-8 w-8 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0 overflow-hidden" style={{ minWidth: 32 }}>
             {user.avatarUrl
-              ? <img src={user.avatarUrl} alt={displayName} className="h-full w-full object-cover" referrerPolicy="no-referrer" />
+              ? <img src={user.avatarUrl} alt={displayName} className="h-full w-full object-cover rounded-full" referrerPolicy="no-referrer" />
               : <span className="text-xs font-semibold text-white">{initials}</span>
             }
           </div>
