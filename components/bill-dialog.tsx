@@ -6,78 +6,70 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Checkbox } from "@/components/ui/checkbox"
 import { CURRENCY_SYMBOL } from "@/lib/currency"
+
+const BILL_NAMES = ["Voda", "Struja", "Internet", "Jezinac"]
 
 interface BillDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onSave: (
-    name: string,
-    amount: number,
-    dueDate: Date,
-    category: "utilities" | "rent" | "insurance" | "subscription" | "other",
-    recurring: boolean,
-  ) => void
+  onSave: (name: string, amount: number, period: string) => void
   initialName?: string
   initialAmount?: number
-  initialDueDate?: Date
-  initialCategory?: "utilities" | "rent" | "insurance" | "subscription" | "other"
-  initialRecurring?: boolean
+  initialPeriod?: string
   mode: "create" | "edit"
 }
 
+function currentPeriod() {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`
+}
+
 export function BillDialog({
-  open,
-  onOpenChange,
-  onSave,
-  initialName = "",
-  initialAmount = 0,
-  initialDueDate,
-  initialCategory = "other",
-  initialRecurring = false,
-  mode,
+  open, onOpenChange, onSave,
+  initialName = "", initialAmount = 0, initialPeriod, mode,
 }: BillDialogProps) {
-  const [name, setName] = useState(initialName)
-  const [amount, setAmount] = useState(initialAmount.toString())
-  const [dueDate, setDueDate] = useState(initialDueDate ? initialDueDate.toISOString().split("T")[0] : "")
-  const [category, setCategory] = useState<"utilities" | "rent" | "insurance" | "subscription" | "other">(
-    initialCategory,
-  )
-  const [recurring, setRecurring] = useState(initialRecurring)
+  const [name, setName] = useState(initialName || BILL_NAMES[0])
+  const [amount, setAmount] = useState(initialAmount > 0 ? initialAmount.toString() : "")
+  const [period, setPeriod] = useState(initialPeriod ?? currentPeriod())
 
   useEffect(() => {
     if (open) {
-      setName(initialName)
-      setAmount(initialAmount.toString())
-      setDueDate(initialDueDate ? initialDueDate.toISOString().split("T")[0] : "")
-      setCategory(initialCategory)
-      setRecurring(initialRecurring)
+      setName(initialName || BILL_NAMES[0])
+      setAmount(initialAmount > 0 ? initialAmount.toString() : "")
+      setPeriod(initialPeriod ?? currentPeriod())
     }
-  }, [open, initialName, initialAmount, initialDueDate, initialCategory, initialRecurring])
+  }, [open, initialName, initialAmount, initialPeriod])
 
   const handleSave = () => {
-    if (name.trim() && amount && dueDate) {
-      onSave(name, Number.parseFloat(amount), new Date(dueDate), category, recurring)
-      setName("")
+    if (name && amount && period) {
+      onSave(name, Number.parseFloat(amount), period)
+      setName(BILL_NAMES[0])
       setAmount("")
-      setDueDate("")
-      setCategory("other")
-      setRecurring(false)
+      setPeriod(currentPeriod())
       onOpenChange(false)
     }
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[380px]">
         <DialogHeader>
-          <DialogTitle>{mode === "create" ? "Add New Bill" : "Edit Bill"}</DialogTitle>
+          <DialogTitle>{mode === "create" ? "Add Bill" : "Edit Bill"}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 py-4">
           <div className="space-y-2">
-            <Label htmlFor="name">Bill Name</Label>
-            <Input id="name" placeholder="Enter bill name" value={name} onChange={(e) => setName(e.target.value)} />
+            <Label>Bill</Label>
+            <Select value={name} onValueChange={setName}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {BILL_NAMES.map(n => (
+                  <SelectItem key={n} value={n}>{n}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
@@ -88,46 +80,23 @@ export function BillDialog({
                 step="0.01"
                 placeholder="0.00"
                 value={amount}
-                onChange={(e) => setAmount(e.target.value)}
+                onChange={e => setAmount(e.target.value)}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="dueDate">Due Date</Label>
-              <Input id="dueDate" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+              <Label htmlFor="period">Period</Label>
+              <Input
+                id="period"
+                type="month"
+                value={period}
+                onChange={e => setPeriod(e.target.value)}
+              />
             </div>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="category">Category</Label>
-            <Select
-              value={category}
-              onValueChange={(value: "utilities" | "rent" | "insurance" | "subscription" | "other") =>
-                setCategory(value)
-              }
-            >
-              <SelectTrigger id="category">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="utilities">Utilities</SelectItem>
-                <SelectItem value="rent">Rent</SelectItem>
-                <SelectItem value="insurance">Insurance</SelectItem>
-                <SelectItem value="subscription">Subscription</SelectItem>
-                <SelectItem value="other">Other</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex items-center space-x-2">
-            <Checkbox id="recurring" checked={recurring} onCheckedChange={(checked) => setRecurring(!!checked)} />
-            <Label htmlFor="recurring" className="text-sm font-normal cursor-pointer">
-              This is a recurring bill
-            </Label>
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button onClick={handleSave} disabled={!name.trim() || !amount || !dueDate}>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button onClick={handleSave} disabled={!name || !amount || !period}>
             {mode === "create" ? "Add Bill" : "Save Changes"}
           </Button>
         </DialogFooter>

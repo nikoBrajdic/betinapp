@@ -328,21 +328,14 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
     }
   }
 
-  const handleAddBill = async (
-    name: string,
-    amount: number,
-    dueDate: Date,
-    category: Bill["category"],
-    recurring: boolean,
-  ) => {
+  const handleAddBill = async (name: string, amount: number, period: string) => {
     try {
       await trackSave(createBill({
-        name,
-        amount,
-        dueDate: dueDate.toISOString().split("T")[0],
+        name, amount,
+        dueDate: `${period}-01`,
         paid: false,
-        category,
-        recurring,
+        category: "utilities",
+        recurring: true,
       }))
       refresh()
     } catch (error) {
@@ -350,23 +343,15 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
     }
   }
 
-  const handleEditBill = async (
-    id: string,
-    name: string,
-    amount: number,
-    dueDate: Date,
-    category: Bill["category"],
-    recurring: boolean,
-  ) => {
+  const handleEditBill = async (id: string, name: string, amount: number, period: string) => {
     const existing = bills.find(bill => bill.id === id)
     try {
       await trackSave(updateBill(id, {
-        name,
-        amount,
-        dueDate: dueDate.toISOString().split("T")[0],
+        name, amount,
+        dueDate: `${period}-01`,
         paid: existing?.paid ?? false,
-        category,
-        recurring,
+        category: "utilities",
+        recurring: true,
       }))
       refresh()
     } catch (error) {
@@ -579,7 +564,7 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
                         {bill.paid ? <CheckCircle2 className="h-4 w-4 text-green-600" /> : <AlertCircle className="h-4 w-4 text-amber-500" />}
                         <h3 className="font-semibold text-gray-800 truncate">{bill.name}</h3>
                       </div>
-                      <p className="text-xs text-gray-400 mt-1">Due {shortDate(bill.due_date)}</p>
+                      <p className="text-xs text-gray-400 mt-1">{new Date(bill.due_date + "T12:00:00").toLocaleDateString("en-US", { month: "long", year: "numeric" })}</p>
                     </div>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -609,8 +594,7 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
                   </div>
 
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-gray-400">{bill.category}</span>
-                    {bill.recurring && <Badge variant="outline" className="text-xs">Recurring</Badge>}
+                    <span className="text-gray-400">{bill.paid ? "Paid" : "Unpaid"}</span>
                   </div>
                 </Card>
               ))}
@@ -647,14 +631,12 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
         onOpenChange={open => { if (!open) { setBillDialogOpen(false); setEditingBill(null) } }}
         onSave={
           editingBill
-            ? (name, amount, dueDate, category, recurring) => handleEditBill(editingBill.id, name, amount, dueDate, category, recurring)
+            ? (name, amount, period) => handleEditBill(editingBill.id, name, amount, period)
             : handleAddBill
         }
         initialName={editingBill?.name}
         initialAmount={editingBill?.amount}
-        initialDueDate={editingBill?.due_date ? new Date(editingBill.due_date) : undefined}
-        initialCategory={editingBill?.category ?? "utilities"}
-        initialRecurring={editingBill?.recurring}
+        initialPeriod={editingBill?.due_date ? editingBill.due_date.slice(0, 7) : undefined}
         mode={editingBill ? "edit" : "create"}
       />
 
