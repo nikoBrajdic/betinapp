@@ -62,6 +62,7 @@ function AddItemRow({ groupId, onAdded }: { groupId: string; onAdded: () => void
   const submit = async () => {
     const v = value.trim()
     if (!v) { setAdding(false); return }
+    if (submitting.current) return
     submitting.current = true
     await createTask({ title: v, taskGroupId: groupId })
     setValue("")
@@ -72,9 +73,11 @@ function AddItemRow({ groupId, onAdded }: { groupId: string; onAdded: () => void
   }
 
   const handleBlur = () => {
-    // Small delay so clicking "Add" button fires before we close
     setTimeout(() => {
-      if (!submitting.current) { setAdding(false); setValue("") }
+      if (!submitting.current) {
+        if (value.trim()) submit()
+        else { setAdding(false); setValue("") }
+      }
     }, 150)
   }
 
@@ -103,7 +106,7 @@ function AddItemRow({ groupId, onAdded }: { groupId: string; onAdded: () => void
       />
       {value.trim() && (
         <button
-          onMouseDown={() => { submitting.current = true }}
+          onMouseDown={event => event.preventDefault()}
           onClick={submit}
           className="text-xs font-semibold text-gray-500 hover:text-gray-900 cursor-pointer transition-colors flex-shrink-0"
         >
@@ -336,27 +339,27 @@ export function TasksClient({ taskGroups }: TasksClientProps) {
                 onDragEnter={() => handleGroupDragEnter(index)}
                 onDragOver={event => event.preventDefault()}
                 className={cn(
-                  "mb-5 break-inside-avoid p-5 border-2 flex flex-col shadow-none transition-all hover:shadow-md hover:-translate-y-0.5 group/card",
+                  "relative mb-5 break-inside-avoid p-5 pt-7 border-2 flex flex-col shadow-none transition-all hover:shadow-md hover:-translate-y-0.5 group/card",
                   bg,
                   dragOverGroup === index && "border-dashed border-violet-300 bg-violet-50/40",
                 )}
               >
+                <div
+                  draggable
+                  role="button"
+                  aria-label="Drag task card"
+                  className="absolute left-1/2 top-2 flex h-5 w-8 -translate-x-1/2 items-center justify-center cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 opacity-0 group-hover/card:opacity-100 transition-opacity"
+                  onDragStart={event => {
+                    dragGroupIndex.current = index
+                    event.dataTransfer.effectAllowed = "move"
+                  }}
+                  onDragEnd={handleGroupDragEnd}
+                >
+                  <Grip className="h-4 w-4" />
+                </div>
                 {/* Header */}
-                <div className="flex items-center justify-between mb-1">
+                <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2 min-w-0">
-                    <div
-                      draggable
-                      role="button"
-                      aria-label="Drag task card"
-                      className="h-7 w-5 -ml-1 flex items-center justify-center cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 opacity-0 group-hover/card:opacity-100 transition-opacity"
-                      onDragStart={event => {
-                        dragGroupIndex.current = index
-                        event.dataTransfer.effectAllowed = "move"
-                      }}
-                      onDragEnd={handleGroupDragEnd}
-                    >
-                      <Grip className="h-4 w-4" />
-                    </div>
                     <div className={cn("w-2.5 h-2.5 rounded-full flex-shrink-0", dot)} />
                     <h3 className="font-semibold text-gray-800 truncate">{group.title}</h3>
                   </div>
@@ -393,11 +396,11 @@ export function TasksClient({ taskGroups }: TasksClientProps) {
 
                 {/* Progress */}
                 {items.length > 0 && (
-                  <p className="text-xs text-gray-400 mb-3">{done}/{items.length} done</p>
+                  <p className="text-xs text-gray-400 mt-0.5 mb-2">{done}/{items.length} done</p>
                 )}
 
                 {/* Task list with inline edit + drag */}
-                <div className="flex-1 mb-3">
+                <div className="flex-1 mb-2">
                   <TaskList
                     groupId={group.id}
                     items={sorted}

@@ -58,7 +58,17 @@ function genId() {
 
 function NoteBlocksEditor({ blocks, onChange }: { blocks: NoteBlock[]; onChange: (blocks: NoteBlock[]) => void }) {
   const [uploadingId, setUploadingId] = useState<string | null>(null)
+  const [focusedBlockId, setFocusedBlockId] = useState<string | null>(null)
   const fileRefs = useRef<Record<string, HTMLInputElement | null>>({})
+  const textRefs = useRef<Record<string, HTMLTextAreaElement | null>>({})
+
+  useEffect(() => {
+    if (!focusedBlockId) return
+    const el = textRefs.current[focusedBlockId]
+    if (!el) return
+    el.focus()
+    el.setSelectionRange(0, 0)
+  }, [blocks, focusedBlockId])
 
   const updateBlock = (id: string, nextBlock: NoteBlock) => {
     onChange(blocks.map(block => block.id === id ? nextBlock : block))
@@ -82,6 +92,18 @@ function NoteBlocksEditor({ blocks, onChange }: { blocks: NoteBlock[]; onChange:
   const deleteBlock = (id: string) => {
     const next = blocks.filter(block => block.id !== id)
     onChange(next.length > 0 ? next : emptyNoteBlocks())
+  }
+
+  const splitTextBlock = (block: Extract<NoteBlock, { type: "paragraph" }>, before: string, after: string) => {
+    const index = blocks.findIndex(item => item.id === block.id)
+    const nextBlock: NoteBlock = { id: genId(), type: "paragraph", text: after }
+    onChange([
+      ...blocks.slice(0, index),
+      { ...block, text: before },
+      nextBlock,
+      ...blocks.slice(index + 1),
+    ])
+    setFocusedBlockId(nextBlock.id)
   }
 
   const addImages = async (block: Extract<NoteBlock, { type: "image" }>, files: FileList | File[]) => {
@@ -168,8 +190,17 @@ function NoteBlocksEditor({ blocks, onChange }: { blocks: NoteBlock[]; onChange:
           return (
             <div key={block.id} className="group/block flex items-start gap-2">
               <textarea
+                ref={el => { textRefs.current[block.id] = el }}
                 value={block.text}
                 onChange={event => updateBlock(block.id, { ...block, text: event.target.value })}
+                onKeyDown={event => {
+                  if (event.key === "Enter" && !event.shiftKey) {
+                    event.preventDefault()
+                    const start = event.currentTarget.selectionStart ?? block.text.length
+                    const end = event.currentTarget.selectionEnd ?? start
+                    splitTextBlock(block, block.text.slice(0, start), block.text.slice(end))
+                  }
+                }}
                 placeholder="Write something..."
                 rows={3}
                 className="min-h-24 flex-1 resize-none bg-transparent text-base leading-relaxed outline-none placeholder:text-gray-300"
