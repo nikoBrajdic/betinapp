@@ -73,14 +73,14 @@ export function NoteBlocksView({ content, compact = false }: { content: string; 
           const grid = imgs.length === 1 ? "" : imgs.length === 2 ? "grid grid-cols-2 gap-2" : "grid grid-cols-3 gap-2"
 
           return (
-            <div key={block.id} className={grid}>
+            <div key={block.id} className={grid} style={{ maxWidth: compact ? undefined : 640 }}>
               {imgs.slice(0, compact ? 1 : 3).map((img, index) => (
                 <img
                   key={`${img.url}-${index}`}
                   src={img.url}
                   alt=""
                   className="w-full rounded-lg object-cover"
-                  style={{ height: compact ? 120 : imgs.length === 1 ? 360 : imgs.length === 2 ? 280 : 220 }}
+                  style={{ height: compact ? 120 : imgs.length === 1 ? 380 : imgs.length === 2 ? 300 : 220 }}
                 />
               ))}
             </div>
@@ -88,7 +88,7 @@ export function NoteBlocksView({ content, compact = false }: { content: string; 
         }
 
         return (
-          <p key={block.id} className={compact ? "line-clamp-3 text-sm text-muted-foreground" : "whitespace-pre-wrap text-base leading-relaxed text-gray-700"}>
+          <p key={block.id} className={compact ? "line-clamp-3 text-sm text-muted-foreground" : "max-w-[640px] whitespace-pre-wrap text-base leading-relaxed text-gray-700"}>
             {block.text}
           </p>
         )

@@ -50,16 +50,18 @@ export function NoteViewModal({ open, onOpenChange, note, onEdit, onDelete, onEd
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="min-w-[80vw] max-w-[1000px] min-h-[90vh] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-h-[88vh] w-[min(920px,calc(100vw-2rem))] overflow-y-auto p-0">
+          <div className="px-6 pt-6">
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold">{note.title}</DialogTitle>
           </DialogHeader>
           
-          <div className="flex-1 py-6">
+          <div className="py-5">
             {note.type === "table" ? <TableNotePreview content={note.content} /> : <NoteBlocksView content={note.content} />}
           </div>
+          </div>
 
-          <div className="flex justify-between items-center pt-4 border-t">
+          <div className="flex flex-col gap-3 border-t px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="text-sm text-muted-foreground">
               Updated {new Date(note.updated_at).toLocaleDateString("en-US", { 
                 month: "long", 
