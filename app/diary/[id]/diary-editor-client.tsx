@@ -137,6 +137,19 @@ function ImageBlock({
     else onChange({ ...block, images: next })
   }
 
+  const replaceImage = async (i: number, file?: File) => {
+    if (!file || !file.type.startsWith("image/")) return
+    setUploading(true)
+    try {
+      const url = await uploadImage(file, entryId)
+      onChange({
+        ...block,
+        images: block.images.map((img, idx) => idx === i ? { ...img, url } : img),
+      })
+    } catch (e) { console.error("Replace image failed:", e) }
+    setUploading(false)
+  }
+
   const updateCaption = (i: number, caption: string) => {
     onChange({ ...block, images: block.images.map((img, idx) => idx === i ? { ...img, caption } : img) })
   }
@@ -146,27 +159,65 @@ function ImageBlock({
   return (
     <div className="py-2">
       {block.images.length > 0 && (
-        <div className={cn("mb-2", colClass)} style={{ maxWidth: 500 }}>
-          {block.images.map((img, i) => (
-            <div key={i} className="group/img relative">
-              <img
-                src={img.url} alt=""
-                onClick={() => setLightboxUrl(img.url)}
-                className="rounded-lg object-cover w-full cursor-zoom-in"
-                style={{
-                  maxWidth: block.images.length === 1 ? 500 : "100%",
-                  height: block.images.length === 1 ? 380 : block.images.length === 2 ? 320 : 240,
-                  objectFit: "cover"
-                }}
-              />
-              <button
-                onClick={() => removeImage(i)}
-                className="absolute top-1 right-1 bg-black/50 text-white rounded-full p-0.5 opacity-0 group-hover/img:opacity-100 transition-opacity cursor-pointer"
-              >
-                <X className="h-3 w-3" />
-              </button>
-            </div>
-          ))}
+        <div className="mb-2" style={{ maxWidth: 500 }}>
+          <div className={colClass}>
+            {block.images.map((img, i) => (
+              <div key={i} className="group/img relative">
+                <img
+                  src={img.url} alt=""
+                  onClick={() => setLightboxUrl(img.url)}
+                  className="rounded-lg object-cover w-full cursor-zoom-in"
+                  style={{
+                    maxWidth: block.images.length === 1 ? 500 : "100%",
+                    height: block.images.length === 1 ? 380 : block.images.length === 2 ? 320 : 240,
+                    objectFit: "cover"
+                  }}
+                />
+                {block.images.length > 1 && (
+                  <div className="absolute left-2 top-2 rounded-full bg-black/55 px-2 py-0.5 text-[11px] font-medium text-white shadow-sm">
+                    {i + 1}/{block.images.length}
+                  </div>
+                )}
+                <div
+                  className="absolute right-2 top-2 flex items-center gap-1 rounded-full bg-white/90 p-1 shadow-sm opacity-0 group-hover/img:opacity-100 transition-opacity"
+                  onClick={e => e.stopPropagation()}
+                >
+                  <button
+                    onClick={() => document.getElementById(`img-replace-${block.id}-${i}`)?.click()}
+                    className="flex h-7 w-7 items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 hover:text-amber-600 cursor-pointer transition-colors"
+                    title={`Replace image${block.images.length > 1 ? ` ${i + 1}/${block.images.length}` : ""}`}
+                  >
+                    <ImageIcon className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => removeImage(i)}
+                    className="flex h-7 w-7 items-center justify-center rounded-full text-gray-400 hover:bg-red-50 hover:text-red-600 cursor-pointer transition-colors"
+                    title={`Delete image${block.images.length > 1 ? ` ${i + 1}/${block.images.length}` : ""}`}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+                <input
+                  id={`img-replace-${block.id}-${i}`}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={e => {
+                    replaceImage(i, e.target.files?.[0])
+                    e.target.value = ""
+                  }}
+                />
+              </div>
+            ))}
+          </div>
+          {block.images.length < 3 && (
+            <button
+              onClick={() => fileRef.current?.click()}
+              className="mt-2 flex items-center gap-1.5 text-sm text-gray-400 hover:text-amber-600 cursor-pointer transition-colors"
+            >
+              <Plus className="h-3.5 w-3.5" /> Add photo to row
+            </button>
+          )}
         </div>
       )}
 
@@ -291,26 +342,24 @@ function BlockRow({
             </button>
           )}
         </>)}
-        {/* Image button — hidden for image blocks with 3 photos already */}
-        {!(block.type === "image" && block.images.length >= 3) && (
+        {block.type !== "image" && (
           <button
-            onClick={block.type === "image"
-              ? () => (document.getElementById(`img-add-${block.id}`) as HTMLElement)?.click()
-              : onAddImageAfter
-            }
+            onClick={onAddImageAfter}
             className="p-1.5 rounded-lg text-gray-400 hover:text-amber-600 hover:bg-amber-50 cursor-pointer transition-colors"
-            title={block.type === "image" ? "Add photo to row" : "Add image below"}
+            title="Add image below"
           >
             <ImageIcon className="h-4 w-4" />
           </button>
         )}
-        <button
-          onClick={onDelete}
-          className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 cursor-pointer transition-colors"
-          title="Delete block"
-        >
-          <Trash2 className="h-4 w-4" />
-        </button>
+        {block.type !== "image" && (
+          <button
+            onClick={onDelete}
+            className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 cursor-pointer transition-colors"
+            title="Delete block"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        )}
       </div>
     </div>
   )
