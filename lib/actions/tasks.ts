@@ -3,6 +3,12 @@
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 
+function isMissingSortOrder(error: any) {
+  return error?.code === "42703"
+    || error?.code === "PGRST204"
+    || String(error?.message ?? "").toLowerCase().includes("sort_order")
+}
+
 export async function getTaskGroups() {
   const supabase = await createClient()
   const ordered = await supabase
@@ -15,7 +21,7 @@ export async function getTaskGroups() {
     .order("created_at", { ascending: false })
 
   if (!ordered.error) return ordered.data
-  if (ordered.error.code !== "42703") throw ordered.error
+  if (!isMissingSortOrder(ordered.error)) throw ordered.error
 
   const { data, error } = await supabase
     .from("task_groups")
@@ -230,7 +236,7 @@ export async function reorderTaskGroups(groupIds: string[]) {
       .update({ sort_order: index, updated_at: new Date().toISOString() })
       .eq("id", id)
 
-    if (error?.code === "42703") return
+    if (isMissingSortOrder(error)) return
     if (error) throw error
   }
 
