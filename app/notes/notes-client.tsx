@@ -9,6 +9,7 @@ import { ConfirmDeleteDialog } from "@/components/confirm-delete-dialog"
 import { NoteDialog } from "@/components/note-dialog"
 import { NoteViewModal } from "@/components/note-view-modal"
 import { TableNotePreview } from "@/components/table-note-editor"
+import { NoteBlocksView, noteCoverImage, notePreviewText } from "@/components/note-rich-content"
 import { createNote, updateNote, deleteNote, reorderNotes } from "@/lib/actions/notes"
 import { useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
@@ -197,7 +198,16 @@ export function NotesClient({ notes }: NotesClientProps) {
               {note.type === "table" ? (
                 <TableNotePreview content={note.content} />
               ) : (
-                <p className="text-sm text-muted-foreground line-clamp-3">{note.content}</p>
+                <>
+                  {noteCoverImage(note.content) && (
+                    <img src={noteCoverImage(note.content) ?? ""} alt="" className="mb-3 h-36 w-full rounded-lg object-cover" />
+                  )}
+                  {notePreviewText(note.content) ? (
+                    <p className="text-sm text-muted-foreground line-clamp-3">{notePreviewText(note.content)}</p>
+                  ) : (
+                    <NoteBlocksView content={note.content} compact />
+                  )}
+                </>
               )}
 
               <p className="text-xs text-muted-foreground mt-2">

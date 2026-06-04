@@ -5,6 +5,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button"
 import { Pencil, Trash2 } from "lucide-react"
 import { NoteDialog } from "@/components/note-dialog"
+import { NoteBlocksView } from "@/components/note-rich-content"
+import { TableNotePreview } from "@/components/table-note-editor"
 
 interface Note {
   id: string
@@ -54,11 +56,7 @@ export function NoteViewModal({ open, onOpenChange, note, onEdit, onDelete, onEd
           </DialogHeader>
           
           <div className="flex-1 py-6">
-            <div className="prose prose-gray dark:prose-invert max-w-none">
-              <div className="whitespace-pre-wrap text-base leading-relaxed">
-                {note.content}
-              </div>
-            </div>
+            {note.type === "table" ? <TableNotePreview content={note.content} /> : <NoteBlocksView content={note.content} />}
           </div>
 
           <div className="flex justify-between items-center pt-4 border-t">
