@@ -1,12 +1,48 @@
 {
-  "name": "my-v0-project",
+  "name": "betinapp",
   "version": "0.1.0",
   "private": true,
+  "main": "electron/main.js",
   "scripts": {
     "build": "next build",
     "dev": "next dev",
     "lint": "eslint .",
-    "start": "next start"
+    "start": "next start",
+    "electron": "electron .",
+    "electron:icons": "node scripts/generate-icons.js",
+    "electron:build:mac": "electron-builder --mac",
+    "electron:build:win": "electron-builder --win",
+    "electron:build": "electron-builder --mac --win"
+  },
+  "build": {
+    "appId": "com.betinapp.app",
+    "productName": "Betinapp",
+    "files": [
+      "electron/**/*",
+      "package.json"
+    ],
+    "mac": {
+      "icon": "electron/icons/icon.icns",
+      "category": "public.app-category.productivity",
+      "target": [
+        { "target": "dmg", "arch": ["arm64", "x64"] }
+      ]
+    },
+    "win": {
+      "icon": "electron/icons/icon.ico",
+      "target": [
+        { "target": "nsis", "arch": ["x64"] }
+      ]
+    },
+    "dmg": {
+      "title": "Betinapp"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "installerIcon": "electron/icons/icon.ico",
+      "uninstallerIcon": "electron/icons/icon.ico"
+    }
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -67,6 +103,9 @@
     "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "electron": "^42.3.3",
+    "electron-builder": "^26.8.1",
+    "png-to-ico": "^3.0.1",
     "postcss": "^8.5",
     "tailwindcss": "^4.1.9",
     "tw-animate-css": "1.3.3",
