@@ -339,18 +339,14 @@ function BlockRow({
           </button>
         ) : (
           <button
-            onClick={() => (document.getElementById(`img-add-${block.id}`) as HTMLElement)?.click()}
-            disabled={block.images.length >= 3}
-            className={cn(
-              "flex items-center gap-1 rounded-lg px-1.5 py-1.5 transition-colors",
-              block.images.length >= 3
-                ? "text-amber-600 bg-amber-50 cursor-default"
-                : "text-gray-400 hover:text-amber-600 hover:bg-amber-50 cursor-pointer"
-            )}
-            title={block.images.length >= 3 ? "Image row is full" : "Add photo to row"}
+            onClick={block.images.length >= 3
+              ? onAddImageAfter
+              : () => (document.getElementById(`img-add-${block.id}`) as HTMLElement)?.click()
+            }
+            className="rounded-lg p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 cursor-pointer transition-colors"
+            title={block.images.length >= 3 ? "Add image row below" : "Add photo to row"}
           >
             <ImageIcon className="h-4 w-4" />
-            <span className="text-xs font-medium">{block.images.length}/3</span>
           </button>
         )}
         {block.type !== "image" ? (

@@ -68,8 +68,15 @@ function NoteBlocksEditor({ blocks, onChange }: { blocks: NoteBlock[]; onChange:
     onChange([...blocks, { id: genId(), type: "paragraph", text: "" }])
   }
 
-  const addImageBlock = () => {
-    onChange([...blocks, { id: genId(), type: "image", images: [] }])
+  const addImageBlock = (afterId?: string) => {
+    const newBlock: NoteBlock = { id: genId(), type: "image", images: [] }
+    if (!afterId) {
+      onChange([...blocks, newBlock])
+      return
+    }
+
+    const index = blocks.findIndex(block => block.id === afterId)
+    onChange([...blocks.slice(0, index + 1), newBlock, ...blocks.slice(index + 1)])
   }
 
   const deleteBlock = (id: string) => {
@@ -133,12 +140,12 @@ function NoteBlocksEditor({ blocks, onChange }: { blocks: NoteBlock[]; onChange:
                   )}
                 </div>
                 <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover/block:opacity-100">
-                  {block.images.length < 3 && (
-                    <button onClick={() => fileRefs.current[block.id]?.click()} className="rounded-lg px-1.5 py-1.5 text-gray-400 hover:bg-indigo-50 hover:text-indigo-600">
-                      <ImageIcon className="h-4 w-4" />
-                    </button>
-                  )}
-                  <span className="text-xs font-medium text-gray-400">{block.images.length}/3</span>
+                  <button
+                    onClick={block.images.length >= 3 ? () => addImageBlock(block.id) : () => fileRefs.current[block.id]?.click()}
+                    className="rounded-lg p-1.5 text-gray-400 hover:bg-indigo-50 hover:text-indigo-600"
+                  >
+                    <ImageIcon className="h-4 w-4" />
+                  </button>
                   <button onClick={() => deleteBlock(block.id)} className="rounded-lg p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600">
                     <Trash2 className="h-4 w-4" />
                   </button>
@@ -178,7 +185,7 @@ function NoteBlocksEditor({ blocks, onChange }: { blocks: NoteBlock[]; onChange:
         <button onClick={addTextBlock} className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-sm text-gray-400 hover:bg-gray-50 hover:text-gray-700">
           <Plus className="h-3.5 w-3.5" /> Text
         </button>
-        <button onClick={addImageBlock} className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-sm text-gray-400 hover:bg-indigo-50 hover:text-indigo-600">
+        <button onClick={() => addImageBlock()} className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-sm text-gray-400 hover:bg-indigo-50 hover:text-indigo-600">
           <ImageIcon className="h-3.5 w-3.5" /> Image
         </button>
       </div>
