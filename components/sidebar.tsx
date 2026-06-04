@@ -33,6 +33,7 @@ const navigation = [
 interface SidebarProps {
   user: {
     email?: string
+    avatarUrl?: string
     profile?: {
       full_name?: string
       role: string
@@ -107,7 +108,7 @@ export function Sidebar({ user }: SidebarProps) {
   const displayName = user.profile?.full_name || user.email?.split("@")[0] || "User"
   const role = user.profile?.role === "superadmin" ? "Super Admin" : "Admin"
 
-  const online = usePresence({ name: displayName, email: user.email ?? "", initials })
+  const online = usePresence({ name: displayName, email: user.email ?? "", initials, avatarUrl: user.avatarUrl })
   const others = online.filter(u => u.email !== user.email)
 
   return (
@@ -199,9 +200,12 @@ export function Sidebar({ user }: SidebarProps) {
               <div
                 key={u.email}
                 title={u.name}
-                className="relative h-7 w-7 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0"
+                className="relative h-7 w-7 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0 overflow-hidden"
               >
-                <span className="text-[10px] font-semibold text-white">{u.initials}</span>
+                {u.avatarUrl
+                  ? <img src={u.avatarUrl} alt={u.name} className="h-full w-full object-cover" referrerPolicy="no-referrer" />
+                  : <span className="text-[10px] font-semibold text-white">{u.initials}</span>
+                }
                 <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-green-400 border-2 border-[#1a1464]" />
               </div>
             ))}
@@ -215,8 +219,11 @@ export function Sidebar({ user }: SidebarProps) {
           "flex items-center gap-3 mb-1",
           collapsed && "justify-center"
         )}>
-          <div className="h-8 w-8 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
-            <span className="text-xs font-semibold text-white">{initials}</span>
+          <div className="h-8 w-8 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0 overflow-hidden">
+            {user.avatarUrl
+              ? <img src={user.avatarUrl} alt={displayName} className="h-full w-full object-cover" referrerPolicy="no-referrer" />
+              : <span className="text-xs font-semibold text-white">{initials}</span>
+            }
           </div>
           {!collapsed && (
             <div className="flex-1 min-w-0">

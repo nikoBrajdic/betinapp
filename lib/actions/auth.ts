@@ -48,6 +48,7 @@ export async function getCurrentUser() {
   return {
     ...user,
     profile,
+    avatarUrl: (user.user_metadata?.avatar_url ?? user.user_metadata?.picture) as string | undefined,
   }
 }
 

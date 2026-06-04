@@ -7,6 +7,7 @@ export interface PresenceUser {
   name: string
   email: string
   initials: string
+  avatarUrl?: string
 }
 
 export function usePresence(me: PresenceUser) {
