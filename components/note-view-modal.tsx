@@ -5,12 +5,15 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button"
 import { Pencil, Trash2 } from "lucide-react"
 import { NoteDialog } from "@/components/note-dialog"
+import { NoteBlocksView } from "@/components/note-rich-content"
+import { TableNotePreview } from "@/components/table-note-editor"
 
 interface Note {
   id: string
   title: string
   content: string
   color: string
+  type: "text" | "table"
   created_at: string
   updated_at: string
 }
@@ -21,7 +24,7 @@ interface NoteViewModalProps {
   note: Note | null
   onEdit: (note: Note) => void
   onDelete: (id: string) => void
-  onEditSave: (id: string, title: string, content: string) => void
+  onEditSave: (id: string, title: string, content: string, type?: "text" | "table") => void
 }
 
 export function NoteViewModal({ open, onOpenChange, note, onEdit, onDelete, onEditSave }: NoteViewModalProps) {
@@ -38,8 +41,8 @@ export function NoteViewModal({ open, onOpenChange, note, onEdit, onDelete, onEd
     onOpenChange(false)
   }
 
-  const handleEditSave = (title: string, content: string) => {
-    onEditSave(note.id, title, content)
+  const handleEditSave = (title: string, content: string, type: "text" | "table") => {
+    onEditSave(note.id, title, content, type)
     setIsEditDialogOpen(false)
     onOpenChange(false)
   }
@@ -47,20 +50,18 @@ export function NoteViewModal({ open, onOpenChange, note, onEdit, onDelete, onEd
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="min-w-[80vw] max-w-[1000px] min-h-[90vh] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-h-[88vh] w-[min(920px,calc(100vw-2rem))] overflow-y-auto p-0">
+          <div className="px-6 pt-6">
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold">{note.title}</DialogTitle>
           </DialogHeader>
           
-          <div className="flex-1 py-6">
-            <div className="prose prose-gray dark:prose-invert max-w-none">
-              <div className="whitespace-pre-wrap text-base leading-relaxed">
-                {note.content}
-              </div>
-            </div>
+          <div className="py-5">
+            {note.type === "table" ? <TableNotePreview content={note.content} /> : <NoteBlocksView content={note.content} />}
+          </div>
           </div>
 
-          <div className="flex justify-between items-center pt-4 border-t">
+          <div className="flex flex-col gap-3 border-t px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="text-sm text-muted-foreground">
               Updated {new Date(note.updated_at).toLocaleDateString("en-US", { 
                 month: "long", 
@@ -90,6 +91,7 @@ export function NoteViewModal({ open, onOpenChange, note, onEdit, onDelete, onEd
         onSave={handleEditSave}
         initialTitle={note.title}
         initialContent={note.content}
+        initialType={note.type}
         mode="edit"
       />
     </>

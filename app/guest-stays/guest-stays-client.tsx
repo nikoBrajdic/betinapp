@@ -1,322 +1,180 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Plus, Search, Edit, Trash2, Users, Calendar, MapPin } from "lucide-react"
+import { Plus, Pencil, Trash2, Users, MapPin, MoreHorizontal } from "lucide-react"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { ConfirmDeleteDialog } from "@/components/confirm-delete-dialog"
 import { cn } from "@/lib/utils"
-import { formatDateFull, formatDateTime } from "@/lib/utils/date"
 import { GuestStayDialog } from "@/components/guest-stay-dialog"
 import { createGuestStay, updateGuestStay, deleteGuestStay } from "@/lib/actions/guest-stays"
 import { useRouter } from "next/navigation"
-import { CalendarSidebar } from "@/components/calendar-sidebar"
-import { getEvents } from "@/lib/actions/events"
 
-interface GuestStay {
+type StayType = "family" | "friend"
+type Status = "upcoming" | "current" | "past"
+
+interface Stay {
   id: string
   guest_name: string
   room: string
   from_date: string
   to_date: string
-  status: "upcoming" | "current" | "past"
+  status: Status
   notes: string
-  updated_at: string
+  type: StayType
   event_id?: string
 }
 
-interface Event {
-  id: string
-  title: string
-  description: string
-  start_date: string
-  end_date: string | null
-  time: string | null
-  category: "family" | "maintenance" | "appointment" | "other"
-  created_at: string
-  updated_at: string
-}
-
 interface GuestStaysClientProps {
-  guests: GuestStay[]
-  events: Event[]
+  guests: Stay[]
 }
 
-export function GuestStaysClient({ guests, events }: GuestStaysClientProps) {
-  const [searchQuery, setSearchQuery] = useState("")
+function formatDate(d: string) {
+  return new Date(d + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+}
+
+function nights(from: string, to: string) {
+  const diff = new Date(to).getTime() - new Date(from).getTime()
+  const n = Math.round(diff / 86400000)
+  return n === 1 ? "1 night" : `${n} nights`
+}
+
+const statusConfig: Record<Status, { label: string; dot: string; badge: string }> = {
+  upcoming: { label: "Upcoming", dot: "bg-blue-400",   badge: "bg-blue-50 text-blue-700" },
+  current:  { label: "Here now", dot: "bg-green-400",  badge: "bg-green-50 text-green-700" },
+  past:     { label: "Past",     dot: "bg-gray-300",   badge: "bg-gray-50 text-gray-500" },
+}
+
+const typeConfig: Record<StayType, { label: string; badge: string }> = {
+  family: { label: "👨‍👩‍👧 Family", badge: "bg-blue-100 text-blue-700" },
+  friend: { label: "👫 Friend",  badge: "bg-violet-100 text-violet-700" },
+}
+
+export function GuestStaysClient({ guests }: GuestStaysClientProps) {
+  const [search] = useState("")
+  const [filter] = useState<"all" | Status>("all")
   const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [editingGuest, setEditingGuest] = useState<GuestStay | null>(null)
-  const [highlightedEventId, setHighlightedEventId] = useState<string | null>(null)
-  const [selectedDate, setSelectedDate] = useState<Date | null>(null)
+  const [editingStay, setEditingStay] = useState<Stay | null>(null)
+  const [deleteStay, setDeleteStay] = useState<Stay | null>(null)
   const router = useRouter()
-  const dragStartRef = useRef<boolean>(false)
 
-  const filteredGuests = guests.filter(
-    (guest) =>
-      guest.guest_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      guest.room.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      guest.status.toLowerCase().includes(searchQuery.toLowerCase()),
-  )
+  useEffect(() => {
+    const handler = () => { setEditingStay(null); setIsDialogOpen(true) }
+    window.addEventListener("topbar:new", handler)
+    return () => window.removeEventListener("topbar:new", handler)
+  }, [])
 
-  const getStatusColor = (status: GuestStay["status"]) => {
-    switch (status) {
-      case "upcoming":
-        return "bg-blue-500/10 text-blue-700 dark:text-blue-400"
-      case "current":
-        return "bg-green-500/10 text-green-700 dark:text-green-400"
-      case "past":
-        return "bg-gray-500/10 text-gray-700 dark:text-gray-400"
-    }
-  }
-
-  const upcomingGuests = guests.filter(g => g.status === "upcoming").length
-  const currentGuests = guests.filter(g => g.status === "current").length
-  const pastGuests = guests.filter(g => g.status === "past").length
-
-  const handleAddGuest = () => {
-    setEditingGuest(null)
-    setIsDialogOpen(true)
-  }
-
-  const handleEditGuest = (guest: GuestStay) => {
-    setEditingGuest(guest)
-    setIsDialogOpen(true)
-  }
-
-  const handleSaveGuest = async (guestData: Omit<GuestStay, "id" | "updated_at">) => {
+  const handleSave = async (data: Parameters<typeof createGuestStay>[0]) => {
     try {
-      if (editingGuest) {
-        // Update existing guest
-        await updateGuestStay(editingGuest.id, {
-          guestName: guestData.guest_name,
-          room: guestData.room,
-          checkIn: guestData.from_date,
-          checkOut: guestData.to_date,
-          status: guestData.status,
-          notes: guestData.notes,
-        })
+      if (editingStay) {
+        await updateGuestStay(editingStay.id, data)
       } else {
-        // Add new guest
-        await createGuestStay({
-          guestName: guestData.guest_name,
-          room: guestData.room,
-          checkIn: guestData.from_date,
-          checkOut: guestData.to_date,
-          status: guestData.status,
-          notes: guestData.notes,
-        })
+        await createGuestStay(data)
       }
       router.refresh()
-    } catch (error) {
-      console.error("Failed to save guest stay:", error)
-    }
+    } catch (e) { console.error(e) }
   }
 
-  const handleDeleteGuest = async (id: string) => {
-    if (confirm("Are you sure you want to delete this guest stay?")) {
-      try {
-        await deleteGuestStay(id)
-        router.refresh()
-      } catch (error) {
-        console.error("Failed to delete guest stay:", error)
-      }
-    }
+  const handleDelete = async (id: string) => {
+    try { await deleteGuestStay(id); router.refresh() }
+    catch (e) { console.error(e) }
   }
 
-  const handleGuestNameClick = (guest: GuestStay) => {
-    handleEditGuest(guest)
-  }
+  const upcoming = guests.filter(g => g.status === "upcoming").length
+  const current  = guests.filter(g => g.status === "current").length
+  const past     = guests.filter(g => g.status === "past").length
 
-  const handleRowClick = (guest: GuestStay) => {
-    if (!dragStartRef.current && guest.event_id) {
-      setHighlightedEventId(guest.event_id)
-      // Set the date to the start date of the guest stay
-      setSelectedDate(new Date(guest.from_date))
-    }
-    dragStartRef.current = false
-  }
-
-  const handleRowMouseDown = () => {
-    dragStartRef.current = false
-  }
-
-  const handleRowMouseMove = () => {
-    dragStartRef.current = true
-  }
+  const filtered = guests.filter(g => {
+    const matchSearch = g.guest_name.toLowerCase().includes(search.toLowerCase()) ||
+      (g.room && g.room.toLowerCase().includes(search.toLowerCase()))
+    const matchFilter = filter === "all" || g.status === filter
+    return matchSearch && matchFilter
+  })
 
   return (
-    <div className="flex h-screen">
-      {/* Main Content */}
-      <div className="flex-1 p-8 overflow-y-auto">
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground mb-2">Guest Stays</h1>
-            <p className="text-muted-foreground">Manage guest accommodations and visits</p>
-          </div>
-          <Button onClick={handleAddGuest}>
-            <Plus className="h-4 w-4 mr-2" />
-            Add Guest Stay
-          </Button>
+    <div className="p-8">
+      {/* Cards */}
+      {filtered.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-24 gap-4">
+          <p className="text-gray-400 text-base">No stays yet</p>
+          <button onClick={() => setIsDialogOpen(true)} className="flex items-center gap-2 px-6 py-2.5 bg-rose-500 hover:bg-rose-600 text-white text-sm font-medium rounded-xl cursor-pointer transition-colors">
+            <Plus className="h-4 w-4" /> New Stay
+          </button>
         </div>
-
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <Card className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">Upcoming</p>
-              <p className="text-2xl font-bold text-blue-600">{upcomingGuests}</p>
-            </div>
-            <Calendar className="h-8 w-8 text-blue-600" />
-          </div>
-        </Card>
-        <Card className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">Current</p>
-              <p className="text-2xl font-bold text-green-600">{currentGuests}</p>
-            </div>
-            <Users className="h-8 w-8 text-green-600" />
-          </div>
-        </Card>
-        <Card className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">Past</p>
-              <p className="text-2xl font-bold text-gray-600">{pastGuests}</p>
-            </div>
-            <Users className="h-8 w-8 text-gray-600" />
-          </div>
-        </Card>
-      </div>
-
-      {/* Search */}
-      <div className="relative mb-6">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Search guests, rooms, or status..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-10"
-        />
-      </div>
-
-      {filteredGuests.length === 0 ? (
-        <Card className="p-12 text-center">
-          <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-foreground mb-2">
-            {searchQuery ? "No guests found" : "No guest stays yet"}
-          </h3>
-          <p className="text-muted-foreground mb-4">
-            {searchQuery ? "Try adjusting your search terms" : "Add your first guest stay to get started"}
-          </p>
-          {!searchQuery && (
-            <Button onClick={handleAddGuest}>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Guest Stay
-            </Button>
-          )}
-        </Card>
       ) : (
-        <Card>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Guest Name</TableHead>
-                <TableHead>Room</TableHead>
-                <TableHead>Check-in</TableHead>
-                <TableHead>Check-out</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Notes</TableHead>
-                <TableHead>Last Updated</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredGuests.map((guest) => (
-                <TableRow 
-                  key={guest.id}
-                  className="cursor-pointer hover:bg-muted/50"
-                  onClick={() => handleRowClick(guest)}
-                  onMouseDown={handleRowMouseDown}
-                  onMouseMove={handleRowMouseMove}
-                >
-                  <TableCell 
-                    className="font-medium cursor-pointer hover:text-primary"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      handleGuestNameClick(guest)
-                    }}
-                  >
-                    {guest.guest_name}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <MapPin className="h-4 w-4 text-muted-foreground" />
-                      {guest.room}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    {formatDateFull(guest.from_date.split('T')[0])}
-                  </TableCell>
-                  <TableCell>
-                    {formatDateFull(guest.to_date.split('T')[0])}
-                  </TableCell>
-                  <TableCell>
-                    <span className={cn("px-2 py-1 rounded-full text-xs font-medium", getStatusColor(guest.status))}>
-                      {guest.status.charAt(0).toUpperCase() + guest.status.slice(1)}
-                    </span>
-                  </TableCell>
-                  <TableCell className="max-w-xs truncate">{guest.notes || "-"}</TableCell>
-                  <TableCell>
-                    {formatDateTime(guest.updated_at)}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => handleEditGuest(guest)}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-destructive hover:text-destructive"
-                        onClick={() => handleDeleteGuest(guest.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </Card>
-      )}
-      </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filtered.map(stay => {
+            const s = statusConfig[stay.status] ?? statusConfig.past
+            const t = typeConfig[stay.type] ?? typeConfig.friend
+            return (
+              <Card
+                key={stay.id}
+                className={cn(
+                  "p-5 border-2 group shadow-none transition-all hover:shadow-md hover:-translate-y-0.5",
+                  stay.status === "current" ? "border-green-200 bg-green-50/30" :
+                  stay.status === "upcoming" ? "border-blue-100" : "border-gray-100 opacity-75"
+                )}
+              >
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className={cn("w-2 h-2 rounded-full flex-shrink-0 mt-0.5", s.dot)} />
+                    <h3 className="font-semibold text-gray-800">{stay.guest_name}</h3>
+                  </div>
+                  <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 cursor-pointer text-gray-400 hover:text-gray-700">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem className="cursor-pointer" onClick={() => { setEditingStay(stay); setIsDialogOpen(true) }}>
+                          <Pencil className="h-3.5 w-3.5 mr-2" /> Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem className="cursor-pointer text-destructive focus:text-destructive" onClick={() => setDeleteStay(stay)}>
+                          <Trash2 className="h-3.5 w-3.5 mr-2" /> Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </div>
 
-      {/* Calendar Preview Sidebar */}
-      <CalendarSidebar
-        isOpen={true}
-        onClose={() => setSelectedDate(null)}
-        selectedDate={selectedDate}
-        events={events}
-        onAddEvent={() => {}}
-        onEditEvent={() => {}}
-        onDeleteEvent={() => {}}
-        isEventDialogOpen={isDialogOpen}
-      />
+                <div className="flex gap-2 mb-3 flex-wrap">
+                  <span className={cn("text-xs px-2 py-0.5 rounded-full font-medium", t.badge)}>{t.label}</span>
+                  <span className={cn("text-xs px-2 py-0.5 rounded-full font-medium", s.badge)}>{s.label}</span>
+                </div>
+
+                <div className="text-sm text-gray-500 space-y-1">
+                  <div>{formatDate(stay.from_date)} → {formatDate(stay.to_date)}</div>
+                  <div className="text-xs text-gray-400">{nights(stay.from_date, stay.to_date)}</div>
+                  {stay.room && (
+                    <div className="flex items-center gap-1">
+                      <MapPin className="h-3 w-3" /> {stay.room}
+                    </div>
+                  )}
+                  {stay.notes && (
+                    <div className="text-xs text-gray-400 line-clamp-2 mt-1">{stay.notes}</div>
+                  )}
+                </div>
+              </Card>
+            )
+          })}
+        </div>
+      )}
 
       <GuestStayDialog
         open={isDialogOpen}
-        onOpenChange={setIsDialogOpen}
-        guestStay={editingGuest}
-        onSave={handleSaveGuest}
+        onOpenChange={open => { if (!open) { setIsDialogOpen(false); setEditingStay(null) } }}
+        stay={editingStay}
+        onSave={handleSave}
+      />
+
+      <ConfirmDeleteDialog
+        open={!!deleteStay}
+        onOpenChange={open => { if (!open) setDeleteStay(null) }}
+        onConfirm={() => deleteStay && handleDelete(deleteStay.id)}
+        itemName={deleteStay?.guest_name}
       />
     </div>
   )

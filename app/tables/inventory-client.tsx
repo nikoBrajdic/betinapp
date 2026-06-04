@@ -101,7 +101,6 @@ export function InventoryClient({ items }: InventoryClientProps) {
     <div className="p-8">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-foreground mb-2">Inventory</h1>
           <p className="text-muted-foreground">Track household items and supplies</p>
         </div>
         <Button onClick={() => setIsDialogOpen(true)}>

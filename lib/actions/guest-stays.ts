@@ -3,72 +3,65 @@
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 
-// Helper function to create event data from guest stay
-function createEventFromGuestStay(guestStay: {
-  guestName: string
-  room: string
-  checkIn: string
-  checkOut: string
-  status: string
-  notes: string
-}) {
-  const title = `${guestStay.guestName} - ${guestStay.room}`
-  const description = `Guest stay in ${guestStay.room}${guestStay.notes ? `\n\nNotes: ${guestStay.notes}` : ''}`
-  
-  return {
-    title,
-    description,
-    startDate: guestStay.checkIn,
-    endDate: guestStay.checkOut,
-    time: null,
-    category: "other" // Guest stays are categorized as "other"
-  }
+function computeStatus(checkIn: string, checkOut: string): string {
+  const today = new Date().toISOString().split("T")[0]
+  if (checkIn > today) return "upcoming"
+  if (checkOut >= today) return "current"
+  return "past"
+}
+
+function eventTitle(name: string, _type: string) {
+  return name
 }
 
 export async function getGuestStays() {
   const supabase = await createClient()
-  const { data, error } = await supabase.from("guest_stays").select("*").order("from_date", { ascending: true })
-
+  const { data, error } = await supabase
+    .from("guest_stays")
+    .select("*")
+    .order("from_date", { ascending: true })
   if (error) throw error
   return data
 }
 
 export async function createGuestStay(formData: {
   guestName: string
-  room: string
+  room?: string
   checkIn: string
   checkOut: string
-  status: string
   notes: string
+  type: "family" | "friend"
 }) {
   const supabase = await createClient()
-  
-  // Create the event first
-  const eventData = createEventFromGuestStay(formData)
-  const { data: event, error: eventError } = await supabase.from("events").insert({
-    title: eventData.title,
-    description: eventData.description,
-    start_date: eventData.startDate,
-    end_date: eventData.endDate,
-    time: eventData.time,
-    category: eventData.category,
-  }).select().single()
+  const status = computeStatus(formData.checkIn, formData.checkOut)
+
+  const { data: event, error: eventError } = await supabase
+    .from("events")
+    .insert({
+      title: eventTitle(formData.guestName, formData.type),
+      description: formData.notes || null,
+      start_date: formData.checkIn,
+      end_date: formData.checkOut,
+      time: null,
+      category: formData.type === "family" ? "family" : "other",
+    })
+    .select()
+    .single()
 
   if (eventError) throw eventError
 
-  // Create the guest stay with the event_id
   const { error } = await supabase.from("guest_stays").insert({
     guest_name: formData.guestName,
-    room: formData.room,
+    room: formData.room || "",
     from_date: formData.checkIn,
     to_date: formData.checkOut,
-    status: formData.status,
+    status,
     notes: formData.notes,
+    type: formData.type,
     event_id: event.id,
   })
 
   if (error) {
-    // If guest stay creation fails, clean up the event
     await supabase.from("events").delete().eq("id", event.id)
     throw error
   }
@@ -81,57 +74,50 @@ export async function updateGuestStay(
   id: string,
   formData: {
     guestName: string
-    room: string
+    room?: string
     checkIn: string
     checkOut: string
-    status: string
     notes: string
+    type: "family" | "friend"
   },
 ) {
   const supabase = await createClient()
-  
-  // Get the current guest stay to find the associated event
-  const { data: currentGuestStay, error: fetchError } = await supabase
+  const status = computeStatus(formData.checkIn, formData.checkOut)
+
+  const { data: current, error: fetchError } = await supabase
     .from("guest_stays")
     .select("event_id")
     .eq("id", id)
     .single()
-
   if (fetchError) throw fetchError
 
-  // Update the guest stay
   const { error } = await supabase
     .from("guest_stays")
     .update({
       guest_name: formData.guestName,
-      room: formData.room,
+      room: formData.room || "",
       from_date: formData.checkIn,
       to_date: formData.checkOut,
-      status: formData.status,
+      status,
       notes: formData.notes,
+      type: formData.type,
       updated_at: new Date().toISOString(),
     })
     .eq("id", id)
-
   if (error) throw error
 
-  // Update the associated event if it exists
-  if (currentGuestStay.event_id) {
-    const eventData = createEventFromGuestStay(formData)
-    const { error: eventError } = await supabase
+  if (current.event_id) {
+    await supabase
       .from("events")
       .update({
-        title: eventData.title,
-        description: eventData.description,
-        start_date: eventData.startDate,
-        end_date: eventData.endDate,
-        time: eventData.time,
-        category: eventData.category,
+        title: eventTitle(formData.guestName, formData.type),
+        description: formData.notes || null,
+        start_date: formData.checkIn,
+        end_date: formData.checkOut,
+        category: formData.type === "family" ? "family" : "other",
         updated_at: new Date().toISOString(),
       })
-      .eq("id", currentGuestStay.event_id)
-
-    if (eventError) throw eventError
+      .eq("id", current.event_id)
   }
 
   revalidatePath("/guest-stays")
@@ -140,24 +126,18 @@ export async function updateGuestStay(
 
 export async function deleteGuestStay(id: string) {
   const supabase = await createClient()
-  
-  // Get the event_id before deleting the guest stay
-  const { data: guestStay, error: fetchError } = await supabase
+
+  const { data: stay } = await supabase
     .from("guest_stays")
     .select("event_id")
     .eq("id", id)
     .single()
 
-  if (fetchError) throw fetchError
-
-  // Delete the guest stay (this will cascade delete the event due to foreign key)
   const { error } = await supabase.from("guest_stays").delete().eq("id", id)
-
   if (error) throw error
 
-  // If there was an associated event, delete it manually (in case cascade doesn't work)
-  if (guestStay.event_id) {
-    await supabase.from("events").delete().eq("id", guestStay.event_id)
+  if (stay?.event_id) {
+    await supabase.from("events").delete().eq("id", stay.event_id)
   }
 
   revalidatePath("/guest-stays")

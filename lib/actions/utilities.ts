@@ -3,12 +3,115 @@
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 
+async function syncUtilityFromLatestReadings(supabase: any, type: string) {
+  const isElectricity = type.toLowerCase().includes("struja")
+  const readingTypes = isElectricity ? ["Struja 1", "Struja 2"] : [type]
+  const { data: latestReadings } = await supabase
+    .from("utility_readings")
+    .select("*")
+    .in("type", readingTypes)
+    .order("date", { ascending: false })
+
+  const latestDate = latestReadings?.[0]?.date
+  const latestForMeter = latestDate
+    ? latestReadings.filter((reading: { date: string }) => reading.date === latestDate)
+    : []
+  const latestUsage = latestForMeter.reduce((sum: number, reading: { value: number }) => sum + Number(reading.value), 0)
+  const latestMax = latestForMeter[0]?.max_value ?? 0
+
+  await supabase
+    .from("utilities")
+    .update({
+      current_usage: latestUsage,
+      max_usage: latestMax,
+      updated_at: latestDate ?? new Date(0).toISOString(),
+    })
+    .eq("name", type)
+}
+
 export async function getUtilities() {
   const supabase = await createClient()
   const { data, error } = await supabase.from("utilities").select("*").order("name", { ascending: true })
 
   if (error) throw error
   return data
+}
+
+export async function getUtilityReadings() {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from("utility_readings")
+    .select("*")
+    .order("date", { ascending: false })
+    .order("type", { ascending: true })
+
+  if (error) throw error
+  return data
+}
+
+export async function createDefaultReadingUtilities() {
+  const supabase = await createClient()
+  const { data: existing, error: existingError } = await supabase
+    .from("utilities")
+    .select("name")
+
+  if (existingError) throw existingError
+
+  const existingNames = new Set((existing ?? []).map((utility: { name: string }) => utility.name.toLowerCase()))
+  const defaults = [
+    { name: "Voda", current_usage: 0, max_usage: 100, cost: 0, unit: "m3", trend: "stable" },
+    { name: "Struja", current_usage: 0, max_usage: 200000, cost: 0, unit: "kWh", trend: "stable" },
+  ].filter(utility => !existingNames.has(utility.name.toLowerCase()))
+
+  if (defaults.length > 0) {
+    const { error } = await supabase.from("utilities").insert(defaults)
+    if (error) throw error
+  }
+
+  revalidatePath("/utilities")
+}
+
+export async function createUtilityReading(formData: {
+  type: string
+  value: number
+  maxValue: number
+  unit: string
+  readingDate: string
+  secondaryValue?: number
+}) {
+  const supabase = await createClient()
+  const readingAt = new Date(`${formData.readingDate}T12:00:00`).toISOString()
+  const isElectricity = formData.type.toLowerCase().includes("struja")
+  const readings = isElectricity && typeof formData.secondaryValue === "number"
+    ? [
+      { type: "Struja 1", value: formData.value, max_value: formData.maxValue, date: readingAt },
+      { type: "Struja 2", value: formData.secondaryValue, max_value: formData.maxValue, date: readingAt },
+    ]
+    : [{
+      type: formData.type,
+      value: formData.value,
+      max_value: formData.maxValue,
+      date: readingAt,
+    }]
+  const currentUsage = isElectricity && typeof formData.secondaryValue === "number"
+    ? formData.value + formData.secondaryValue
+    : formData.value
+
+  const { error } = await supabase.from("utility_readings").insert(readings)
+
+  if (error) throw error
+
+  await supabase
+    .from("utilities")
+    .update({
+      current_usage: currentUsage,
+      max_usage: formData.maxValue,
+      unit: formData.unit,
+      updated_at: readingAt,
+    })
+    .eq("name", formData.type)
+
+  revalidatePath("/utilities")
 }
 
 export async function updateUtility(
@@ -20,22 +123,119 @@ export async function updateUtility(
     cost: number
     unit: string
     trend: string
+    readingDate?: string
+    secondaryUsage?: number
   },
 ) {
   const supabase = await createClient()
+  const updatedAt = formData.readingDate
+    ? new Date(`${formData.readingDate}T12:00:00`).toISOString()
+    : new Date().toISOString()
+  const isElectricity = formData.name.toLowerCase().includes("struja")
+  const currentUsage = isElectricity && typeof formData.secondaryUsage === "number"
+    ? formData.currentUsage + formData.secondaryUsage
+    : formData.currentUsage
+
   const { error } = await supabase
     .from("utilities")
     .update({
       name: formData.name,
-      current_usage: formData.currentUsage,
+      current_usage: currentUsage,
       max_usage: formData.maxUsage,
       cost: formData.cost,
       unit: formData.unit,
       trend: formData.trend,
-      updated_at: new Date().toISOString(),
+      updated_at: updatedAt,
     })
     .eq("id", id)
 
   if (error) throw error
+
+  await supabase.from("utility_readings").insert(
+    isElectricity && typeof formData.secondaryUsage === "number"
+      ? [
+        { type: "Struja 1", value: formData.currentUsage, max_value: formData.maxUsage, date: updatedAt },
+        { type: "Struja 2", value: formData.secondaryUsage, max_value: formData.maxUsage, date: updatedAt },
+      ]
+      : [{
+        type: formData.name,
+        value: formData.currentUsage,
+        max_value: formData.maxUsage,
+        date: updatedAt,
+      }],
+  )
+
+  revalidatePath("/utilities")
+}
+
+export async function updateUtilityReading(formData: {
+  type: string
+  readingIds: string[]
+  value: number
+  maxValue: number
+  readingDate: string
+  secondaryValue?: number
+}) {
+  const supabase = await createClient()
+  const readingAt = new Date(`${formData.readingDate}T12:00:00`).toISOString()
+  const isElectricity = formData.type.toLowerCase().includes("struja")
+  const readingIds = formData.readingIds.filter(Boolean)
+
+  if (readingIds.length === 0) return
+
+  if (isElectricity) {
+    const updates = [
+      { id: readingIds[0], type: "Struja 1", value: formData.value },
+      { id: readingIds[1], type: "Struja 2", value: formData.secondaryValue ?? 0 },
+    ].filter(reading => reading.id)
+
+    for (const reading of updates) {
+      const { error } = await supabase
+        .from("utility_readings")
+        .update({
+          type: reading.type,
+          value: reading.value,
+          max_value: formData.maxValue,
+          date: readingAt,
+        })
+        .eq("id", reading.id)
+
+      if (error) throw error
+    }
+  } else {
+    const { error } = await supabase
+      .from("utility_readings")
+      .update({
+        type: formData.type,
+        value: formData.value,
+        max_value: formData.maxValue,
+        date: readingAt,
+      })
+      .eq("id", readingIds[0])
+
+    if (error) throw error
+  }
+
+  await syncUtilityFromLatestReadings(supabase, formData.type)
+  revalidatePath("/utilities")
+}
+
+export async function deleteUtilityReading(formData: {
+  type: string
+  readingIds: string[]
+}) {
+  const supabase = await createClient()
+  const readingIds = formData.readingIds.filter(Boolean)
+
+  if (readingIds.length === 0) return
+
+  const { error } = await supabase
+    .from("utility_readings")
+    .delete()
+    .in("id", readingIds)
+
+  if (error) throw error
+
+  await syncUtilityFromLatestReadings(supabase, formData.type)
   revalidatePath("/utilities")
 }

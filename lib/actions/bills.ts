@@ -31,6 +31,7 @@ export async function createBill(formData: {
 
   if (error) throw error
   revalidatePath("/bills")
+  revalidatePath("/utilities")
 }
 
 export async function updateBill(
@@ -60,6 +61,7 @@ export async function updateBill(
 
   if (error) throw error
   revalidatePath("/bills")
+  revalidatePath("/utilities")
 }
 
 export async function deleteBill(id: string) {
@@ -68,4 +70,5 @@ export async function deleteBill(id: string) {
 
   if (error) throw error
   revalidatePath("/bills")
+  revalidatePath("/utilities")
 }

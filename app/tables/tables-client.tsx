@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -28,6 +28,12 @@ interface TablesClientProps {
 export function TablesClient({ tables }: TablesClientProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [isDialogOpen, setIsDialogOpen] = useState(false)
+
+  useEffect(() => {
+    const handler = () => setIsDialogOpen(true)
+    window.addEventListener("topbar:new", handler)
+    return () => window.removeEventListener("topbar:new", handler)
+  }, [])
   const [editingTable, setEditingTable] = useState<TableItem | null>(null)
   const router = useRouter()
 
@@ -91,16 +97,6 @@ export function TablesClient({ tables }: TablesClientProps) {
 
   return (
     <div className="p-8">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground mb-2">Tables</h1>
-          <p className="text-muted-foreground">Manage dining tables and seating arrangements</p>
-        </div>
-        <Button onClick={handleAddTable}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Table
-        </Button>
-      </div>
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
