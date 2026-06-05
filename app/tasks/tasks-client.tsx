@@ -185,16 +185,23 @@ function TaskList({
 
           {/* Inline editable text */}
           {editingId === item.id ? (
-            <input
+            <textarea
               value={editText}
-              onChange={e => setEditText(e.target.value)}
+              onChange={e => {
+                setEditText(e.target.value)
+                e.target.style.height = "auto"
+                e.target.style.height = e.target.scrollHeight + "px"
+              }}
               onBlur={saveEdit}
               onKeyDown={e => {
-                if (e.key === "Enter") saveEdit()
+                if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); saveEdit() }
                 if (e.key === "Escape") setEditingId(null)
               }}
               autoFocus
-              className="flex-1 text-sm bg-transparent outline-none border-b border-gray-400"
+              rows={1}
+              ref={el => { if (el) { el.style.height = "auto"; el.style.height = el.scrollHeight + "px" } }}
+              style={{ resize: "none", overflow: "hidden" }}
+              className="flex-1 text-sm bg-transparent outline-none border-b border-gray-400 leading-snug"
             />
           ) : (
             <span
