@@ -185,7 +185,21 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
   const [editingBill, setEditingBill] = useState<Bill | null>(null)
   const [billDialogOpen, setBillDialogOpen] = useState(false)
   const [deleteBill_, setDeleteBill_] = useState<Bill | null>(null)
+  // billSplitToggles: { [billId]: Set of stay IDs included in split }
+  const [billSplitToggles, setBillSplitToggles] = useState<Record<string, Set<string>>>({})
   const router = useRouter()
+
+  const toggleStayInBill = (billId: string, stayId: string) => {
+    setBillSplitToggles(prev => {
+      const current = new Set(prev[billId] ?? [])
+      if (current.has(stayId)) current.delete(stayId)
+      else current.add(stayId)
+      return { ...prev, [billId]: current }
+    })
+  }
+
+  const isStayIncluded = (billId: string, stayId: string) =>
+    billSplitToggles[billId]?.has(stayId) ?? false
 
   const readingUtilities = useMemo(
     () => utilities.filter(utility => {
@@ -560,12 +574,17 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
             <Card className="shadow-none border-2 overflow-hidden">
               <div className="divide-y divide-gray-100">
                 {bills.map(bill => {
-                  // Find stays that overlap with this bill's period (full month)
+                  // Stays overlapping this bill's period
                   const periodDate = new Date(bill.due_date + "T12:00:00")
                   const monthStart = new Date(periodDate.getFullYear(), periodDate.getMonth(), 1).toISOString().split("T")[0]
                   const monthEnd = new Date(periodDate.getFullYear(), periodDate.getMonth() + 1, 0).toISOString().split("T")[0]
                   const guestsPresent = stays.filter(s => s.from_date <= monthEnd && s.to_date >= monthStart)
                   const period = periodDate.toLocaleDateString("en-US", { month: "long", year: "numeric" })
+
+                  // Split calculation: Mama always + any toggled guests
+                  const includedGuests = guestsPresent.filter(s => isStayIncluded(bill.id, s.id))
+                  const splitPeople = 1 + includedGuests.length // Mama + toggled guests
+                  const splitAmount = bill.amount / splitPeople
 
                   return (
                     <div key={bill.id} className="flex items-center gap-4 px-4 py-3.5 hover:bg-gray-50 group transition-colors">
@@ -578,30 +597,47 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
                       </div>
 
                       {/* Name + period */}
-                      <div className="w-40 flex-shrink-0">
+                      <div className="w-36 flex-shrink-0">
                         <p className="text-sm font-semibold text-gray-800">{bill.name}</p>
                         <p className="text-xs text-gray-400">{period}</p>
                       </div>
 
-                      {/* Guests present */}
-                      <div className="flex-1 flex flex-wrap gap-1.5 min-w-0">
-                        {guestsPresent.length > 0 ? (
-                          guestsPresent.map(s => (
-                            <span key={s.id} className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-blue-50 text-blue-700 border border-blue-100">
+                      {/* People — Mama always + toggleable guests */}
+                      <div className="flex-1 flex flex-wrap items-center gap-1.5 min-w-0">
+                        {/* Mama — always present, not toggleable */}
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-600 border border-gray-200 font-medium">
+                          Mama
+                        </span>
+                        {guestsPresent.map(s => {
+                          const included = isStayIncluded(bill.id, s.id)
+                          return (
+                            <button
+                              key={s.id}
+                              onClick={() => toggleStayInBill(bill.id, s.id)}
+                              title={included ? "Click to exclude from split" : "Click to include in split"}
+                              className={cn(
+                                "inline-flex items-center px-2 py-0.5 rounded-full text-xs border cursor-pointer transition-all",
+                                included
+                                  ? "bg-blue-500 text-white border-blue-500"
+                                  : "bg-white text-gray-400 border-gray-200 hover:border-blue-300 hover:text-blue-500"
+                              )}
+                            >
                               {s.guest_name}
-                            </span>
-                          ))
-                        ) : (
-                          <span className="text-xs text-gray-300">Family only</span>
-                        )}
+                            </button>
+                          )
+                        })}
                       </div>
 
-                      {/* Amount */}
+                      {/* Amount + split */}
                       <div className="flex-shrink-0 text-right">
                         <p className="text-base font-bold text-gray-900">{formatMoney(bill.amount)}</p>
-                        <p className={cn("text-xs", bill.paid ? "text-green-600" : "text-amber-600")}>
-                          {bill.paid ? "Paid" : "Unpaid"}
-                        </p>
+                        {splitPeople > 1 ? (
+                          <p className="text-xs text-blue-600">{formatMoney(splitAmount)}/person</p>
+                        ) : (
+                          <p className={cn("text-xs", bill.paid ? "text-green-600" : "text-amber-600")}>
+                            {bill.paid ? "Paid" : "Unpaid"}
+                          </p>
+                        )}
                       </div>
 
                       {/* Actions */}
