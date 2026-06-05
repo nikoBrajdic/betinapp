@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { CURRENCY_SYMBOL } from "@/lib/currency"
 
-const BILL_NAMES = ["Voda", "Struja", "Internet", "Jezinac"]
+const BILL_NAMES = ["Voda", "Struja", "Internet", "Jezinac", "HRT", "Komunalna naknada"]
 
 interface BillDialogProps {
   open: boolean
