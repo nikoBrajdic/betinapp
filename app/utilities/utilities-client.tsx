@@ -572,13 +572,24 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
             </div>
           ) : (
             <Card className="shadow-none border-2 overflow-hidden">
+              {/* Column headers */}
+              <div className="flex items-center gap-4 px-4 py-2 bg-gray-50 border-b border-gray-100">
+                <div className="w-4 flex-shrink-0" />
+                <div className="w-36 flex-shrink-0 text-xs font-medium text-gray-400 uppercase tracking-wide">Bill</div>
+                <div className="flex-1 text-xs font-medium text-gray-400 uppercase tracking-wide">Split between</div>
+                <div className="w-24 flex-shrink-0 text-xs font-medium text-gray-400 uppercase tracking-wide text-right">Amount</div>
+                <div className="w-7 flex-shrink-0" />
+              </div>
               <div className="divide-y divide-gray-100">
                 {bills.map(bill => {
-                  // Stays overlapping this bill's period
+                  // Stays overlapping this bill's period, excluding Vesna (always counted as Mama)
                   const periodDate = new Date(bill.due_date + "T12:00:00")
                   const monthStart = new Date(periodDate.getFullYear(), periodDate.getMonth(), 1).toISOString().split("T")[0]
                   const monthEnd = new Date(periodDate.getFullYear(), periodDate.getMonth() + 1, 0).toISOString().split("T")[0]
-                  const guestsPresent = stays.filter(s => s.from_date <= monthEnd && s.to_date >= monthStart)
+                  const guestsPresent = stays.filter(s =>
+                    s.from_date <= monthEnd && s.to_date >= monthStart &&
+                    !s.guest_name.toLowerCase().includes("vesna")
+                  )
                   const period = periodDate.toLocaleDateString("en-US", { month: "long", year: "numeric" })
 
                   // Split calculation: Mama always + any toggled guests
