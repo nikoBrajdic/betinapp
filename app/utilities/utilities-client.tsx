@@ -619,16 +619,29 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
                   const periodDate = new Date(bill.due_date + "T12:00:00")
                   const monthStart = new Date(periodDate.getFullYear(), periodDate.getMonth(), 1).toISOString().split("T")[0]
                   const monthEnd = new Date(periodDate.getFullYear(), periodDate.getMonth() + 1, 0).toISOString().split("T")[0]
+                  // Exclusive end used for night-overlap calculation (same convention as personNightsForPeriod)
+                  const monthNextStart = new Date(periodDate.getFullYear(), periodDate.getMonth() + 1, 1).toISOString().split("T")[0]
+                  const daysInMonth = new Date(periodDate.getFullYear(), periodDate.getMonth() + 1, 0).getDate()
+
                   const guestsPresent = stays.filter(s =>
                     s.from_date <= monthEnd && s.to_date >= monthStart &&
                     !s.guest_name.toLowerCase().includes("vesna")
                   )
                   const period = periodDate.toLocaleDateString("en-US", { month: "long", year: "numeric" })
 
-                  // Split calculation: Mama always + any toggled guests
+                  // Days each guest overlaps with this billing month (to_date is exclusive checkout)
+                  const guestDaysMap = new Map(
+                    guestsPresent.map(s => {
+                      const overlapStart = Math.max(dayIndex(monthStart), dayIndex(s.from_date))
+                      const overlapEnd = Math.min(dayIndex(monthNextStart), dayIndex(s.to_date))
+                      return [s.id, Math.max(0, overlapEnd - overlapStart)] as const
+                    })
+                  )
+
                   const includedGuests = guestsPresent.filter(s => isStayIncluded(bill.id, s.id))
-                  const splitPeople = 1 + includedGuests.length // Mama + toggled guests
-                  const splitAmount = bill.amount / splitPeople
+                  const includedGuestDays = includedGuests.reduce((sum, s) => sum + (guestDaysMap.get(s.id) ?? 0), 0)
+                  const totalPersonDays = daysInMonth + includedGuestDays
+                  const mamaShare = bill.amount * (daysInMonth / totalPersonDays)
 
                   return (
                     <div key={bill.id} className="flex items-center gap-4 px-4 py-3.5 hover:bg-gray-50 group transition-colors">
@@ -646,14 +659,15 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
                         <p className="text-xs text-gray-400">{period}</p>
                       </div>
 
-                      {/* People — Mama always + toggleable guests */}
+                      {/* People — Mama always + toggleable guests with day counts */}
                       <div className="flex-1 flex flex-wrap items-center gap-1.5 min-w-0">
                         {/* Mama — always present, not toggleable */}
                         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-600 border border-gray-200 font-medium">
-                          Mama
+                          Mama · {daysInMonth}d
                         </span>
                         {guestsPresent.map(s => {
                           const included = isStayIncluded(bill.id, s.id)
+                          const days = guestDaysMap.get(s.id) ?? 0
                           return (
                             <button
                               key={s.id}
@@ -666,17 +680,17 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
                                   : "bg-white text-gray-400 border-gray-200 hover:border-blue-300 hover:text-blue-500"
                               )}
                             >
-                              {s.guest_name}
+                              {s.guest_name} · {days}d
                             </button>
                           )
                         })}
                       </div>
 
-                      {/* Amount + split */}
+                      {/* Amount + Mama's weighted share */}
                       <div className="flex-shrink-0 text-right">
                         <p className="text-base font-bold text-gray-900">{formatMoney(bill.amount)}</p>
-                        {splitPeople > 1 ? (
-                          <p className="text-xs text-blue-600">{formatMoney(splitAmount)}/person</p>
+                        {includedGuests.length > 0 ? (
+                          <p className="text-xs text-blue-600">Mama {formatMoney(mamaShare)}</p>
                         ) : (
                           <p className={cn("text-xs", bill.paid ? "text-green-600" : "text-amber-600")}>
                             {bill.paid ? "Paid" : "Unpaid"}
