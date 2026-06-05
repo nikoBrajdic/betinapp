@@ -187,6 +187,12 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
   const [deleteBill_, setDeleteBill_] = useState<Bill | null>(null)
   // billSplitToggles: { [billId]: Set of stay IDs included in split }
   const [billSplitToggles, setBillSplitToggles] = useState<Record<string, Set<string>>>({})
+  const billYears = [...new Set(bills.map(b => new Date(b.due_date + "T12:00:00").getFullYear()))].sort((a, b) => b - a)
+  const [selectedBillYear, setSelectedBillYear] = useState<number | null>(null)
+  const activeBillYear = selectedBillYear ?? billYears[0] ?? new Date().getFullYear()
+  const filteredBills = [...bills]
+    .filter(b => new Date(b.due_date + "T12:00:00").getFullYear() === activeBillYear)
+    .sort((a, b) => new Date(b.due_date).getTime() - new Date(a.due_date).getTime())
   const router = useRouter()
 
   const toggleStayInBill = (billId: string, stayId: string) => {
@@ -562,7 +568,7 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
           )}
         </TabsContent>
 
-        <TabsContent value="bills">
+        <TabsContent value="bills" className="mt-0">
           {bills.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-24 gap-4">
               <p className="text-gray-400 text-base">No bills yet</p>
@@ -572,6 +578,25 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
             </div>
           ) : (
             <Card className="shadow-none border-2 overflow-hidden">
+              {/* Year tabs */}
+              {billYears.length > 1 && (
+                <div className="flex items-center gap-1 px-4 pt-3 pb-0">
+                  {billYears.map(year => (
+                    <button
+                      key={year}
+                      onClick={() => setSelectedBillYear(year)}
+                      className={cn(
+                        "px-3 py-1 rounded-lg text-sm font-medium transition-colors cursor-pointer",
+                        activeBillYear === year
+                          ? "bg-blue-500 text-white"
+                          : "text-gray-400 hover:text-gray-700 hover:bg-gray-100"
+                      )}
+                    >
+                      {year}
+                    </button>
+                  ))}
+                </div>
+              )}
               {/* Column headers */}
               <div className="flex items-center gap-4 px-4 py-2 bg-gray-50 border-b border-gray-100">
                 <div className="w-4 flex-shrink-0" />
@@ -581,7 +606,7 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
                 <div className="w-7 flex-shrink-0" />
               </div>
               <div className="divide-y divide-gray-100">
-                {bills.map(bill => {
+                {filteredBills.map(bill => {
                   // Stays overlapping this bill's period, excluding Vesna (always counted as Mama)
                   const periodDate = new Date(bill.due_date + "T12:00:00")
                   const monthStart = new Date(periodDate.getFullYear(), periodDate.getMonth(), 1).toISOString().split("T")[0]
