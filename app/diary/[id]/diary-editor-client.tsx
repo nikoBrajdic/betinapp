@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils"
 import { updateDiaryEntry, type DiaryEntry, type Block, type ImageItem } from "@/lib/actions/diary"
 import { trackSave } from "@/lib/save-events"
 import { createClient } from "@/lib/supabase/client"
+import { ImageLightbox } from "@/components/image-lightbox"
 
 // ── Utilities ─────────────────────────────────────────────────────────────────
 
@@ -80,33 +81,6 @@ function AutoTextarea({
 }
 
 // ── Image block ───────────────────────────────────────────────────────────────
-function ImageLightbox({ url, onClose }: { url: string; onClose: () => void }) {
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose() }
-    window.addEventListener("keydown", handler)
-    return () => window.removeEventListener("keydown", handler)
-  }, [onClose])
-
-  return (
-    <div
-      className="fixed inset-0 z-50 bg-black/85 flex items-center justify-center p-4 cursor-zoom-out"
-      onClick={onClose}
-    >
-      <img
-        src={url} alt=""
-        className="max-h-[90vh] max-w-[90vw] rounded-xl object-contain shadow-2xl"
-        onClick={e => e.stopPropagation()}
-      />
-      <button
-        onClick={onClose}
-        className="absolute top-4 right-4 text-white/70 hover:text-white bg-black/30 hover:bg-black/50 rounded-full p-2 transition-colors cursor-pointer"
-      >
-        <X className="h-5 w-5" />
-      </button>
-    </div>
-  )
-}
-
 function ImageBlock({
   block, entryId, onChange, onDelete,
 }: {
@@ -117,7 +91,7 @@ function ImageBlock({
 }) {
   const [uploading, setUploading] = useState(false)
   const [dragOver, setDragOver] = useState(false)
-  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null)
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
   const addImages = async (files: FileList | File[]) => {
@@ -172,7 +146,7 @@ function ImageBlock({
               <div key={i} className="group/img relative">
                 <img
                   src={img.url} alt=""
-                  onClick={() => setLightboxUrl(img.url)}
+                  onClick={() => setLightboxIndex(i)}
                   className="rounded-lg object-cover w-full cursor-zoom-in"
                   style={{
                     maxWidth: block.images.length === 1 ? 500 : "100%",
@@ -242,7 +216,14 @@ function ImageBlock({
       <input ref={fileRef} id={`img-add-${block.id}`} type="file" accept="image/*" multiple className="hidden"
         onChange={e => e.target.files && addImages(e.target.files)} />
 
-      {lightboxUrl && <ImageLightbox url={lightboxUrl} onClose={() => setLightboxUrl(null)} />}
+      {lightboxIndex !== null && (
+        <ImageLightbox
+          urls={block.images.map(img => img.url)}
+          index={lightboxIndex}
+          onClose={() => setLightboxIndex(null)}
+          onNavigate={setLightboxIndex}
+        />
+      )}
     </div>
   )
 }
