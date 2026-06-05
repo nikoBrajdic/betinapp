@@ -82,16 +82,17 @@ function AutoTextarea({
 
 // ── Image block ───────────────────────────────────────────────────────────────
 function ImageBlock({
-  block, entryId, onChange, onDelete,
+  block, entryId, onChange, onDelete, onOpenLightbox, globalOffset,
 }: {
   block: Extract<Block, { type: "image" }>
   entryId: string
   onChange: (b: Block) => void
   onDelete: () => void
+  onOpenLightbox: (index: number) => void
+  globalOffset: number
 }) {
   const [uploading, setUploading] = useState(false)
   const [dragOver, setDragOver] = useState(false)
-  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
   const addImages = async (files: FileList | File[]) => {
@@ -146,7 +147,7 @@ function ImageBlock({
               <div key={i} className="group/img relative">
                 <img
                   src={img.url} alt=""
-                  onClick={() => setLightboxIndex(i)}
+                  onClick={() => onOpenLightbox(globalOffset + i)}
                   className="rounded-lg object-cover w-full cursor-zoom-in"
                   style={{
                     maxWidth: block.images.length === 1 ? 500 : "100%",
@@ -216,14 +217,6 @@ function ImageBlock({
       <input ref={fileRef} id={`img-add-${block.id}`} type="file" accept="image/*" multiple className="hidden"
         onChange={e => e.target.files && addImages(e.target.files)} />
 
-      {lightboxIndex !== null && (
-        <ImageLightbox
-          urls={block.images.map(img => img.url)}
-          index={lightboxIndex}
-          onClose={() => setLightboxIndex(null)}
-          onNavigate={setLightboxIndex}
-        />
-      )}
     </div>
   )
 }
@@ -231,13 +224,14 @@ function ImageBlock({
 // ── Single block row ──────────────────────────────────────────────────────────
 function BlockRow({
   block, focused, focusPosition, onFocus, onChange, onDelete, onEnter, onBackspaceStart, onBackspaceEmpty,
-  onDragStart, onDragEnter, onDragEnd, isDragOver, entryId, onAddImageAfter,
+  onDragStart, onDragEnter, onDragEnd, isDragOver, entryId, onAddImageAfter, onOpenLightbox, globalOffset,
 }: {
   block: Block; focused: boolean; focusPosition?: number | null; onFocus: () => void
   onChange: (b: Block) => void; onDelete: () => void
   onEnter: (before: string, after: string) => void; onBackspaceStart: () => void; onBackspaceEmpty: () => void
   onDragStart: () => void; onDragEnter: () => void; onDragEnd: () => void
   isDragOver: boolean; entryId: string; onAddImageAfter: () => void
+  onOpenLightbox: (index: number) => void; globalOffset: number
 }) {
   const handleKey = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     const text = (block as any).text ?? ""
@@ -299,7 +293,8 @@ function BlockRow({
         )}
         {block.type === "image" && (
           <ImageBlock block={block} entryId={entryId}
-            onChange={onChange} onDelete={onDelete} />
+            onChange={onChange} onDelete={onDelete}
+            onOpenLightbox={onOpenLightbox} globalOffset={globalOffset} />
         )}
       </div>
 
@@ -392,6 +387,10 @@ export function DiaryEditorClient({ entry }: { entry: DiaryEntry }) {
   const [saving, setSaving] = useState(false)
   const [savedAt, setSavedAt] = useState<Date | null>(null)
   const [globalDragOver, setGlobalDragOver] = useState(false)
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
+
+  // Flat list of all image URLs across all blocks for lightbox navigation
+  const allImageUrls = blocks.flatMap(b => b.type === "image" ? b.images.map(img => img.url) : [])
   const dragIdx = useRef<number | null>(null)
   const dragOverIdx = useRef<number | null>(null)
   const [dragOverBlock, setDragOverBlock] = useState<number | null>(null)
@@ -629,27 +628,41 @@ export function DiaryEditorClient({ entry }: { entry: DiaryEntry }) {
 
       {/* Blocks */}
       <div className="space-y-0.5">
-        {blocks.map((block, idx) => (
-          <BlockRow
-            key={block.id}
-            block={block}
-            focused={focusedId === block.id}
-            focusPosition={focusedId === block.id ? focusPosition : null}
-            onFocus={() => { setFocusedId(block.id); setFocusPosition(null) }}
-            onChange={updated => updateBlock(block.id, updated)}
-            onDelete={() => deleteBlock(block.id)}
-            onEnter={(before, after) => splitTextBlock(block.id, before, after)}
-            onBackspaceStart={() => mergeWithPreviousBlock(block.id)}
-            onBackspaceEmpty={() => deleteBlock(block.id)}
-            onDragStart={() => handleBlockDragStart(idx)}
-            onDragEnter={() => handleBlockDragEnter(idx)}
-            onDragEnd={handleBlockDragEnd}
-            isDragOver={dragOverBlock === idx && dragIdx.current !== idx}
-            entryId={entry.id}
-            onAddImageAfter={() => addBlock("image", block.id)}
-          />
-        ))}
+        {blocks.map((block, idx) => {
+          const globalOffset = blocks.slice(0, idx).reduce((sum, b) => sum + (b.type === "image" ? b.images.length : 0), 0)
+          return (
+            <BlockRow
+              key={block.id}
+              block={block}
+              focused={focusedId === block.id}
+              focusPosition={focusedId === block.id ? focusPosition : null}
+              onFocus={() => { setFocusedId(block.id); setFocusPosition(null) }}
+              onChange={updated => updateBlock(block.id, updated)}
+              onDelete={() => deleteBlock(block.id)}
+              onEnter={(before, after) => splitTextBlock(block.id, before, after)}
+              onBackspaceStart={() => mergeWithPreviousBlock(block.id)}
+              onBackspaceEmpty={() => deleteBlock(block.id)}
+              onDragStart={() => handleBlockDragStart(idx)}
+              onDragEnter={() => handleBlockDragEnter(idx)}
+              onDragEnd={handleBlockDragEnd}
+              isDragOver={dragOverBlock === idx && dragIdx.current !== idx}
+              entryId={entry.id}
+              onAddImageAfter={() => addBlock("image", block.id)}
+              onOpenLightbox={setLightboxIndex}
+              globalOffset={globalOffset}
+            />
+          )
+        })}
       </div>
+
+      {lightboxIndex !== null && (
+        <ImageLightbox
+          urls={allImageUrls}
+          index={lightboxIndex}
+          onClose={() => setLightboxIndex(null)}
+          onNavigate={setLightboxIndex}
+        />
+      )}
 
       {/* Add block toolbar */}
       <div className="flex items-center gap-2 mt-6 pl-5">

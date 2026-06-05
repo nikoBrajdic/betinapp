@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useCallback } from "react"
+import { createPortal } from "react-dom"
 import { X, ChevronLeft, ChevronRight } from "lucide-react"
 
 interface ImageLightboxProps {
@@ -24,12 +25,11 @@ export function ImageLightbox({ urls, index, onClose, onNavigate }: ImageLightbo
     return () => window.removeEventListener("keydown", handler)
   }, [onClose, prev, next])
 
-  return (
+  const content = (
     <div
-      className="fixed inset-0 z-50 bg-black/85 flex items-center justify-center p-4 cursor-[url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2224%22 viewBox=%220 0 24 24%22><line x1=%2218%22 y1=%226%22 x2=%226%22 y2=%2218%22 stroke=%22white%22 stroke-width=%222.5%22 stroke-linecap=%22round%22/><line x1=%226%22 y1=%226%22 x2=%2218%22 y2=%2218%22 stroke=%22white%22 stroke-width=%222.5%22 stroke-linecap=%22round%22/></svg>')_12_12,auto]"
+      className="fixed inset-0 z-[9999] bg-black/85 flex items-center justify-center p-4 cursor-[url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2224%22 viewBox=%220 0 24 24%22><line x1=%2218%22 y1=%226%22 x2=%226%22 y2=%2218%22 stroke=%22white%22 stroke-width=%222.5%22 stroke-linecap=%22round%22/><line x1=%226%22 y1=%226%22 x2=%2218%22 y2=%2218%22 stroke=%22white%22 stroke-width=%222.5%22 stroke-linecap=%22round%22/></svg>')_12_12,auto]"
       onClick={onClose}
     >
-      {/* Image */}
       <img
         src={urls[index]}
         alt=""
@@ -37,7 +37,6 @@ export function ImageLightbox({ urls, index, onClose, onNavigate }: ImageLightbo
         onClick={e => e.stopPropagation()}
       />
 
-      {/* Close */}
       <button
         onClick={onClose}
         className="absolute top-4 right-4 text-white/70 hover:text-white bg-black/30 hover:bg-black/50 rounded-full p-2 transition-colors cursor-pointer"
@@ -45,7 +44,6 @@ export function ImageLightbox({ urls, index, onClose, onNavigate }: ImageLightbo
         <X className="h-5 w-5" />
       </button>
 
-      {/* Prev */}
       {urls.length > 1 && (
         <button
           onClick={e => { e.stopPropagation(); prev() }}
@@ -55,7 +53,6 @@ export function ImageLightbox({ urls, index, onClose, onNavigate }: ImageLightbo
         </button>
       )}
 
-      {/* Next */}
       {urls.length > 1 && (
         <button
           onClick={e => { e.stopPropagation(); next() }}
@@ -65,7 +62,6 @@ export function ImageLightbox({ urls, index, onClose, onNavigate }: ImageLightbo
         </button>
       )}
 
-      {/* Counter */}
       {urls.length > 1 && (
         <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/60 text-sm bg-black/30 px-3 py-1 rounded-full">
           {index + 1} / {urls.length}
@@ -73,4 +69,7 @@ export function ImageLightbox({ urls, index, onClose, onNavigate }: ImageLightbo
       )}
     </div>
   )
+
+  if (typeof document === "undefined") return null
+  return createPortal(content, document.body)
 }
