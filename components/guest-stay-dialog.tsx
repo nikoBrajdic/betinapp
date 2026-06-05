@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils"
 type StayType = "family" | "friend"
 
 interface Stay {
-  id: string
+  id?: string
   guest_name: string
   room: string
   from_date: string
@@ -45,7 +45,7 @@ export function GuestStayDialog({ open, onOpenChange, stay, onSave }: GuestStayD
 
   useEffect(() => {
     if (open) {
-      setName(stay?.guest_name ?? "")
+      setName(stay?.id ? stay.guest_name : "")
       setRoom(stay?.room ?? "")
       setCheckIn(stay?.from_date ?? "")
       setCheckOut(stay?.to_date ?? "")
@@ -66,7 +66,7 @@ export function GuestStayDialog({ open, onOpenChange, stay, onSave }: GuestStayD
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[460px]">
         <DialogHeader>
-          <DialogTitle>{stay ? "Edit Stay" : "New Stay"}</DialogTitle>
+          <DialogTitle>{stay?.id ? "Edit Stay" : stay ? "Duplicate Stay" : "New Stay"}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 py-2">
@@ -128,7 +128,7 @@ export function GuestStayDialog({ open, onOpenChange, stay, onSave }: GuestStayD
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} className="cursor-pointer">Cancel</Button>
           <Button onClick={handleSave} disabled={!canSave} className="cursor-pointer">
-            {stay ? "Save" : "Add Stay"}
+            {stay?.id ? "Save" : "Add Stay"}
           </Button>
         </DialogFooter>
       </DialogContent>

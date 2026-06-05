@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { Plus, Pencil, Trash2, Users, MapPin, MoreHorizontal } from "lucide-react"
+import { Plus, Pencil, Trash2, Copy, MapPin, MoreHorizontal } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { ConfirmDeleteDialog } from "@/components/confirm-delete-dialog"
 import { cn } from "@/lib/utils"
@@ -17,7 +17,7 @@ type StayType = "family" | "friend"
 type Status = "upcoming" | "current" | "past"
 
 interface Stay {
-  id: string
+  id?: string
   guest_name: string
   room: string
   from_date: string
@@ -70,13 +70,18 @@ export function GuestStaysClient({ guests }: GuestStaysClientProps) {
 
   const handleSave = async (data: Parameters<typeof createGuestStay>[0]) => {
     try {
-      if (editingStay) {
+      if (editingStay?.id) {
         await trackSave(updateGuestStay(editingStay.id, data))
       } else {
         await trackSave(createGuestStay(data))
       }
       router.refresh()
     } catch (e) { console.error(e) }
+  }
+
+  const handleDuplicate = (stay: Stay) => {
+    setEditingStay({ ...stay, id: undefined, guest_name: "" })
+    setIsDialogOpen(true)
   }
 
   const handleDelete = async (id: string) => {
@@ -135,6 +140,9 @@ export function GuestStaysClient({ guests }: GuestStaysClientProps) {
                         <DropdownMenuItem className="cursor-pointer" onClick={() => { setEditingStay(stay); setIsDialogOpen(true) }}>
                           <Pencil className="h-3.5 w-3.5 mr-2" /> Edit
                         </DropdownMenuItem>
+                        <DropdownMenuItem className="cursor-pointer" onClick={() => handleDuplicate(stay)}>
+                          <Copy className="h-3.5 w-3.5 mr-2" /> Duplicate
+                        </DropdownMenuItem>
                         <DropdownMenuItem className="cursor-pointer text-destructive focus:text-destructive" onClick={() => setDeleteStay(stay)}>
                           <Trash2 className="h-3.5 w-3.5 mr-2" /> Delete
                         </DropdownMenuItem>
@@ -176,7 +184,7 @@ export function GuestStaysClient({ guests }: GuestStaysClientProps) {
       <ConfirmDeleteDialog
         open={!!deleteStay}
         onOpenChange={open => { if (!open) setDeleteStay(null) }}
-        onConfirm={() => deleteStay && handleDelete(deleteStay.id)}
+        onConfirm={() => deleteStay?.id && handleDelete(deleteStay.id)}
         itemName={deleteStay?.guest_name}
       />
     </div>

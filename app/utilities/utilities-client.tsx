@@ -18,7 +18,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { ConfirmDeleteDialog } from "@/components/confirm-delete-dialog"
@@ -486,84 +486,92 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
             </div>
           ) : (
             <Card className="shadow-none border-2 overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-gray-50/80 hover:bg-gray-50/80">
-                    <TableHead className="px-4">Date</TableHead>
-                    <TableHead>Meter</TableHead>
-                    <TableHead>Reading</TableHead>
-                    <TableHead>Period</TableHead>
-                    <TableHead>Stay nights</TableHead>
-                    <TableHead>People</TableHead>
-                    <TableHead className="w-[72px] text-right px-4">Action</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {readingRows.map(row => {
-                    const Icon = utilityIcon(row.name)
-                    const nightSummary = personNightsForPeriod(stays, row.previousDate, row.currentDate)
+              {/* Column headers */}
+              <div className="flex items-center gap-4 px-4 py-2 bg-gray-50 border-b border-gray-100">
+                <div className="w-20 flex-shrink-0 text-xs font-medium text-gray-400 uppercase tracking-wide">Date</div>
+                <div className="w-32 flex-shrink-0 text-xs font-medium text-gray-400 uppercase tracking-wide">Meter</div>
+                <div className="w-28 flex-shrink-0 text-xs font-medium text-gray-400 uppercase tracking-wide">Reading</div>
+                <div className="w-36 flex-shrink-0 text-xs font-medium text-gray-400 uppercase tracking-wide">Period</div>
+                <div className="w-20 flex-shrink-0 text-xs font-medium text-gray-400 uppercase tracking-wide">Nights</div>
+                <div className="flex-1 text-xs font-medium text-gray-400 uppercase tracking-wide">People</div>
+                <div className="w-7 flex-shrink-0" />
+              </div>
+              <div className="divide-y divide-gray-100">
+                {readingRows.map(row => {
+                  const Icon = utilityIcon(row.name)
+                  const nightSummary = personNightsForPeriod(stays, row.previousDate, row.currentDate)
 
-                    return (
-                      <TableRow key={row.id}>
-                        <TableCell className="px-4 font-medium text-gray-800">
-                          {row.date ? shortDate(row.date) : "No date"}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Icon className="h-4 w-4 text-emerald-500 flex-shrink-0" />
-                            <span className="font-medium text-gray-800">{row.name}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <span className="font-semibold text-gray-900">{row.displayValue}</span>
-                          {row.unit && <span className="text-gray-400 ml-1">{row.unit}</span>}
-                        </TableCell>
-                        <TableCell className="text-gray-500">
-                          {periodText(row.previousDate, row.currentDate)}
-                        </TableCell>
-                        <TableCell>
-                          <span className="font-semibold text-gray-900">
-                            {nightSummary.total === null ? "-" : nightSummary.total}
-                          </span>
-                          {nightSummary.total !== null && <span className="text-gray-400 ml-1">nights</span>}
-                        </TableCell>
-                        <TableCell className="text-gray-600 whitespace-normal min-w-[240px]">
-                          {nightSummary.people}
-                        </TableCell>
-                        <TableCell className="px-4 text-right">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 cursor-pointer text-gray-400 hover:text-gray-700"
-                              >
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem
-                                className="cursor-pointer"
-                                onClick={() => setEditingReading(row)}
-                                disabled={!row.utility || row.readingIds.length === 0}
-                              >
-                                <Edit className="h-3.5 w-3.5 mr-2" /> Edit
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                className="cursor-pointer text-destructive focus:text-destructive"
-                                onClick={() => setDeleteReading(row)}
-                                disabled={row.readingIds.length === 0}
-                              >
-                                <Trash2 className="h-3.5 w-3.5 mr-2" /> Delete
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
-                      </TableRow>
-                    )
-                  })}
-                </TableBody>
-              </Table>
+                  return (
+                    <div key={row.id} className="flex items-center gap-4 px-4 py-3.5 hover:bg-gray-50 group transition-colors">
+                      {/* Date */}
+                      <div className="w-20 flex-shrink-0 text-sm font-medium text-gray-800">
+                        {row.date ? shortDate(row.date) : "No date"}
+                      </div>
+
+                      {/* Meter */}
+                      <div className="w-32 flex-shrink-0 flex items-center gap-2">
+                        <Icon className="h-4 w-4 text-emerald-500 flex-shrink-0" />
+                        <span className="font-medium text-gray-800">{row.name}</span>
+                      </div>
+
+                      {/* Reading */}
+                      <div className="w-28 flex-shrink-0">
+                        <span className="font-semibold text-gray-900">{row.displayValue}</span>
+                        {row.unit && <span className="text-gray-400 ml-1">{row.unit}</span>}
+                      </div>
+
+                      {/* Period */}
+                      <div className="w-36 flex-shrink-0 text-sm text-gray-500">
+                        {periodText(row.previousDate, row.currentDate)}
+                      </div>
+
+                      {/* Stay nights */}
+                      <div className="w-20 flex-shrink-0">
+                        <span className="font-semibold text-gray-900">
+                          {nightSummary.total === null ? "-" : nightSummary.total}
+                        </span>
+                        {nightSummary.total !== null && <span className="text-gray-400 ml-1">n</span>}
+                      </div>
+
+                      {/* People */}
+                      <div className="flex-1 text-sm text-gray-600 min-w-0">
+                        {nightSummary.people}
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 cursor-pointer text-gray-400 hover:text-gray-700"
+                            >
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                              className="cursor-pointer"
+                              onClick={() => setEditingReading(row)}
+                              disabled={!row.utility || row.readingIds.length === 0}
+                            >
+                              <Edit className="h-3.5 w-3.5 mr-2" /> Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              className="cursor-pointer text-destructive focus:text-destructive"
+                              onClick={() => setDeleteReading(row)}
+                              disabled={row.readingIds.length === 0}
+                            >
+                              <Trash2 className="h-3.5 w-3.5 mr-2" /> Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
             </Card>
           )}
         </TabsContent>
