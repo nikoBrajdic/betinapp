@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { Plus, Pencil, Trash2, Copy, MapPin, MoreHorizontal } from "lucide-react"
+import { Plus, Pencil, Trash2, Copy, MoreHorizontal } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { ConfirmDeleteDialog } from "@/components/confirm-delete-dialog"
 import { cn } from "@/lib/utils"
@@ -32,20 +32,24 @@ interface GuestStaysClientProps {
   guests: Stay[]
 }
 
-function formatDate(d: string) {
-  return new Date(d + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+function shortDate(d: string) {
+  return new Date(d + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })
 }
 
-function nights(from: string, to: string) {
-  const diff = new Date(to).getTime() - new Date(from).getTime()
-  const n = Math.round(diff / 86400000)
-  return n === 1 ? "1 night" : `${n} nights`
+function nightCount(from: string, to: string) {
+  return Math.round((new Date(to).getTime() - new Date(from).getTime()) / 86400000)
 }
 
-const statusConfig: Record<Status, { label: string; dot: string; badge: string }> = {
-  upcoming: { label: "Upcoming", dot: "bg-blue-400",   badge: "bg-blue-50 text-blue-700" },
-  current:  { label: "Here now", dot: "bg-green-400",  badge: "bg-green-50 text-green-700" },
-  past:     { label: "Past",     dot: "bg-gray-300",   badge: "bg-gray-50 text-gray-500" },
+const statusDot: Record<Status, string> = {
+  upcoming: "bg-blue-400",
+  current:  "bg-green-400",
+  past:     "bg-gray-300",
+}
+
+const statusRow: Record<Status, string> = {
+  upcoming: "",
+  current:  "bg-green-50/40",
+  past:     "opacity-60",
 }
 
 const typeConfig: Record<StayType, { label: string; badge: string }> = {
@@ -54,11 +58,10 @@ const typeConfig: Record<StayType, { label: string; badge: string }> = {
 }
 
 export function GuestStaysClient({ guests }: GuestStaysClientProps) {
-  const [search] = useState("")
-  const [filter] = useState<"all" | Status>("all")
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingStay, setEditingStay] = useState<Stay | null>(null)
   const [deleteStay, setDeleteStay] = useState<Stay | null>(null)
+  const [selectedYear, setSelectedYear] = useState<number | null>(null)
   const router = useRouter()
   useRealtimeRefresh(["guest_stays"])
 
@@ -89,21 +92,15 @@ export function GuestStaysClient({ guests }: GuestStaysClientProps) {
     catch (e) { console.error(e) }
   }
 
-  const upcoming = guests.filter(g => g.status === "upcoming").length
-  const current  = guests.filter(g => g.status === "current").length
-  const past     = guests.filter(g => g.status === "past").length
-
-  const filtered = guests.filter(g => {
-    const matchSearch = g.guest_name.toLowerCase().includes(search.toLowerCase()) ||
-      (g.room && g.room.toLowerCase().includes(search.toLowerCase()))
-    const matchFilter = filter === "all" || g.status === filter
-    return matchSearch && matchFilter
-  })
+  const stayYears = [...new Set(guests.map(g => new Date(g.from_date + "T12:00:00").getFullYear()))].sort((a, b) => b - a)
+  const activeYear = selectedYear ?? stayYears[0] ?? new Date().getFullYear()
+  const filteredStays = [...guests]
+    .filter(g => new Date(g.from_date + "T12:00:00").getFullYear() === activeYear)
+    .sort((a, b) => new Date(b.from_date).getTime() - new Date(a.from_date).getTime())
 
   return (
-    <div className="p-8">
-      {/* Cards */}
-      {filtered.length === 0 ? (
+    <div className="p-6">
+      {guests.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-24 gap-4">
           <p className="text-gray-400 text-base">No stays yet</p>
           <button onClick={() => setIsDialogOpen(true)} className="flex items-center gap-2 px-6 py-2.5 bg-rose-500 hover:bg-rose-600 text-white text-sm font-medium rounded-xl cursor-pointer transition-colors">
@@ -111,25 +108,86 @@ export function GuestStaysClient({ guests }: GuestStaysClientProps) {
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.map(stay => {
-            const s = statusConfig[stay.status] ?? statusConfig.past
-            const t = typeConfig[stay.type] ?? typeConfig.friend
-            return (
-              <Card
-                key={stay.id}
-                className={cn(
-                  "p-5 border-2 group shadow-none transition-all hover:shadow-md hover:-translate-y-0.5",
-                  stay.status === "current" ? "border-green-200 bg-green-50/30" :
-                  stay.status === "upcoming" ? "border-blue-100" : "border-gray-100 opacity-75"
-                )}
-              >
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <div className={cn("w-2 h-2 rounded-full flex-shrink-0 mt-0.5", s.dot)} />
-                    <h3 className="font-semibold text-gray-800">{stay.guest_name}</h3>
+        <Card className="shadow-none border-2 overflow-hidden">
+          {/* Year tabs */}
+          {stayYears.length > 1 && (
+            <div className="flex items-center gap-1 px-4 pt-3 pb-0">
+              {stayYears.map(year => (
+                <button
+                  key={year}
+                  onClick={() => setSelectedYear(year)}
+                  className={cn(
+                    "px-3 py-1 rounded-lg text-sm font-medium transition-colors cursor-pointer",
+                    activeYear === year
+                      ? "bg-rose-500 text-white"
+                      : "text-gray-400 hover:text-gray-700 hover:bg-gray-100"
+                  )}
+                >
+                  {year}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Column headers */}
+          <div className="flex items-center gap-4 px-4 py-2 bg-gray-50 border-b border-gray-100">
+            <div className="w-3 flex-shrink-0" />
+            <div className="w-40 flex-shrink-0 text-xs font-medium text-gray-400 uppercase tracking-wide">Guest</div>
+            <div className="w-24 flex-shrink-0 text-xs font-medium text-gray-400 uppercase tracking-wide">Type</div>
+            <div className="w-48 flex-shrink-0 text-xs font-medium text-gray-400 uppercase tracking-wide">Dates</div>
+            <div className="w-14 flex-shrink-0 text-xs font-medium text-gray-400 uppercase tracking-wide">Nights</div>
+            <div className="flex-1 text-xs font-medium text-gray-400 uppercase tracking-wide">Notes</div>
+            <div className="w-7 flex-shrink-0" />
+          </div>
+
+          {/* Rows */}
+          <div className="divide-y divide-gray-100">
+            {filteredStays.map(stay => {
+              const t = typeConfig[stay.type] ?? typeConfig.friend
+              const n = nightCount(stay.from_date, stay.to_date)
+
+              return (
+                <div
+                  key={stay.id}
+                  className={cn(
+                    "flex items-center gap-4 px-4 py-3.5 hover:bg-gray-50 group transition-colors",
+                    statusRow[stay.status]
+                  )}
+                >
+                  {/* Status dot */}
+                  <div className="w-3 flex-shrink-0 flex items-center justify-center">
+                    <div className={cn("w-2 h-2 rounded-full", statusDot[stay.status])} />
                   </div>
-                  <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+
+                  {/* Guest name + room */}
+                  <div className="w-40 flex-shrink-0 min-w-0">
+                    <p className="text-sm font-semibold text-gray-800 truncate">{stay.guest_name}</p>
+                    {stay.room && <p className="text-xs text-gray-400 truncate">{stay.room}</p>}
+                  </div>
+
+                  {/* Type */}
+                  <div className="w-24 flex-shrink-0">
+                    <span className={cn("text-xs px-2 py-0.5 rounded-full font-medium", t.badge)}>{t.label}</span>
+                  </div>
+
+                  {/* Dates */}
+                  <div className="w-48 flex-shrink-0 text-sm text-gray-600">
+                    {shortDate(stay.from_date)} → {shortDate(stay.to_date)}
+                  </div>
+
+                  {/* Nights */}
+                  <div className="w-14 flex-shrink-0">
+                    <span className="font-semibold text-gray-900">{n}</span>
+                    <span className="text-gray-400 ml-0.5 text-xs">n</span>
+                  </div>
+
+                  {/* Notes */}
+                  <div className="flex-1 text-sm text-gray-400 truncate min-w-0">
+                    {stay.notes}
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="icon" className="h-7 w-7 cursor-pointer text-gray-400 hover:text-gray-700">
@@ -150,28 +208,10 @@ export function GuestStaysClient({ guests }: GuestStaysClientProps) {
                     </DropdownMenu>
                   </div>
                 </div>
-
-                <div className="flex gap-2 mb-3 flex-wrap">
-                  <span className={cn("text-xs px-2 py-0.5 rounded-full font-medium", t.badge)}>{t.label}</span>
-                  <span className={cn("text-xs px-2 py-0.5 rounded-full font-medium", s.badge)}>{s.label}</span>
-                </div>
-
-                <div className="text-sm text-gray-500 space-y-1">
-                  <div>{formatDate(stay.from_date)} → {formatDate(stay.to_date)}</div>
-                  <div className="text-xs text-gray-400">{nights(stay.from_date, stay.to_date)}</div>
-                  {stay.room && (
-                    <div className="flex items-center gap-1">
-                      <MapPin className="h-3 w-3" /> {stay.room}
-                    </div>
-                  )}
-                  {stay.notes && (
-                    <div className="text-xs text-gray-400 line-clamp-2 mt-1">{stay.notes}</div>
-                  )}
-                </div>
-              </Card>
-            )
-          })}
-        </div>
+              )
+            })}
+          </div>
+        </Card>
       )}
 
       <GuestStayDialog
