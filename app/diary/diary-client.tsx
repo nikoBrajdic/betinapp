@@ -12,6 +12,7 @@ import { ConfirmDeleteDialog } from "@/components/confirm-delete-dialog"
 import { BookOpen, Plus, Trash2, Image as ImageIcon, MoreHorizontal } from "lucide-react"
 import { createDiaryEntry, deleteDiaryEntry, type DiaryEntry } from "@/lib/actions/diary"
 import { trackSave } from "@/lib/save-events"
+import { useRealtimeRefresh } from "@/hooks/use-realtime-refresh"
 
 interface DiaryClientProps {
   entries: DiaryEntry[]
@@ -42,6 +43,7 @@ export function DiaryClient({ entries }: DiaryClientProps) {
   const [creating, setCreating] = useState(false)
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const router = useRouter()
+  useRealtimeRefresh(["diary_entries"])
 
   useEffect(() => {
     const handler = () => setDialogOpen(true)

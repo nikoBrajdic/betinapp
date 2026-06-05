@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils"
 import { getLocalDateString } from "@/lib/utils/date"
 import { createEvent, deleteEvent } from "@/lib/actions/events"
 import { trackSave } from "@/lib/save-events"
+import { useRealtimeRefresh } from "@/hooks/use-realtime-refresh"
 import { useRouter } from "next/navigation"
 
 interface Event {
@@ -50,6 +51,7 @@ export function CalendarClient({ events }: CalendarClientProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
   const router = useRouter()
+  useRealtimeRefresh(["events"])
 
   useEffect(() => {
     const handler = () => setIsDialogOpen(true)

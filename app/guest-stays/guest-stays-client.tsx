@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils"
 import { GuestStayDialog } from "@/components/guest-stay-dialog"
 import { createGuestStay, updateGuestStay, deleteGuestStay } from "@/lib/actions/guest-stays"
 import { trackSave } from "@/lib/save-events"
+import { useRealtimeRefresh } from "@/hooks/use-realtime-refresh"
 import { useRouter } from "next/navigation"
 
 type StayType = "family" | "friend"
@@ -59,6 +60,7 @@ export function GuestStaysClient({ guests }: GuestStaysClientProps) {
   const [editingStay, setEditingStay] = useState<Stay | null>(null)
   const [deleteStay, setDeleteStay] = useState<Stay | null>(null)
   const router = useRouter()
+  useRealtimeRefresh(["guest_stays"])
 
   useEffect(() => {
     const handler = () => { setEditingStay(null); setIsDialogOpen(true) }

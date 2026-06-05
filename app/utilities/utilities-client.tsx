@@ -27,6 +27,7 @@ import { UtilityDialog } from "@/components/utility-dialog"
 import { deleteBill, createBill, updateBill } from "@/lib/actions/bills"
 import { createDefaultReadingUtilities, createUtilityReading, deleteUtilityReading, updateUtilityReading } from "@/lib/actions/utilities"
 import { trackSave } from "@/lib/save-events"
+import { useRealtimeRefresh } from "@/hooks/use-realtime-refresh"
 import { cn } from "@/lib/utils"
 import { formatMoney } from "@/lib/currency"
 
@@ -280,6 +281,7 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
   const monthlyReadingDue = readingUtilities.length > 0 && readingsDone < readingUtilities.length
 
   const refresh = () => router.refresh()
+  useRealtimeRefresh(["utility_readings", "bills"])
 
   const handleUpdateReading = async (row: ReadingRow, usage: number, readingDate: string, _meterName?: string, details?: { secondaryUsage?: number }) => {
     const utility = row.utility

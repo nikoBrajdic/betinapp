@@ -12,6 +12,7 @@ import { TableNotePreview } from "@/components/table-note-editor"
 import { NoteBlocksView, noteCoverImage, notePreviewText } from "@/components/note-rich-content"
 import { createNote, updateNote, deleteNote, reorderNotes } from "@/lib/actions/notes"
 import { trackSave } from "@/lib/save-events"
+import { useRealtimeRefresh } from "@/hooks/use-realtime-refresh"
 import { useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
 
@@ -40,6 +41,7 @@ export function NotesClient({ notes }: NotesClientProps) {
   const dragNoteIndex = useRef<number | null>(null)
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
   const router = useRouter()
+  useRealtimeRefresh(["notes"])
 
   useEffect(() => {
     setOrderedNotes(notes)

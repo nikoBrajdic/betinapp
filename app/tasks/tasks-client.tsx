@@ -20,6 +20,7 @@ import {
   duplicateTaskGroup, reorderTaskGroups,
 } from "@/lib/actions/tasks"
 import { trackSave } from "@/lib/save-events"
+import { useRealtimeRefresh } from "@/hooks/use-realtime-refresh"
 import { useRouter } from "next/navigation"
 
 interface Task {
@@ -242,6 +243,7 @@ export function TasksClient({ taskGroups }: TasksClientProps) {
     Object.fromEntries(taskGroups.map(g => [g.id, g.tasks ?? []]))
   )
   const router = useRouter()
+  useRealtimeRefresh(["tasks", "task_groups"])
 
   // Keep localOrder in sync when props update
   useEffect(() => {
