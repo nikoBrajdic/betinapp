@@ -557,50 +557,79 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
               </button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {bills.map(bill => (
-                <Card key={bill.id} className={cn("p-5 shadow-none border-2 transition-all hover:shadow-md hover:-translate-y-0.5 group", bill.paid ? "bg-green-50/20 border-green-100" : "border-blue-100")}>
-                  <div className="flex items-start justify-between gap-3 mb-4">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        {bill.paid ? <CheckCircle2 className="h-4 w-4 text-green-600" /> : <AlertCircle className="h-4 w-4 text-amber-500" />}
-                        <h3 className="font-semibold text-gray-800 truncate">{bill.name}</h3>
+            <Card className="shadow-none border-2 overflow-hidden">
+              <div className="divide-y divide-gray-100">
+                {bills.map(bill => {
+                  // Find stays that overlap with this bill's period (full month)
+                  const periodDate = new Date(bill.due_date + "T12:00:00")
+                  const monthStart = new Date(periodDate.getFullYear(), periodDate.getMonth(), 1).toISOString().split("T")[0]
+                  const monthEnd = new Date(periodDate.getFullYear(), periodDate.getMonth() + 1, 0).toISOString().split("T")[0]
+                  const guestsPresent = stays.filter(s => s.from_date <= monthEnd && s.to_date >= monthStart)
+                  const period = periodDate.toLocaleDateString("en-US", { month: "long", year: "numeric" })
+
+                  return (
+                    <div key={bill.id} className="flex items-center gap-4 px-4 py-3.5 hover:bg-gray-50 group transition-colors">
+                      {/* Status icon */}
+                      <div className="flex-shrink-0">
+                        {bill.paid
+                          ? <CheckCircle2 className="h-4 w-4 text-green-500" />
+                          : <AlertCircle className="h-4 w-4 text-amber-500" />
+                        }
                       </div>
-                      <p className="text-xs text-gray-400 mt-1">{new Date(bill.due_date + "T12:00:00").toLocaleDateString("en-US", { month: "long", year: "numeric" })}</p>
+
+                      {/* Name + period */}
+                      <div className="w-40 flex-shrink-0">
+                        <p className="text-sm font-semibold text-gray-800">{bill.name}</p>
+                        <p className="text-xs text-gray-400">{period}</p>
+                      </div>
+
+                      {/* Guests present */}
+                      <div className="flex-1 flex flex-wrap gap-1.5 min-w-0">
+                        {guestsPresent.length > 0 ? (
+                          guestsPresent.map(s => (
+                            <span key={s.id} className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-blue-50 text-blue-700 border border-blue-100">
+                              {s.guest_name}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-xs text-gray-300">Family only</span>
+                        )}
+                      </div>
+
+                      {/* Amount */}
+                      <div className="flex-shrink-0 text-right">
+                        <p className="text-base font-bold text-gray-900">{formatMoney(bill.amount)}</p>
+                        <p className={cn("text-xs", bill.paid ? "text-green-600" : "text-amber-600")}>
+                          {bill.paid ? "Paid" : "Unpaid"}
+                        </p>
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 cursor-pointer text-gray-400 hover:text-gray-700">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem className="cursor-pointer" onClick={() => handleToggleBill(bill)}>
+                              <CheckCircle2 className="h-3.5 w-3.5 mr-2" /> {bill.paid ? "Mark Unpaid" : "Mark Paid"}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem className="cursor-pointer" onClick={() => { setEditingBill(bill); setBillDialogOpen(true) }}>
+                              <Edit className="h-3.5 w-3.5 mr-2" /> Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem className="cursor-pointer text-destructive focus:text-destructive" onClick={() => setDeleteBill_(bill)}>
+                              <Trash2 className="h-3.5 w-3.5 mr-2" /> Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
                     </div>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 cursor-pointer text-gray-400 hover:text-gray-700 opacity-0 group-hover:opacity-100">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem className="cursor-pointer" onClick={() => handleToggleBill(bill)}>
-                          <CheckCircle2 className="h-3.5 w-3.5 mr-2" /> {bill.paid ? "Mark Unpaid" : "Mark Paid"}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem className="cursor-pointer" onClick={() => { setEditingBill(bill); setBillDialogOpen(true) }}>
-                          <Edit className="h-3.5 w-3.5 mr-2" /> Edit
-                        </DropdownMenuItem>
-                        <DropdownMenuItem className="cursor-pointer text-destructive focus:text-destructive" onClick={() => setDeleteBill_(bill)}>
-                          <Trash2 className="h-3.5 w-3.5 mr-2" /> Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-
-                  <div className="flex items-baseline justify-between mb-4">
-                    <span className="text-3xl font-bold text-gray-900">{formatMoney(bill.amount)}</span>
-                    <Badge className={cn("text-xs", bill.paid ? "bg-green-500/10 text-green-700" : "bg-amber-500/10 text-amber-700")}>
-                      {bill.paid ? "Paid" : "Unpaid"}
-                    </Badge>
-                  </div>
-
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-gray-400">{bill.paid ? "Paid" : "Unpaid"}</span>
-                  </div>
-                </Card>
-              ))}
-            </div>
+                  )
+                })}
+              </div>
+            </Card>
           )}
         </TabsContent>
       </Tabs>
