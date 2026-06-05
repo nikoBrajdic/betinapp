@@ -516,6 +516,9 @@ export function DiaryEditorClient({ entry }: { entry: DiaryEntry }) {
 
   // ── Read-only view ────────────────────────────────────────────────────────
   if (!isEditing) {
+    const viewAllImages = blocks.flatMap(b => b.type === "image" ? b.images.map((img: any) => img.url) : [])
+    let viewImageOffset = 0
+
     return (
       <div className="max-w-3xl mx-auto px-8 py-6 pb-24 min-h-full">
         <div className="mb-6">
@@ -548,25 +551,16 @@ export function DiaryEditorClient({ entry }: { entry: DiaryEntry }) {
               const imgs = block.images ?? []
               if (imgs.length === 0) return null
               const colClass = imgs.length === 1 ? "" : imgs.length === 2 ? "grid grid-cols-2 gap-2" : "grid grid-cols-3 gap-2"
+              const offset = viewImageOffset
+              viewImageOffset += imgs.length
               return (
                 <div key={block.id} className={colClass} style={{ maxWidth: 500 }}>
                   {imgs.map((img: any, i: number) => (
-                    <div key={i} className="relative group/img cursor-zoom-in" onClick={() => {
-                      // reuse lightbox via a temp state trick — just render inline
-                      const el = document.getElementById(`view-lb-${block.id}-${i}`) as HTMLDialogElement
-                      el?.showModal()
-                    }}>
-                      <img src={img.url} alt="" className="rounded-lg object-cover w-full"
-                        style={{ height: imgs.length === 1 ? 380 : imgs.length === 2 ? 320 : 240, objectFit: "cover" }} />
-                      <dialog id={`view-lb-${block.id}-${i}`}
-                        className="fixed inset-0 z-50 bg-transparent p-0 max-w-none max-h-none w-screen h-screen"
-                        onClick={e => (e.target as HTMLDialogElement).close()}
-                      >
-                        <div className="w-full h-full bg-black/85 flex items-center justify-center p-4">
-                          <img src={img.url} alt="" className="max-h-[90vh] max-w-[90vw] rounded-xl object-contain" />
-                        </div>
-                      </dialog>
-                    </div>
+                    <img key={i} src={img.url} alt=""
+                      className="rounded-lg object-cover w-full cursor-zoom-in"
+                      style={{ height: imgs.length === 1 ? 380 : imgs.length === 2 ? 320 : 240 }}
+                      onClick={() => setLightboxIndex(offset + i)}
+                    />
                   ))}
                 </div>
               )
@@ -574,6 +568,15 @@ export function DiaryEditorClient({ entry }: { entry: DiaryEntry }) {
             return null
           })}
         </div>
+
+        {lightboxIndex !== null && (
+          <ImageLightbox
+            urls={viewAllImages}
+            index={lightboxIndex}
+            onClose={() => setLightboxIndex(null)}
+            onNavigate={setLightboxIndex}
+          />
+        )}
       </div>
     )
   }
