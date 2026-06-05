@@ -26,14 +26,14 @@ export function ImageLightbox({ urls, index, onClose, onNavigate }: ImageLightbo
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-black/85 flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 bg-black/85 flex items-center justify-center p-4 cursor-[url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2224%22 viewBox=%220 0 24 24%22><line x1=%2218%22 y1=%226%22 x2=%226%22 y2=%2218%22 stroke=%22white%22 stroke-width=%222.5%22 stroke-linecap=%22round%22/><line x1=%226%22 y1=%226%22 x2=%2218%22 y2=%2218%22 stroke=%22white%22 stroke-width=%222.5%22 stroke-linecap=%22round%22/></svg>')_12_12,auto]"
       onClick={onClose}
     >
       {/* Image */}
       <img
         src={urls[index]}
         alt=""
-        className="max-h-[90vh] max-w-[90vw] rounded-xl object-contain shadow-2xl"
+        className="max-h-[90vh] max-w-[90vw] rounded-xl object-contain shadow-2xl cursor-default"
         onClick={e => e.stopPropagation()}
       />
 
