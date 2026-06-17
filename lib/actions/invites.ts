@@ -52,7 +52,7 @@ export async function createInvite(email?: string) {
     .insert({
       code,
       email,
-      role: "admin",
+      role: "superadmin",
       created_by: user.id,
       expires_at: expiresAt.toISOString(),
     })

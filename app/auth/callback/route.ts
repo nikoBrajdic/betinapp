@@ -90,7 +90,8 @@ export async function GET(request: Request) {
                 id: user.id,
                 email: user.email!,
                 full_name: user.user_metadata?.full_name || user.email?.split("@")[0] || "User",
-                role: allowlistEntry.role
+                // Everyone gets full access — all users are superadmins
+                role: "superadmin"
               })
 
             if (profileCreateError) {
