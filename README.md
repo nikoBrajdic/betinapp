@@ -48,25 +48,25 @@ Follow the comprehensive setup guide in [SETUP_GUIDE.md](./SETUP_GUIDE.md) for d
 ### Quick Start
 
 1. **Install dependencies**:
-   \`\`\`bash
+   ```bash
    npm install
-   \`\`\`
+   ```
 
 2. **Set up environment variables**:
-   \`\`\`bash
+   ```bash
    NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
    NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
    SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
    NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL=http://localhost:3000
-   \`\`\`
+   ```
 
 3. **Run database migrations**:
    - Execute SQL scripts in `scripts/` folder in order (001-005)
 
 4. **Start development server**:
-   \`\`\`bash
+   ```bash
    npm run dev
-   \`\`\`
+   ```
 
 5. **Sign in and create superadmin**:
    - Visit `http://localhost:3000/auth/login`
@@ -75,7 +75,7 @@ Follow the comprehensive setup guide in [SETUP_GUIDE.md](./SETUP_GUIDE.md) for d
 
 ## Project Structure
 
-\`\`\`
+```
 ├── app/
 │   ├── auth/              # Authentication pages
 │   ├── admin/             # Admin management
@@ -92,7 +92,7 @@ Follow the comprehensive setup guide in [SETUP_GUIDE.md](./SETUP_GUIDE.md) for d
 │   └── supabase/         # Supabase clients
 ├── scripts/              # Database migration scripts
 └── middleware.ts         # Auth middleware
-\`\`\`
+```
 
 ## Usage
 
