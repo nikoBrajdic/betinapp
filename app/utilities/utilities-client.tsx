@@ -641,7 +641,10 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
                   const includedGuests = guestsPresent.filter(s => isStayIncluded(bill.id, s.id))
                   const includedGuestDays = includedGuests.reduce((sum, s) => sum + (guestDaysMap.get(s.id) ?? 0), 0)
                   const totalPersonDays = daysInMonth + includedGuestDays
+                  const hasSplit = includedGuests.length > 0
+                  // Each person pays in proportion to days present
                   const mamaShare = bill.amount * (daysInMonth / totalPersonDays)
+                  const shareFor = (days: number) => bill.amount * (days / totalPersonDays)
 
                   return (
                     <div key={bill.id} className="flex items-center gap-4 px-4 py-3.5 hover:bg-gray-50 group transition-colors">
@@ -663,7 +666,7 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
                       <div className="flex-1 flex flex-wrap items-center gap-1.5 min-w-0">
                         {/* Mama — always present, not toggleable */}
                         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-600 border border-gray-200 font-medium">
-                          Mama · {daysInMonth}d
+                          Mama · {daysInMonth}d{hasSplit && ` · ${formatMoney(mamaShare)}`}
                         </span>
                         {guestsPresent.map(s => {
                           const included = isStayIncluded(bill.id, s.id)
@@ -680,22 +683,18 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
                                   : "bg-white text-gray-400 border-gray-200 hover:border-blue-300 hover:text-blue-500"
                               )}
                             >
-                              {s.guest_name} · {days}d
+                              {s.guest_name} · {days}d{included && ` · ${formatMoney(shareFor(days))}`}
                             </button>
                           )
                         })}
                       </div>
 
-                      {/* Amount + Mama's weighted share */}
+                      {/* Total amount + paid status (per-person split shown on the chips) */}
                       <div className="flex-shrink-0 text-right">
                         <p className="text-base font-bold text-gray-900">{formatMoney(bill.amount)}</p>
-                        {includedGuests.length > 0 ? (
-                          <p className="text-xs text-blue-600">Mama {formatMoney(mamaShare)}</p>
-                        ) : (
-                          <p className={cn("text-xs", bill.paid ? "text-green-600" : "text-amber-600")}>
-                            {bill.paid ? "Paid" : "Unpaid"}
-                          </p>
-                        )}
+                        <p className={cn("text-xs", bill.paid ? "text-green-600" : "text-amber-600")}>
+                          {bill.paid ? "Paid" : "Unpaid"}
+                        </p>
                       </div>
 
                       {/* Actions */}
