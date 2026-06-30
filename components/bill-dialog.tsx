@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Plus } from "lucide-react"
 import { CURRENCY_SYMBOL } from "@/lib/currency"
 import { cn } from "@/lib/utils"
 
@@ -26,6 +27,7 @@ interface BillDialogProps {
     splitBetween: string[],
   ) => void
   stays: Array<{ guest_name: string; from_date: string; to_date: string }>
+  payerSuggestions?: string[]
   initialName?: string
   initialAmount?: number
   initialPeriod?: string
@@ -49,6 +51,7 @@ function sameList(a: string[], b: string[]) {
 export function BillDialog({
   open, onOpenChange, onSave,
   stays,
+  payerSuggestions = [],
   initialName = "",
   initialAmount = 0,
   initialPeriod,
@@ -66,6 +69,9 @@ export function BillDialog({
   const [paidBy, setPaidBy] = useState(initialPaidBy || "Mama")
   const [splitBetween, setSplitBetween] = useState<string[]>(initialSplitBetween)
   const [periodEnd, setPeriodEnd] = useState(initialPeriodEnd ?? initialPeriod ?? currentPeriod())
+  const [customPayers, setCustomPayers] = useState<string[]>([])
+  const [addingPayer, setAddingPayer] = useState(false)
+  const [newPayer, setNewPayer] = useState("")
 
   const occupantsForPeriod = useMemo(() => {
     const [year, month] = period.split("-").map(Number)
@@ -85,20 +91,59 @@ export function BillDialog({
   }, [period, stays])
   const initialSplitKey = (initialSplitBetween ?? []).join("|")
 
-  const payerOptions = Array.from(new Set(["Mama", ...occupantsForPeriod, paidBy]))
+  const residentPayerOptions = useMemo(
+    () => Array.from(new Set(occupantsForPeriod)),
+    [occupantsForPeriod],
+  )
+  const allKnownPayerOptions = useMemo(
+    () => Array.from(new Set(["Mama", ...payerSuggestions, ...occupantsForPeriod, ...customPayers, paidBy])),
+    [payerSuggestions, occupantsForPeriod, customPayers, paidBy],
+  )
+  const nonResidentSuggestions = useMemo(
+    () => allKnownPayerOptions.filter(option => !residentPayerOptions.includes(option)),
+    [allKnownPayerOptions, residentPayerOptions],
+  )
+  const payerPills = Array.from(new Set([
+    ...residentPayerOptions,
+    ...(customPayers.includes(paidBy) ? [paidBy] : []),
+    ...(!residentPayerOptions.includes(paidBy) && !nonResidentSuggestions.includes(paidBy) ? [paidBy] : []),
+  ]))
+
+  const canonicalizePayer = (value: string) => {
+    const trimmed = value.trim()
+    if (!trimmed) return ""
+    const exact = allKnownPayerOptions.find(option => option.trim().toLowerCase() === trimmed.toLowerCase())
+    return exact ?? trimmed
+  }
 
   useEffect(() => {
-    if (open) {
-      setName(initialName || BILL_NAMES[0])
-      setAmount(initialAmount > 0 ? initialAmount.toString() : "")
-      setPeriodMode(initialPeriodEnd ? "range" : "month")
-      setPeriod(initialPeriod ?? currentPeriod())
-      setPeriodEnd(initialPeriodEnd ?? initialPeriod ?? currentPeriod())
-      setSettled(initialSettled)
-      setPaidBy(initialPaidBy || "Mama")
-      setSplitBetween(current => sameList(current, initialSplitBetween) ? current : initialSplitBetween)
-    }
+    if (!open) return
+    const initialPayer = (initialPaidBy || "Mama").trim() || "Mama"
+    setName(initialName || BILL_NAMES[0])
+    setAmount(initialAmount > 0 ? initialAmount.toString() : "")
+    setPeriodMode(initialPeriodEnd ? "range" : "month")
+    setPeriod(initialPeriod ?? currentPeriod())
+    setPeriodEnd(initialPeriodEnd ?? initialPeriod ?? currentPeriod())
+    setSettled(initialSettled)
+    setPaidBy(initialPayer)
+    setSplitBetween(current => sameList(current, initialSplitBetween) ? current : initialSplitBetween)
+    setCustomPayers(current => {
+      const shouldBeCustom = initialPayer !== "Mama"
+      const next = shouldBeCustom ? [initialPayer] : []
+      return sameList(current, next) ? current : next
+    })
+    setAddingPayer(false)
+    setNewPayer("")
   }, [open, initialName, initialAmount, initialPeriod, initialPeriodEnd, initialSettled, initialPaidBy, initialSplitKey])
+
+  useEffect(() => {
+    if (!open || mode !== "create") return
+    if (residentPayerOptions.length === 0) return
+    if (!residentPayerOptions.includes(paidBy)) {
+      const preferred = residentPayerOptions.includes("Mama") ? "Mama" : residentPayerOptions[0]
+      setPaidBy(preferred)
+    }
+  }, [open, mode, residentPayerOptions, paidBy])
 
   useEffect(() => {
     if (!open) return
@@ -120,7 +165,7 @@ export function BillDialog({
   const handleSave = () => {
     if (!canSave) return
     const end = periodMode === "range" && periodEnd !== period ? periodEnd : null
-    onSave(name, Number.parseFloat(amount), period, end, settled, paidBy, splitBetween)
+    onSave(name, Number.parseFloat(amount), period, end, settled, canonicalizePayer(paidBy), splitBetween)
     setName(BILL_NAMES[0])
     setAmount("")
     setPeriodMode("month")
@@ -138,6 +183,17 @@ export function BillDialog({
         ? current.filter(name => name !== guestName)
         : [...current, guestName],
     )
+  }
+
+  const addCustomPayer = () => {
+    const candidate = canonicalizePayer(newPayer)
+    if (!candidate) return
+    if (!residentPayerOptions.includes(candidate)) {
+      setCustomPayers(current => current.includes(candidate) ? current : [...current, candidate])
+    }
+    setPaidBy(candidate)
+    setAddingPayer(false)
+    setNewPayer("")
   }
 
   return (
@@ -244,7 +300,7 @@ export function BillDialog({
           <div className="space-y-2">
             <Label>Paid by</Label>
             <div className="flex flex-wrap items-center gap-2">
-              {payerOptions.map(option => (
+              {payerPills.map(option => (
                 <button
                   key={option}
                   type="button"
@@ -258,6 +314,49 @@ export function BillDialog({
                   {option}
                 </button>
               ))}
+              {!addingPayer ? (
+                <button
+                  type="button"
+                  onClick={() => setAddingPayer(true)}
+                  className="inline-flex items-center justify-center h-8 w-8 rounded-full border border-gray-200 text-gray-400 hover:border-blue-300 hover:text-blue-500 cursor-pointer transition-all"
+                  title="Add payer"
+                >
+                  <Plus className="h-4 w-4" />
+                </button>
+              ) : (
+                <div className="flex items-center gap-1">
+                  <Input
+                    value={newPayer}
+                    onChange={e => setNewPayer(e.target.value)}
+                    placeholder="Name"
+                    className="h-8 w-28"
+                    list="bill-payer-suggestions"
+                    onKeyDown={e => {
+                      if (e.key === "Enter") {
+                        e.preventDefault()
+                        addCustomPayer()
+                      }
+                      if (e.key === "Escape") {
+                        setAddingPayer(false)
+                        setNewPayer("")
+                      }
+                    }}
+                    autoFocus
+                  />
+                  <datalist id="bill-payer-suggestions">
+                    {nonResidentSuggestions.map(option => (
+                      <option key={option} value={option} />
+                    ))}
+                  </datalist>
+                  <button
+                    type="button"
+                    onClick={addCustomPayer}
+                    className="px-2 py-1 text-xs rounded-md border border-gray-200 text-gray-600 hover:border-blue-300 hover:text-blue-600 cursor-pointer"
+                  >
+                    Add
+                  </button>
+                </div>
+              )}
             </div>
           </div>
           <div className="space-y-2">

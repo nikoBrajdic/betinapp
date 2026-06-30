@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation"
 import {
   AlertCircle,
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
   Droplets,
   Edit,
   Filter,
@@ -94,6 +96,8 @@ interface GuestSummary {
   name: string
   days: number
 }
+
+type OwedView = "by" | "to"
 
 function utilityIcon(name: string) {
   const key = name.toLowerCase()
@@ -213,6 +217,8 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
   const [billFiltersOpen, setBillFiltersOpen] = useState(false)
   const [billMonthFrom, setBillMonthFrom] = useState("")
   const [billMonthTo, setBillMonthTo] = useState("")
+  const [owedView, setOwedView] = useState<OwedView>("by")
+  const [settleUpCollapsed, setSettleUpCollapsed] = useState(true)
   const [billTypeFilter, setBillTypeFilter] = useState<string[]>([])
   const [billStatusFilter, setBillStatusFilter] = useState<Array<"paid" | "settled">>([])
   const [amountMinFilter, setAmountMinFilter] = useState(0)
@@ -354,6 +360,13 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
     () => readingUtilities.map(utility => ({ name: utility.name, unit: utility.unit })),
     [readingUtilities],
   )
+  const payerSuggestions = useMemo(
+    () => Array.from(new Set([
+      ...stays.map(stay => stay.guest_name),
+      ...bills.map(bill => bill.paid_by).filter(Boolean) as string[],
+    ])).sort((a, b) => a.localeCompare(b)),
+    [stays, bills],
+  )
 
   const readingRows = useMemo(() => {
     const rows = readings.length > 0
@@ -470,6 +483,24 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
       .sort((a, b) => b.amount - a.amount)
   }, [filteredBills, stays, billSplitToggles])
   const totalSettlements = settlementRows.reduce((sum, row) => sum + row.amount, 0)
+  const settlementGroups = useMemo(() => {
+    const grouped = new Map<string, { total: number; items: Array<{ name: string; amount: number }> }>()
+    for (const row of settlementRows) {
+      const heading = owedView === "by" ? row.debtor : row.creditor
+      const counterpart = owedView === "by" ? row.creditor : row.debtor
+      const current = grouped.get(heading) ?? { total: 0, items: [] }
+      current.total += row.amount
+      current.items.push({ name: counterpart, amount: row.amount })
+      grouped.set(heading, current)
+    }
+    return Array.from(grouped.entries())
+      .map(([name, data]) => ({
+        name,
+        total: data.total,
+        items: data.items.sort((a, b) => b.amount - a.amount),
+      }))
+      .sort((a, b) => b.total - a.total)
+  }, [settlementRows, owedView])
 
   const refresh = () => router.refresh()
   useRealtimeRefresh(["utility_readings", "bills"])
@@ -629,25 +660,78 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
 
   return (
     <div className="p-6">
-      <Card className="p-5 shadow-none border-2 border-blue-100 mb-5">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-sm font-medium text-gray-500">Settle up</p>
-          </div>
-          <p className="text-sm font-semibold text-blue-600">Total settlements: {formatMoney(totalSettlements)}</p>
+      <Card className={cn("shadow-none border-2 border-blue-100 mb-5 px-5", settleUpCollapsed ? "py-4 gap-0" : "py-5 gap-2")}>
+        <div className="flex items-center justify-between gap-4 min-h-6">
+          <button
+            type="button"
+            onClick={() => setSettleUpCollapsed(collapsed => !collapsed)}
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-500 cursor-pointer"
+          >
+            <span>Settle up</span>
+            <span className="font-semibold text-blue-600">{formatMoney(totalSettlements)}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setSettleUpCollapsed(collapsed => !collapsed)}
+            className="inline-flex items-center justify-center h-6 w-6 rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors cursor-pointer"
+            title={settleUpCollapsed ? "Expand settle up" : "Collapse settle up"}
+          >
+            {settleUpCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+          </button>
         </div>
-        {settlementRows.length === 0 ? (
-          <p className="text-sm text-gray-400">No outstanding settlements.</p>
-        ) : (
-          <div className="space-y-1.5">
-            {settlementRows.map(row => (
-              <div key={`${row.debtor}-${row.creditor}`} className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
-                <p className="text-sm text-gray-700">{row.debtor} owes {row.creditor}</p>
-                <p className="text-sm font-semibold text-gray-900">{formatMoney(row.amount)}</p>
-              </div>
-            ))}
+        <div className={cn("relative transition-all duration-200 ease-out overflow-hidden", settleUpCollapsed ? "max-h-0 opacity-0 mt-0" : "max-h-[420px] opacity-100 mt-2")}>
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-xs text-gray-400">Owed:</span>
+            <button
+              type="button"
+              onClick={() => setOwedView("by")}
+              className={cn(
+                "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs border cursor-pointer transition-all",
+                owedView === "by"
+                  ? "bg-blue-500 text-white border-blue-500"
+                  : "bg-white text-gray-400 border-gray-200 hover:border-blue-300 hover:text-blue-500",
+              )}
+            >
+              By
+            </button>
+            <button
+              type="button"
+              onClick={() => setOwedView("to")}
+              className={cn(
+                "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs border cursor-pointer transition-all",
+                owedView === "to"
+                  ? "bg-blue-500 text-white border-blue-500"
+                  : "bg-white text-gray-400 border-gray-200 hover:border-blue-300 hover:text-blue-500",
+              )}
+            >
+              To
+            </button>
           </div>
-        )}
+          {settlementRows.length === 0 ? (
+            <p className="text-sm text-gray-400">No outstanding settlements.</p>
+          ) : (
+            <div className="space-y-1.5">
+              {settlementGroups.map(group => (
+                <div key={group.name} className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-semibold text-gray-800">{group.name}</p>
+                    <p className="text-sm font-semibold text-gray-900">{formatMoney(group.total)}</p>
+                  </div>
+                  <div className="mt-1.5 pl-3 space-y-1">
+                    {group.items.map(item => (
+                      <div key={`${group.name}-${item.name}`} className="flex items-center justify-between">
+                        <p className="text-sm text-gray-600">
+                          {owedView === "by" ? `to ${item.name}` : `from ${item.name}`}
+                        </p>
+                        <p className="text-sm font-medium text-gray-800">{formatMoney(item.amount)}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </Card>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="gap-4">
@@ -1165,6 +1249,7 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
             : handleAddBill
         }
         stays={stays}
+        payerSuggestions={payerSuggestions}
         initialName={editingBill?.name}
         initialAmount={editingBill?.amount}
         initialPeriod={editingBill?.due_date ? editingBill.due_date.slice(0, 7) : undefined}
