@@ -30,6 +30,7 @@ interface Stay {
 
 interface GuestStaysClientProps {
   guests: Stay[]
+  familyMembers: { name: string; email: string }[]
 }
 
 function shortDate(d: string) {
@@ -57,7 +58,7 @@ const typeConfig: Record<StayType, { label: string; badge: string }> = {
   friend: { label: "👫 Friend",  badge: "bg-violet-100 text-violet-700" },
 }
 
-export function GuestStaysClient({ guests }: GuestStaysClientProps) {
+export function GuestStaysClient({ guests, familyMembers }: GuestStaysClientProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingStay, setEditingStay] = useState<Stay | null>(null)
   const [deleteStay, setDeleteStay] = useState<Stay | null>(null)
@@ -218,6 +219,7 @@ export function GuestStaysClient({ guests }: GuestStaysClientProps) {
         open={isDialogOpen}
         onOpenChange={open => { if (!open) { setIsDialogOpen(false); setEditingStay(null) } }}
         stay={editingStay}
+        familyMembers={familyMembers}
         onSave={handleSave}
       />
 

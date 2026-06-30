@@ -7,8 +7,11 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { CURRENCY_SYMBOL } from "@/lib/currency"
+import { cn } from "@/lib/utils"
 
 const BILL_NAMES = ["Voda", "Struja", "Internet", "Jezinac", "HRT", "Komunalna naknada"]
+
+type PeriodMode = "month" | "range"
 
 interface BillDialogProps {
   open: boolean
@@ -17,6 +20,7 @@ interface BillDialogProps {
     name: string,
     amount: number,
     period: string,
+    periodEnd: string | null,
     settled: boolean,
     paidBy: string,
     splitBetween: string[],
@@ -25,6 +29,7 @@ interface BillDialogProps {
   initialName?: string
   initialAmount?: number
   initialPeriod?: string
+  initialPeriodEnd?: string | null
   initialSettled?: boolean
   initialPaidBy?: string
   initialSplitBetween?: string[]
@@ -47,6 +52,7 @@ export function BillDialog({
   initialName = "",
   initialAmount = 0,
   initialPeriod,
+  initialPeriodEnd,
   initialSettled = false,
   initialPaidBy = "Mama",
   initialSplitBetween = [],
@@ -54,10 +60,12 @@ export function BillDialog({
 }: BillDialogProps) {
   const [name, setName] = useState(initialName || BILL_NAMES[0])
   const [amount, setAmount] = useState(initialAmount > 0 ? initialAmount.toString() : "")
+  const [periodMode, setPeriodMode] = useState<PeriodMode>(initialPeriodEnd ? "range" : "month")
   const [period, setPeriod] = useState(initialPeriod ?? currentPeriod())
   const [settled, setSettled] = useState(initialSettled)
   const [paidBy, setPaidBy] = useState(initialPaidBy || "Mama")
   const [splitBetween, setSplitBetween] = useState<string[]>(initialSplitBetween)
+  const [periodEnd, setPeriodEnd] = useState(initialPeriodEnd ?? initialPeriod ?? currentPeriod())
 
   const occupantsForPeriod = useMemo(() => {
     const [year, month] = period.split("-").map(Number)
@@ -83,12 +91,14 @@ export function BillDialog({
     if (open) {
       setName(initialName || BILL_NAMES[0])
       setAmount(initialAmount > 0 ? initialAmount.toString() : "")
+      setPeriodMode(initialPeriodEnd ? "range" : "month")
       setPeriod(initialPeriod ?? currentPeriod())
+      setPeriodEnd(initialPeriodEnd ?? initialPeriod ?? currentPeriod())
       setSettled(initialSettled)
       setPaidBy(initialPaidBy || "Mama")
       setSplitBetween(current => sameList(current, initialSplitBetween) ? current : initialSplitBetween)
     }
-  }, [open, initialName, initialAmount, initialPeriod, initialSettled, initialPaidBy, initialSplitKey])
+  }, [open, initialName, initialAmount, initialPeriod, initialPeriodEnd, initialSettled, initialPaidBy, initialSplitKey])
 
   useEffect(() => {
     if (!open) return
@@ -103,17 +113,23 @@ export function BillDialog({
     })
   }, [period, paidBy, occupantsForPeriod, open, mode])
 
+  // Range is valid only when end is on/after start
+  const rangeValid = periodMode === "month" || periodEnd >= period
+  const canSave = !!name && !!amount && !!period && rangeValid
+
   const handleSave = () => {
-    if (name && amount && period) {
-      onSave(name, Number.parseFloat(amount), period, settled, paidBy, splitBetween)
-      setName(BILL_NAMES[0])
-      setAmount("")
-      setPeriod(currentPeriod())
-      setSettled(false)
-      setPaidBy("Mama")
-      setSplitBetween([])
-      onOpenChange(false)
-    }
+    if (!canSave) return
+    const end = periodMode === "range" && periodEnd !== period ? periodEnd : null
+    onSave(name, Number.parseFloat(amount), period, end, settled, paidBy, splitBetween)
+    setName(BILL_NAMES[0])
+    setAmount("")
+    setPeriodMode("month")
+    setPeriod(currentPeriod())
+    setPeriodEnd(currentPeriod())
+    setSettled(false)
+    setPaidBy("Mama")
+    setSplitBetween([])
+    onOpenChange(false)
   }
 
   const toggleSplitter = (guestName: string) => {
@@ -126,7 +142,7 @@ export function BillDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[380px]">
+      <DialogContent className="sm:max-w-[420px]">
         <DialogHeader>
           <DialogTitle>{mode === "create" ? "Add Bill" : "Edit Bill"}</DialogTitle>
         </DialogHeader>
@@ -144,27 +160,59 @@ export function BillDialog({
               </SelectContent>
             </Select>
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="amount">Amount ({CURRENCY_SYMBOL})</Label>
-              <Input
-                id="amount"
-                type="number"
-                step="0.01"
-                placeholder="0.00"
-                value={amount}
-                onChange={e => setAmount(e.target.value)}
-              />
+
+          <div className="space-y-2">
+            <Label htmlFor="amount">Amount ({CURRENCY_SYMBOL})</Label>
+            <Input
+              id="amount"
+              type="number"
+              step="0.01"
+              placeholder="0.00"
+              value={amount}
+              onChange={e => setAmount(e.target.value)}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Period</Label>
+            {/* Month vs range toggle */}
+            <div className="flex gap-2 p-1 bg-gray-100 rounded-xl w-fit">
+              {(["month", "range"] as PeriodMode[]).map(m => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setPeriodMode(m)}
+                  className={cn(
+                    "px-4 py-1.5 rounded-lg text-sm font-medium transition-all cursor-pointer",
+                    periodMode === m ? "bg-blue-500 text-white shadow-sm" : "text-gray-500 hover:text-gray-700"
+                  )}
+                >
+                  {m === "month" ? "Month" : "Range"}
+                </button>
+              ))}
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="period">Period</Label>
+
+            {periodMode === "month" ? (
               <Input
-                id="period"
                 type="month"
                 value={period}
                 onChange={e => setPeriod(e.target.value)}
               />
-            </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs text-gray-400 font-normal">From</Label>
+                  <Input type="month" value={period} onChange={e => setPeriod(e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-gray-400 font-normal">To</Label>
+                  <Input type="month" value={periodEnd} min={period} onChange={e => setPeriodEnd(e.target.value)} />
+                </div>
+              </div>
+            )}
+            {!rangeValid && (
+              <p className="text-xs text-rose-500">End month must be on or after the start month.</p>
+            )}
           </div>
           <div className="space-y-2">
             <Label>Status</Label>
@@ -243,7 +291,7 @@ export function BillDialog({
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={handleSave} disabled={!name || !amount || !period}>
+          <Button onClick={handleSave} disabled={!canSave}>
             {mode === "create" ? "Add Bill" : "Save Changes"}
           </Button>
         </DialogFooter>

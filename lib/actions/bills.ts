@@ -15,6 +15,7 @@ export async function createBill(formData: {
   name: string
   amount: number
   dueDate: string
+  periodEnd?: string | null
   paid: boolean
   paidBy: string
   splitBetween: string[]
@@ -26,6 +27,7 @@ export async function createBill(formData: {
     name: formData.name,
     amount: formData.amount,
     due_date: formData.dueDate,
+    period_end: formData.periodEnd ?? null,
     paid: formData.paid,
     paid_by: formData.paidBy,
     split_between: formData.splitBetween,
@@ -44,6 +46,7 @@ export async function updateBill(
     name: string
     amount: number
     dueDate: string
+    periodEnd?: string | null
     paid: boolean
     paidBy: string
     splitBetween: string[]
@@ -58,6 +61,7 @@ export async function updateBill(
       name: formData.name,
       amount: formData.amount,
       due_date: formData.dueDate,
+      period_end: formData.periodEnd ?? null,
       paid: formData.paid,
       paid_by: formData.paidBy,
       split_between: formData.splitBetween,

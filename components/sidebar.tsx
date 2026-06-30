@@ -50,7 +50,8 @@ function MiniCalendar() {
   const year = current.getFullYear()
   const month = current.getMonth()
   const monthName = current.toLocaleString("en-US", { month: "long" })
-  const firstDay = new Date(year, month, 1).getDay()
+  // Monday-based weekday index (0 = Mon … 6 = Sun)
+  const firstDay = (new Date(year, month, 1).getDay() + 6) % 7
   const daysInMonth = new Date(year, month + 1, 0).getDate()
   const isCurrentMonth = today.getMonth() === month && today.getFullYear() === year
 
@@ -68,7 +69,7 @@ function MiniCalendar() {
         </div>
       </div>
       <div className="grid grid-cols-7 gap-0.5 mb-1">
-        {["S","M","T","W","T","F","S"].map((d, i) => (
+        {["M","T","W","T","F","S","S"].map((d, i) => (
           <div key={i} className="text-center text-white/30 text-[10px] font-medium py-0.5">{d}</div>
         ))}
       </div>

@@ -18,7 +18,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Tabs, TabsContent } from "@/components/ui/tabs"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { ConfirmDeleteDialog } from "@/components/confirm-delete-dialog"
 import { BillDialog } from "@/components/bill-dialog"
@@ -54,6 +54,7 @@ interface Bill {
   name: string
   amount: number
   due_date: string
+  period_end: string | null
   paid: boolean
   paid_by?: string
   split_between?: string[]
@@ -129,18 +130,8 @@ function formatReadingValue(name: string, value: number) {
   return isCounterMeter(name) ? normalized.padStart(counterDigits(name), "0") : normalized
 }
 
-function isReadingFresh(utility: Utility, now = new Date()) {
-  if (!utility.updated_at) return false
-  const updated = new Date(utility.updated_at)
-  return updated.getFullYear() === now.getFullYear() && updated.getMonth() === now.getMonth()
-}
-
 function shortDate(value: string | Date) {
   return new Date(value).toLocaleDateString("en-US", { month: "short", day: "numeric" })
-}
-
-function monthName(now = new Date()) {
-  return now.toLocaleDateString("en-US", { month: "long" })
 }
 
 function dateOnly(value: string) {
@@ -164,16 +155,19 @@ function personNightsForPeriod(stays: Stay[], startDate?: string, endDate?: stri
 
   const start = dayIndex(startDate)
   const end = dayIndex(endDate)
-  const entries = stays
-    .map(stay => {
-      const overlapStart = Math.max(start, dayIndex(stay.from_date))
-      const overlapEnd = Math.min(end, dayIndex(stay.to_date))
-      return {
-        name: stay.guest_name,
-        nights: Math.max(0, overlapEnd - overlapStart),
-      }
-    })
-    .filter(entry => entry.nights > 0)
+  // Combine multiple stays by the same person within this period into one entry
+  const byName = new Map<string, { name: string; nights: number }>()
+  for (const stay of stays) {
+    const overlapStart = Math.max(start, dayIndex(stay.from_date))
+    const overlapEnd = Math.min(end, dayIndex(stay.to_date))
+    const nights = Math.max(0, overlapEnd - overlapStart)
+    if (nights === 0) continue
+    const key = stay.guest_name.trim().toLowerCase()
+    const entry = byName.get(key) ?? { name: stay.guest_name.trim(), nights: 0 }
+    entry.nights += nights
+    byName.set(key, entry)
+  }
+  const entries = Array.from(byName.values())
 
   return {
     total: entries.reduce((sum, entry) => sum + entry.nights, 0),
@@ -441,11 +435,15 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
     for (const bill of filteredBills) {
       // Settled bills are closed and should not contribute to pending settlements.
       if (bill.paid) continue
-      const periodDate = new Date(bill.due_date + "T12:00:00")
-      const monthStart = new Date(periodDate.getFullYear(), periodDate.getMonth(), 1).toISOString().split("T")[0]
-      const monthEnd = new Date(periodDate.getFullYear(), periodDate.getMonth() + 1, 0).toISOString().split("T")[0]
-      const monthNextStart = new Date(periodDate.getFullYear(), periodDate.getMonth() + 1, 1).toISOString().split("T")[0]
-      const daysInMonth = new Date(periodDate.getFullYear(), periodDate.getMonth() + 1, 0).getDate()
+      // Billing period — a single month, or a range of whole months (period_end)
+      const pad = (n: number) => String(n).padStart(2, "0")
+      const startDate = new Date(bill.due_date + "T12:00:00")
+      const endDate = bill.period_end ? new Date(bill.period_end + "T12:00:00") : startDate
+      const afterEnd = new Date(endDate.getFullYear(), endDate.getMonth() + 1, 1)
+      const monthStart = `${startDate.getFullYear()}-${pad(startDate.getMonth() + 1)}-01`
+      const monthEnd = `${endDate.getFullYear()}-${pad(endDate.getMonth() + 1)}-${pad(new Date(endDate.getFullYear(), endDate.getMonth() + 1, 0).getDate())}`
+      const monthNextStart = `${afterEnd.getFullYear()}-${pad(afterEnd.getMonth() + 1)}-01`
+      const daysInMonth = dayIndex(monthNextStart) - dayIndex(monthStart)
 
       const guestSummaries = summarizeGuestsForBillPeriod(monthStart, monthEnd, monthNextStart)
       const defaultSelectedNames = bill.split_between ?? []
@@ -527,6 +525,7 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
     name: string,
     amount: number,
     period: string,
+    periodEnd: string | null,
     settled: boolean,
     paidBy: string,
     splitBetween: string[],
@@ -535,6 +534,7 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
       await trackSave(createBill({
         name, amount,
         dueDate: `${period}-01`,
+        periodEnd: periodEnd ? `${periodEnd}-01` : null,
         paid: settled,
         paidBy,
         splitBetween,
@@ -552,6 +552,7 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
     name: string,
     amount: number,
     period: string,
+    periodEnd: string | null,
     settled: boolean,
     paidBy: string,
     splitBetween: string[],
@@ -561,6 +562,7 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
       await trackSave(updateBill(id, {
         name, amount,
         dueDate: `${period}-01`,
+        periodEnd: periodEnd ? `${periodEnd}-01` : null,
         paid: existing ? settled : false,
         paidBy,
         splitBetween,
@@ -568,10 +570,13 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
         recurring: true,
       }))
       // Reflect split changes immediately in UI without waiting for server refresh.
-      const periodDate = new Date(`${period}-01T12:00:00`)
-      const monthStart = new Date(periodDate.getFullYear(), periodDate.getMonth(), 1).toISOString().split("T")[0]
-      const monthEnd = new Date(periodDate.getFullYear(), periodDate.getMonth() + 1, 0).toISOString().split("T")[0]
-      const monthNextStart = new Date(periodDate.getFullYear(), periodDate.getMonth() + 1, 1).toISOString().split("T")[0]
+      const pad = (n: number) => String(n).padStart(2, "0")
+      const startDate = new Date(`${period}-01T12:00:00`)
+      const endDate = periodEnd ? new Date(`${periodEnd}-01T12:00:00`) : startDate
+      const afterEnd = new Date(endDate.getFullYear(), endDate.getMonth() + 1, 1)
+      const monthStart = `${startDate.getFullYear()}-${pad(startDate.getMonth() + 1)}-01`
+      const monthEnd = `${endDate.getFullYear()}-${pad(endDate.getMonth() + 1)}-${pad(new Date(endDate.getFullYear(), endDate.getMonth() + 1, 0).getDate())}`
+      const monthNextStart = `${afterEnd.getFullYear()}-${pad(afterEnd.getMonth() + 1)}-01`
       const guestNamesInPeriod = summarizeGuestsForBillPeriod(monthStart, monthEnd, monthNextStart).map(guest => guest.name)
       const selectedNames = splitBetween.filter(name => guestNamesInPeriod.includes(name))
       setBillSplitToggles(current => ({ ...current, [id]: new Set(selectedNames) }))
@@ -647,10 +652,23 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="gap-4">
         <div className="flex items-center justify-between gap-3">
-          <TabsList>
-            <TabsTrigger value="readings">Readings</TabsTrigger>
-            <TabsTrigger value="bills">Bills</TabsTrigger>
-          </TabsList>
+          <div className="flex gap-2 p-1 bg-gray-100 rounded-xl w-fit">
+            {([
+              { value: "readings", label: "Readings", active: "bg-emerald-500 text-white shadow-sm" },
+              { value: "bills", label: "Bills", active: "bg-blue-500 text-white shadow-sm" },
+            ] as const).map(tab => (
+              <button
+                key={tab.value}
+                onClick={() => setActiveTab(tab.value)}
+                className={cn(
+                  "px-4 py-1.5 rounded-lg text-sm font-medium transition-all cursor-pointer",
+                  activeTab === tab.value ? tab.active : "text-gray-500 hover:text-gray-700"
+                )}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
           {activeTab === "readings" && readingUtilities.length > 0 && (
             <Button onClick={() => setIsReadingDialogOpen(true)} className="cursor-pointer bg-emerald-500 hover:bg-emerald-600">
               <Plus className="h-4 w-4 mr-2" /> New Reading
@@ -986,7 +1004,6 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
               </div>
               {/* Column headers */}
               <div className="flex items-center gap-4 px-4 py-2 bg-gray-50 border-b border-gray-100">
-                <div className="w-4 flex-shrink-0" />
                 <div className="w-36 flex-shrink-0 text-xs font-medium text-gray-400 uppercase tracking-wide">Bill</div>
                 <div className="flex-1 text-xs font-medium text-gray-400 uppercase tracking-wide">Split between</div>
                 <div className="w-24 flex-shrink-0 text-xs font-medium text-gray-400 uppercase tracking-wide text-right">Amount</div>
@@ -994,28 +1011,38 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
               </div>
               <div className="divide-y divide-gray-100">
                 {yearBills.map(bill => {
-                  // Stays overlapping this bill's period, excluding Vesna (always counted as Mama)
-                  const periodDate = new Date(bill.due_date + "T12:00:00")
-                  const monthStart = new Date(periodDate.getFullYear(), periodDate.getMonth(), 1).toISOString().split("T")[0]
-                  const monthEnd = new Date(periodDate.getFullYear(), periodDate.getMonth() + 1, 0).toISOString().split("T")[0]
+                  // This bill's billing period — a single month, or a range of whole months (period_end)
+                  const pad = (n: number) => String(n).padStart(2, "0")
+                  const startDate = new Date(bill.due_date + "T12:00:00")
+                  const endDate = bill.period_end ? new Date(bill.period_end + "T12:00:00") : startDate
+                  const sY = startDate.getFullYear(), sM = startDate.getMonth()
+                  const eY = endDate.getFullYear(), eM = endDate.getMonth()
+                  const afterEnd = new Date(eY, eM + 1, 1)
+                  const periodStart = `${sY}-${pad(sM + 1)}-01`                                   // first day of range
+                  const periodEndIncl = `${eY}-${pad(eM + 1)}-${pad(new Date(eY, eM + 1, 0).getDate())}` // last day of range
                   // Exclusive end used for night-overlap calculation (same convention as personNightsForPeriod)
-                  const monthNextStart = new Date(periodDate.getFullYear(), periodDate.getMonth() + 1, 1).toISOString().split("T")[0]
-                  const daysInMonth = new Date(periodDate.getFullYear(), periodDate.getMonth() + 1, 0).getDate()
+                  const periodNextStart = `${afterEnd.getFullYear()}-${pad(afterEnd.getMonth() + 1)}-01`
+                  const daysInPeriod = dayIndex(periodNextStart) - dayIndex(periodStart)
 
-                  const guestSummaries = summarizeGuestsForBillPeriod(monthStart, monthEnd, monthNextStart)
+                  const isRange = sY !== eY || sM !== eM
+                  const period = !isRange
+                    ? startDate.toLocaleDateString("en-US", { month: "long", year: "numeric" })
+                    : `${startDate.toLocaleDateString("en-US", { month: "short", year: "numeric" })} - ${endDate.toLocaleDateString("en-US", { month: "short", year: "numeric" })}`
+
+                  // Guests in this period, combined by name; Mama (Vesna) is always counted separately
+                  const guestSummaries = summarizeGuestsForBillPeriod(periodStart, periodEndIncl, periodNextStart)
                   const defaultSelectedNames = bill.split_between ?? []
                   const selectedGuestNames = billSplitToggles[bill.id] ?? new Set(defaultSelectedNames)
-                  const period = periodDate.toLocaleDateString("en-US", { month: "long" })
                   const includedGuests = guestSummaries.filter(guest => selectedGuestNames.has(guest.name))
                   const includedGuestDays = includedGuests.reduce((sum, guest) => sum + guest.days, 0)
-                  const totalPersonDays = daysInMonth + includedGuestDays
+                  const totalPersonDays = daysInPeriod + includedGuestDays
                   const hasSplit = includedGuests.length > 0
                   // Each person pays in proportion to days present
-                  const payerShare = bill.amount * (daysInMonth / totalPersonDays)
+                  const payerShare = bill.amount * (daysInPeriod / totalPersonDays)
                   const shareFor = (days: number) => bill.amount * (days / totalPersonDays)
 
                   const isVisible = filteredBillIdSet.has(bill.id)
-                  const monthStyle = monthTone(periodDate.getMonth())
+                  const monthStyle = monthTone(startDate.getMonth())
 
                   return (
                     <div
@@ -1045,7 +1072,7 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
                       <div className="flex-1 flex flex-wrap items-center gap-1.5 min-w-0">
                         {/* Payer — always present, not toggleable */}
                         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-600 border border-gray-200 font-medium">
-                          {bill.paid_by || "Mama"} · {daysInMonth}d{hasSplit && ` · ${formatMoney(payerShare)}`}
+                          {bill.paid_by || "Mama"} · {daysInPeriod}d{hasSplit && ` · ${formatMoney(payerShare)}`}
                         </span>
                         {guestSummaries.map(guest => {
                           const included = selectedGuestNames.has(guest.name)
@@ -1133,14 +1160,15 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
         onOpenChange={open => { if (!open) { setBillDialogOpen(false); setEditingBill(null) } }}
         onSave={
           editingBill
-            ? (name, amount, period, settled, paidBy, splitBetween) =>
-              handleEditBill(editingBill.id, name, amount, period, settled, paidBy, splitBetween)
+            ? (name, amount, period, periodEnd, settled, paidBy, splitBetween) =>
+              handleEditBill(editingBill.id, name, amount, period, periodEnd, settled, paidBy, splitBetween)
             : handleAddBill
         }
         stays={stays}
         initialName={editingBill?.name}
         initialAmount={editingBill?.amount}
         initialPeriod={editingBill?.due_date ? editingBill.due_date.slice(0, 7) : undefined}
+        initialPeriodEnd={editingBill?.period_end ? editingBill.period_end.slice(0, 7) : undefined}
         initialSettled={editingBill?.paid ?? false}
         initialPaidBy={editingBill?.paid_by || "Mama"}
         initialSplitBetween={editingBill?.split_between}

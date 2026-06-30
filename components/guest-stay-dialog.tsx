@@ -25,6 +25,7 @@ interface GuestStayDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   stay?: Stay | null
+  familyMembers: { name: string; email: string }[]
   onSave: (data: {
     guestName: string
     room: string
@@ -35,7 +36,7 @@ interface GuestStayDialogProps {
   }) => void
 }
 
-export function GuestStayDialog({ open, onOpenChange, stay, onSave }: GuestStayDialogProps) {
+export function GuestStayDialog({ open, onOpenChange, stay, familyMembers, onSave }: GuestStayDialogProps) {
   const [name, setName] = useState("")
   const [room, setRoom] = useState("")
   const [checkIn, setCheckIn] = useState("")
@@ -75,7 +76,11 @@ export function GuestStayDialog({ open, onOpenChange, stay, onSave }: GuestStayD
             {(["family", "friend"] as StayType[]).map(t => (
               <button
                 key={t}
-                onClick={() => setType(t)}
+                onClick={() => {
+                  setType(t)
+                  // Switching to family: keep the name only if it matches a member
+                  if (t === "family" && !familyMembers.some(m => m.name.split(" ")[0] === name)) setName("")
+                }}
                 className={cn(
                   "px-4 py-1.5 rounded-lg text-sm font-medium transition-all cursor-pointer",
                   type === t
@@ -93,12 +98,42 @@ export function GuestStayDialog({ open, onOpenChange, stay, onSave }: GuestStayD
           {/* Name */}
           <div className="space-y-1.5">
             <Label>Name</Label>
-            <Input
-              placeholder={type === "family" ? "e.g. Dad" : "e.g. Marko"}
-              value={name}
-              onChange={e => setName(e.target.value)}
-              autoFocus
-            />
+            {type === "family" ? (
+              familyMembers.length === 0 ? (
+                <p className="text-sm text-gray-400">
+                  No approved family members yet. Add emails in Admin → Manage.
+                </p>
+              ) : (
+                <div className="flex flex-wrap gap-1.5">
+                  {familyMembers.map(m => {
+                    const firstName = m.name.split(" ")[0]
+                    const selected = name === firstName
+                    return (
+                      <button
+                        key={m.email}
+                        type="button"
+                        onClick={() => setName(firstName)}
+                        className={cn(
+                          "px-3 py-1.5 rounded-full text-sm font-medium border transition-colors cursor-pointer",
+                          selected
+                            ? "bg-blue-500 text-white border-blue-500"
+                            : "bg-white text-gray-600 border-gray-200 hover:border-blue-300 hover:text-blue-500"
+                        )}
+                      >
+                        {firstName}
+                      </button>
+                    )
+                  })}
+                </div>
+              )
+            ) : (
+              <Input
+                placeholder="e.g. Marko"
+                value={name}
+                onChange={e => setName(e.target.value)}
+                autoFocus
+              />
+            )}
           </div>
 
           {/* Dates */}

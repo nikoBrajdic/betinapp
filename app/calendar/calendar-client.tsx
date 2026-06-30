@@ -82,7 +82,8 @@ export function CalendarClient({ events }: CalendarClientProps) {
   const getDays = (date: Date) => {
     const year = date.getFullYear()
     const month = date.getMonth()
-    const firstDow = new Date(year, month, 1).getDay()
+    // Monday-based weekday index (0 = Mon … 6 = Sun)
+    const firstDow = (new Date(year, month, 1).getDay() + 6) % 7
     const daysInMonth = new Date(year, month + 1, 0).getDate()
     const cells: { date: Date; current: boolean }[] = []
 
@@ -134,7 +135,7 @@ export function CalendarClient({ events }: CalendarClientProps) {
 
       {/* Day headers */}
       <div className="grid grid-cols-7 mb-1">
-        {["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map(d => (
+        {["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map(d => (
           <div key={d} className="py-1 text-center text-[11px] font-medium text-gray-400 uppercase tracking-wide">{d}</div>
         ))}
       </div>

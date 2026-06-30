@@ -14,6 +14,41 @@ function eventTitle(name: string, _type: string) {
   return name
 }
 
+// Derive a clean first name from an email when no profile name exists,
+// e.g. "nino.g.brajdic@gmail.com" -> "Nino".
+function firstNameFromEmail(email: string): string {
+  const token = email.split("@")[0].split(/[._-]+/)[0]
+  return token ? token.charAt(0).toUpperCase() + token.slice(1).toLowerCase() : email
+}
+
+// Approved family members (allowlist emails enriched with profile names).
+// Used to pick a consistent guest name for family stays so utilities can
+// combine multiple stays by the same person within a billing month.
+export async function getFamilyMembers(): Promise<{ name: string; email: string }[]> {
+  const supabase = await createClient()
+  const [{ data: allow }, { data: profiles }] = await Promise.all([
+    supabase.from("allowlist").select("email"),
+    supabase.from("profiles").select("email, full_name"),
+  ])
+
+  const nameByEmail = new Map(
+    (profiles ?? []).map(p => [String(p.email).toLowerCase(), p.full_name as string | null]),
+  )
+
+  const seen = new Set<string>()
+  const members: { name: string; email: string }[] = []
+  for (const { email } of allow ?? []) {
+    const key = String(email).toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+    const fullName = nameByEmail.get(key)
+    const name = (fullName && fullName.trim()) || firstNameFromEmail(String(email))
+    members.push({ name, email })
+  }
+
+  return members.sort((a, b) => a.name.localeCompare(b.name))
+}
+
 export async function getGuestStays() {
   const supabase = await createClient()
   const { data, error } = await supabase
