@@ -48,7 +48,7 @@ function MiniCalendar() {
 
   const year = current.getFullYear()
   const month = current.getMonth()
-  const monthName = current.toLocaleString("default", { month: "long" })
+  const monthName = current.toLocaleString("en-US", { month: "long" })
   const firstDay = new Date(year, month, 1).getDay()
   const daysInMonth = new Date(year, month + 1, 0).getDate()
   const isCurrentMonth = today.getMonth() === month && today.getFullYear() === year

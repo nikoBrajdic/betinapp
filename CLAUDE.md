@@ -12,7 +12,7 @@ Household management dashboard for a family vacation property in **Betina, Croat
 npx vercel --prod
 ```
 
-Live URL: **https://betin-app.vercel.app**
+Live URL: **https://betinapp.vercel.app**
 
 ---
 

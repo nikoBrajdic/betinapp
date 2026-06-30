@@ -1,21 +1,20 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import {
   AlertCircle,
-  CalendarClock,
   CheckCircle2,
   Droplets,
   Edit,
+  Filter,
   MoreHorizontal,
   Plus,
-  ReceiptText,
   Trash2,
   Wifi,
+  X,
   Zap,
 } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 
@@ -56,6 +55,8 @@ interface Bill {
   amount: number
   due_date: string
   paid: boolean
+  paid_by?: string
+  split_between?: string[]
   category: "utilities" | "rent" | "insurance" | "subscription" | "other"
   recurring: boolean
 }
@@ -86,6 +87,11 @@ interface ReadingRow {
   parts?: Array<{ id: string; label: string; value: number }>
   previousDate?: string
   currentDate?: string
+}
+
+interface GuestSummary {
+  name: string
+  days: number
 }
 
 function utilityIcon(name: string) {
@@ -177,6 +183,29 @@ function personNightsForPeriod(stays: Stay[], startDate?: string, endDate?: stri
   }
 }
 
+function monthTone(monthIndex: number) {
+  const tones = [
+    // Winter (Dec-Feb) shades of blue
+    { bg: "bg-blue-50", text: "text-blue-700", border: "border-blue-100" }, // Jan
+    { bg: "bg-sky-50", text: "text-sky-700", border: "border-sky-100" }, // Feb
+    // Spring (Mar-May) shades of green
+    { bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-100" }, // Mar
+    { bg: "bg-green-50", text: "text-green-700", border: "border-green-100" }, // Apr
+    { bg: "bg-lime-50", text: "text-lime-700", border: "border-lime-100" }, // May
+    // Summer (Jun-Aug) shades of yellow
+    { bg: "bg-amber-50", text: "text-amber-700", border: "border-amber-100" }, // Jun
+    { bg: "bg-yellow-50", text: "text-yellow-700", border: "border-yellow-100" }, // Jul
+    { bg: "bg-orange-50", text: "text-orange-700", border: "border-orange-100" }, // Aug
+    // Autumn (Sep-Nov) shades of red
+    { bg: "bg-rose-50", text: "text-rose-700", border: "border-rose-100" }, // Sep
+    { bg: "bg-red-50", text: "text-red-700", border: "border-red-100" }, // Oct
+    { bg: "bg-pink-50", text: "text-pink-700", border: "border-pink-100" }, // Nov
+    // Dec
+    { bg: "bg-indigo-50", text: "text-indigo-700", border: "border-indigo-100" }, // Dec
+  ]
+  return tones[monthIndex] ?? { bg: "bg-gray-50", text: "text-gray-600", border: "border-gray-100" }
+}
+
 export function UtilitiesClient({ utilities, readings, bills, stays }: UtilitiesClientProps) {
   const [activeTab, setActiveTab] = useState("readings")
   const [editingReading, setEditingReading] = useState<ReadingRow | null>(null)
@@ -185,27 +214,138 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
   const [editingBill, setEditingBill] = useState<Bill | null>(null)
   const [billDialogOpen, setBillDialogOpen] = useState(false)
   const [deleteBill_, setDeleteBill_] = useState<Bill | null>(null)
-  // billSplitToggles: { [billId]: Set of stay IDs included in split }
+  // billSplitToggles: { [billId]: Set of guest names included in split }
   const [billSplitToggles, setBillSplitToggles] = useState<Record<string, Set<string>>>({})
+  const [billFiltersOpen, setBillFiltersOpen] = useState(false)
+  const [billMonthFrom, setBillMonthFrom] = useState("")
+  const [billMonthTo, setBillMonthTo] = useState("")
+  const [billTypeFilter, setBillTypeFilter] = useState<string[]>([])
+  const [billStatusFilter, setBillStatusFilter] = useState<Array<"paid" | "settled">>([])
+  const [amountMinFilter, setAmountMinFilter] = useState(0)
+  const [amountMaxFilter, setAmountMaxFilter] = useState(0)
+  const [amountMinDraft, setAmountMinDraft] = useState(0)
+  const [amountMaxDraft, setAmountMaxDraft] = useState(0)
   const billYears = [...new Set(bills.map(b => new Date(b.due_date + "T12:00:00").getFullYear()))].sort((a, b) => b - a)
   const [selectedBillYear, setSelectedBillYear] = useState<number | null>(null)
   const activeBillYear = selectedBillYear ?? billYears[0] ?? new Date().getFullYear()
-  const filteredBills = [...bills]
+  const yearBills = [...bills]
     .filter(b => new Date(b.due_date + "T12:00:00").getFullYear() === activeBillYear)
     .sort((a, b) => new Date(b.due_date).getTime() - new Date(a.due_date).getTime())
+  const billTypeOptions = [...new Set(yearBills.map(bill => bill.name))].sort((a, b) => a.localeCompare(b))
+  const amountBounds = useMemo(() => {
+    if (yearBills.length === 0) return { min: 0, max: 0 }
+    const amounts = yearBills.map(bill => Number(bill.amount))
+    return { min: Math.min(...amounts), max: Math.max(...amounts) }
+  }, [yearBills])
+  const filteredBills = yearBills.filter(bill => {
+    const billMonth = bill.due_date.slice(0, 7)
+    if (billMonthFrom && billMonth < billMonthFrom) return false
+    if (billMonthTo && billMonth > billMonthTo) return false
+    if (billTypeFilter.length > 0 && !billTypeFilter.includes(bill.name)) return false
+    const billStatus = bill.paid ? "settled" : "paid"
+    if (billStatusFilter.length > 0 && !billStatusFilter.includes(billStatus)) return false
+    if (Number(bill.amount) < amountMinFilter || Number(bill.amount) > amountMaxFilter) return false
+    return true
+  })
   const router = useRouter()
+  const hasActiveBillFilters =
+    !!billMonthFrom ||
+    !!billMonthTo ||
+    billTypeFilter.length > 0 ||
+    billStatusFilter.length > 0 ||
+    amountMinFilter !== amountBounds.min ||
+    amountMaxFilter !== amountBounds.max
+  const amountRange = Math.max(amountBounds.max - amountBounds.min, 1)
+  const amountLeftPct = ((amountMinDraft - amountBounds.min) / amountRange) * 100
+  const amountRightPct = ((amountMaxDraft - amountBounds.min) / amountRange) * 100
 
-  const toggleStayInBill = (billId: string, stayId: string) => {
-    setBillSplitToggles(prev => {
-      const current = new Set(prev[billId] ?? [])
-      if (current.has(stayId)) current.delete(stayId)
-      else current.add(stayId)
-      return { ...prev, [billId]: current }
+  useEffect(() => {
+    setAmountMinFilter(amountBounds.min)
+    setAmountMaxFilter(amountBounds.max)
+    setAmountMinDraft(amountBounds.min)
+    setAmountMaxDraft(amountBounds.max)
+  }, [activeBillYear, amountBounds.min, amountBounds.max])
+  const filteredBillIdSet = useMemo(() => new Set(filteredBills.map(bill => bill.id)), [filteredBills])
+
+  const summarizeGuestsForBillPeriod = (monthStart: string, monthEnd: string, monthNextStart: string): GuestSummary[] => {
+    const guestDays = new Map<string, number>()
+    stays.forEach(stay => {
+      if (stay.guest_name.toLowerCase().includes("vesna")) return
+      if (!(stay.from_date <= monthEnd && stay.to_date >= monthStart)) return
+      const overlapStart = Math.max(dayIndex(monthStart), dayIndex(stay.from_date))
+      const overlapEnd = Math.min(dayIndex(monthNextStart), dayIndex(stay.to_date))
+      const days = Math.max(0, overlapEnd - overlapStart)
+      if (days <= 0) return
+      guestDays.set(stay.guest_name, (guestDays.get(stay.guest_name) ?? 0) + days)
     })
+    return Array.from(guestDays.entries())
+      .map(([name, days]) => ({ name, days }))
+      .sort((a, b) => a.name.localeCompare(b.name))
   }
 
-  const isStayIncluded = (billId: string, stayId: string) =>
-    billSplitToggles[billId]?.has(stayId) ?? false
+  const toggleStayInBill = async (
+    bill: Bill,
+    guestName: string,
+    defaultSelectedNames: string[],
+  ) => {
+    let nextSelectedNames = new Set<string>()
+    setBillSplitToggles(prev => {
+      const current = new Set(prev[bill.id] ?? defaultSelectedNames)
+      if (current.has(guestName)) current.delete(guestName)
+      else current.add(guestName)
+      nextSelectedNames = new Set(current)
+      return { ...prev, [bill.id]: current }
+    })
+
+    try {
+      const splitBetween = Array.from(nextSelectedNames)
+      await trackSave(updateBill(bill.id, {
+        name: bill.name,
+        amount: bill.amount,
+        dueDate: bill.due_date,
+        paid: bill.paid,
+        paidBy: bill.paid_by || "Mama",
+        splitBetween,
+        category: bill.category,
+        recurring: bill.recurring,
+      }))
+      refresh()
+    } catch (error) {
+      console.error("Failed to update split between:", error)
+    }
+  }
+
+  const toggleBillType = (name: string) => {
+    setBillTypeFilter(current =>
+      current.includes(name)
+        ? current.filter(item => item !== name)
+        : [...current, name],
+    )
+  }
+
+  const toggleBillStatus = (status: "paid" | "settled") => {
+    setBillStatusFilter(current =>
+      current.includes(status)
+        ? current.filter(item => item !== status)
+        : [...current, status],
+    )
+  }
+
+  const clearBillFilters = () => {
+    setBillMonthFrom("")
+    setBillMonthTo("")
+    setBillTypeFilter([])
+    setBillStatusFilter([])
+    setAmountMinFilter(amountBounds.min)
+    setAmountMaxFilter(amountBounds.max)
+    setAmountMinDraft(amountBounds.min)
+    setAmountMaxDraft(amountBounds.max)
+  }
+
+  const applyAmountDraft = () => {
+    setAmountMinFilter(amountMinDraft)
+    setAmountMaxFilter(amountMaxDraft)
+  }
 
   const readingUtilities = useMemo(
     () => utilities.filter(utility => {
@@ -295,10 +435,43 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
       .sort((a, b) => b.date.localeCompare(a.date))
   }, [readings, readingUtilities, utilities])
 
-  const readingsDone = readingUtilities.filter(utility => isReadingFresh(utility)).length
-  const unpaidBills = bills.filter(bill => !bill.paid)
-  const unpaidTotal = unpaidBills.reduce((sum, bill) => sum + Number(bill.amount), 0)
-  const monthlyReadingDue = readingUtilities.length > 0 && readingsDone < readingUtilities.length
+  const settlementRows = useMemo(() => {
+    const owedPairs = new Map<string, number>()
+
+    for (const bill of filteredBills) {
+      // Settled bills are closed and should not contribute to pending settlements.
+      if (bill.paid) continue
+      const periodDate = new Date(bill.due_date + "T12:00:00")
+      const monthStart = new Date(periodDate.getFullYear(), periodDate.getMonth(), 1).toISOString().split("T")[0]
+      const monthEnd = new Date(periodDate.getFullYear(), periodDate.getMonth() + 1, 0).toISOString().split("T")[0]
+      const monthNextStart = new Date(periodDate.getFullYear(), periodDate.getMonth() + 1, 1).toISOString().split("T")[0]
+      const daysInMonth = new Date(periodDate.getFullYear(), periodDate.getMonth() + 1, 0).getDate()
+
+      const guestSummaries = summarizeGuestsForBillPeriod(monthStart, monthEnd, monthNextStart)
+      const defaultSelectedNames = bill.split_between ?? []
+      const selectedGuestNames = billSplitToggles[bill.id] ?? new Set(defaultSelectedNames)
+      const includedGuests = guestSummaries.filter(guest => selectedGuestNames.has(guest.name))
+      const includedGuestDays = includedGuests.reduce((sum, guest) => sum + guest.days, 0)
+      const totalPersonDays = daysInMonth + includedGuestDays
+      if (includedGuests.length === 0 || totalPersonDays <= 0) continue
+      const payer = bill.paid_by || "Mama"
+
+      for (const guest of includedGuests) {
+        const share = bill.amount * (guest.days / totalPersonDays)
+        if (share <= 0) continue
+        const pairKey = `${guest.name}::${payer}`
+        owedPairs.set(pairKey, (owedPairs.get(pairKey) ?? 0) + share)
+      }
+    }
+
+    return Array.from(owedPairs.entries())
+      .map(([pairKey, amount]) => {
+        const [debtor, creditor] = pairKey.split("::")
+        return { debtor, creditor, amount }
+      })
+      .sort((a, b) => b.amount - a.amount)
+  }, [filteredBills, stays, billSplitToggles])
+  const totalSettlements = settlementRows.reduce((sum, row) => sum + row.amount, 0)
 
   const refresh = () => router.refresh()
   useRealtimeRefresh(["utility_readings", "bills"])
@@ -350,12 +523,21 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
     }
   }
 
-  const handleAddBill = async (name: string, amount: number, period: string) => {
+  const handleAddBill = async (
+    name: string,
+    amount: number,
+    period: string,
+    settled: boolean,
+    paidBy: string,
+    splitBetween: string[],
+  ) => {
     try {
       await trackSave(createBill({
         name, amount,
         dueDate: `${period}-01`,
-        paid: false,
+        paid: settled,
+        paidBy,
+        splitBetween,
         category: "utilities",
         recurring: true,
       }))
@@ -365,16 +547,34 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
     }
   }
 
-  const handleEditBill = async (id: string, name: string, amount: number, period: string) => {
+  const handleEditBill = async (
+    id: string,
+    name: string,
+    amount: number,
+    period: string,
+    settled: boolean,
+    paidBy: string,
+    splitBetween: string[],
+  ) => {
     const existing = bills.find(bill => bill.id === id)
     try {
       await trackSave(updateBill(id, {
         name, amount,
         dueDate: `${period}-01`,
-        paid: existing?.paid ?? false,
+        paid: existing ? settled : false,
+        paidBy,
+        splitBetween,
         category: "utilities",
         recurring: true,
       }))
+      // Reflect split changes immediately in UI without waiting for server refresh.
+      const periodDate = new Date(`${period}-01T12:00:00`)
+      const monthStart = new Date(periodDate.getFullYear(), periodDate.getMonth(), 1).toISOString().split("T")[0]
+      const monthEnd = new Date(periodDate.getFullYear(), periodDate.getMonth() + 1, 0).toISOString().split("T")[0]
+      const monthNextStart = new Date(periodDate.getFullYear(), periodDate.getMonth() + 1, 1).toISOString().split("T")[0]
+      const guestNamesInPeriod = summarizeGuestsForBillPeriod(monthStart, monthEnd, monthNextStart).map(guest => guest.name)
+      const selectedNames = splitBetween.filter(name => guestNamesInPeriod.includes(name))
+      setBillSplitToggles(current => ({ ...current, [id]: new Set(selectedNames) }))
       refresh()
     } catch (error) {
       console.error("Failed to update bill:", error)
@@ -388,6 +588,8 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
         amount: bill.amount,
         dueDate: bill.due_date,
         paid: !bill.paid,
+        paidBy: bill.paid_by || "Mama",
+        splitBetween: bill.split_between ?? [],
         category: bill.category,
         recurring: bill.recurring,
       }))
@@ -422,28 +624,26 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
 
   return (
     <div className="p-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
-        <Card className={cn("p-5 shadow-none border-2", monthlyReadingDue ? "border-amber-200 bg-amber-50/40" : "border-green-100 bg-green-50/30")}>
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="text-sm font-medium text-gray-500">{monthName()} readings</p>
-              <p className="text-2xl font-bold text-gray-900 mt-1">{readingsDone}/{readingUtilities.length || utilities.length}</p>
-              <p className="text-xs text-gray-400 mt-1">{monthlyReadingDue ? "Log on the 1st of the month" : "Current month is up to date"}</p>
-            </div>
-            <CalendarClock className={cn("h-7 w-7", monthlyReadingDue ? "text-amber-500" : "text-green-600")} />
+      <Card className="p-5 shadow-none border-2 border-blue-100 mb-5">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-sm font-medium text-gray-500">Settle up</p>
           </div>
-        </Card>
-        <Card className="p-5 shadow-none border-2 border-blue-100">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="text-sm font-medium text-gray-500">Unpaid bills</p>
-              <p className="text-2xl font-bold text-gray-900 mt-1">{unpaidBills.length}</p>
-              <p className="text-xs text-gray-400 mt-1">{formatMoney(unpaidTotal)} due</p>
-            </div>
-            <ReceiptText className="h-7 w-7 text-blue-500" />
+          <p className="text-sm font-semibold text-blue-600">Total settlements: {formatMoney(totalSettlements)}</p>
+        </div>
+        {settlementRows.length === 0 ? (
+          <p className="text-sm text-gray-400">No outstanding settlements.</p>
+        ) : (
+          <div className="space-y-1.5">
+            {settlementRows.map(row => (
+              <div key={`${row.debtor}-${row.creditor}`} className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
+                <p className="text-sm text-gray-700">{row.debtor} owes {row.creditor}</p>
+                <p className="text-sm font-semibold text-gray-900">{formatMoney(row.amount)}</p>
+              </div>
+            ))}
           </div>
-        </Card>
-      </div>
+        )}
+      </Card>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="gap-4">
         <div className="flex items-center justify-between gap-3">
@@ -587,8 +787,8 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
           ) : (
             <Card className="shadow-none border-2 overflow-hidden">
               {/* Year tabs */}
-              {billYears.length > 1 && (
-                <div className="flex items-center gap-1 px-4 pt-3 pb-0">
+              <div className="flex items-center justify-between px-4 pt-3 pb-2">
+                <div className="flex items-center gap-1">
                   {billYears.map(year => (
                     <button
                       key={year}
@@ -604,7 +804,186 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
                     </button>
                   ))}
                 </div>
-              )}
+                <div className="relative h-7 w-16">
+                  <button
+                    onClick={() => setBillFiltersOpen(open => !open)}
+                    className={cn(
+                      "absolute right-0 inline-flex items-center justify-center h-7 w-7 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-all duration-200 ease-out cursor-pointer",
+                      hasActiveBillFilters ? "-translate-x-8" : "translate-x-0",
+                    )}
+                    title="Toggle filters"
+                  >
+                    <Filter className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    onClick={clearBillFilters}
+                    className={cn(
+                      "absolute right-0 inline-flex items-center justify-center h-7 w-7 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-all duration-200 ease-out cursor-pointer",
+                      hasActiveBillFilters ? "opacity-100 scale-100" : "opacity-0 scale-75 pointer-events-none",
+                    )}
+                    title="Clear filters"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
+              <div
+                className={cn(
+                  "border-t border-gray-100 bg-gray-50/60 overflow-hidden transition-all duration-200 ease-out",
+                  billFiltersOpen ? "max-h-80 opacity-100 px-4 py-3" : "max-h-0 opacity-0 px-4 py-0",
+                )}
+              >
+                <div className={cn("transition-opacity duration-200 ease-out", billFiltersOpen ? "opacity-100" : "opacity-0")}>
+                  <div className="grid grid-cols-1 md:grid-cols-[1.1fr_auto_1.1fr_auto_0.8fr_auto_1.2fr] gap-3 items-start">
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="month"
+                          value={billMonthFrom}
+                          onChange={e => setBillMonthFrom(e.target.value)}
+                          className={cn(
+                            "h-8 w-full rounded-md border border-gray-200 bg-white px-2 text-xs text-gray-700",
+                            !billMonthFrom && "[&::-webkit-datetime-edit]:text-transparent focus:[&::-webkit-datetime-edit]:text-gray-700",
+                          )}
+                        />
+                        <input
+                          type="month"
+                          value={billMonthTo}
+                          onChange={e => setBillMonthTo(e.target.value)}
+                          className={cn(
+                            "h-8 w-full rounded-md border border-gray-200 bg-white px-2 text-xs text-gray-700",
+                            !billMonthTo && "[&::-webkit-datetime-edit]:text-transparent focus:[&::-webkit-datetime-edit]:text-gray-700",
+                          )}
+                        />
+                      </div>
+                    </div>
+                    <div className="hidden md:block h-8 w-px bg-gray-200 mx-auto" />
+                    <div className="space-y-1.5">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {billTypeOptions.map(type => {
+                          const selected = billTypeFilter.includes(type)
+                          return (
+                            <button
+                              key={type}
+                              onClick={() => toggleBillType(type)}
+                              className={cn(
+                                "inline-flex items-center px-2 py-0.5 rounded-full text-xs border cursor-pointer transition-all",
+                                selected
+                                  ? "bg-blue-500 text-white border-blue-500"
+                                  : "bg-white text-gray-400 border-gray-200 hover:border-blue-300 hover:text-blue-500"
+                              )}
+                            >
+                              {type}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                    <div className="hidden md:block h-8 w-px bg-gray-200 mx-auto" />
+                    <div className="space-y-1.5">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <button
+                          onClick={() => toggleBillStatus("paid")}
+                          className={cn(
+                            "inline-flex items-center px-2 py-0.5 rounded-full text-xs border cursor-pointer transition-all",
+                            billStatusFilter.includes("paid")
+                              ? "bg-blue-500 text-white border-blue-500"
+                              : "bg-white text-gray-400 border-gray-200 hover:border-blue-300 hover:text-blue-500"
+                          )}
+                        >
+                          Paid
+                        </button>
+                        <button
+                          onClick={() => toggleBillStatus("settled")}
+                          className={cn(
+                            "inline-flex items-center px-2 py-0.5 rounded-full text-xs border cursor-pointer transition-all",
+                            billStatusFilter.includes("settled")
+                              ? "bg-green-500 text-white border-green-500"
+                              : "bg-white text-gray-400 border-gray-200 hover:border-green-300 hover:text-green-600"
+                          )}
+                        >
+                          Settled
+                        </button>
+                      </div>
+                    </div>
+                    <div className="hidden md:block h-8 w-px bg-gray-200 mx-auto" />
+                    <div className="space-y-2">
+                      <div className="relative h-6">
+                        <div className="absolute top-2.5 left-0 right-0 h-1.5 rounded-full bg-gray-200" />
+                        <div
+                          className="absolute top-2.5 h-1.5 rounded-full bg-blue-500"
+                          style={{ left: `${amountLeftPct}%`, width: `${Math.max(amountRightPct - amountLeftPct, 0)}%` }}
+                        />
+                        <input
+                          type="range"
+                          min={amountBounds.min}
+                          max={amountBounds.max}
+                          step="0.01"
+                          value={amountMinDraft}
+                          onChange={e => {
+                            const next = Number(e.target.value)
+                            setAmountMinDraft(next > amountMaxDraft ? amountMaxDraft : next)
+                          }}
+                          onMouseUp={applyAmountDraft}
+                          onTouchEnd={applyAmountDraft}
+                          onKeyUp={applyAmountDraft}
+                          className="pointer-events-none absolute left-0 top-0 h-6 w-full appearance-none bg-transparent [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-blue-500"
+                        />
+                        <input
+                          type="range"
+                          min={amountBounds.min}
+                          max={amountBounds.max}
+                          step="0.01"
+                          value={amountMaxDraft}
+                          onChange={e => {
+                            const next = Number(e.target.value)
+                            setAmountMaxDraft(next < amountMinDraft ? amountMinDraft : next)
+                          }}
+                          onMouseUp={applyAmountDraft}
+                          onTouchEnd={applyAmountDraft}
+                          onKeyUp={applyAmountDraft}
+                          className="pointer-events-none absolute left-0 top-0 h-6 w-full appearance-none bg-transparent [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-blue-500"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="number"
+                            min={amountBounds.min}
+                            max={amountMaxDraft}
+                            step="0.01"
+                            value={Number.isFinite(amountMinDraft) ? Number(amountMinDraft.toFixed(2)) : amountBounds.min}
+                            onChange={e => {
+                              const next = Number(e.target.value)
+                              if (Number.isNaN(next)) return
+                              const clamped = Math.max(amountBounds.min, Math.min(next, amountMaxDraft))
+                              setAmountMinDraft(clamped)
+                              setAmountMinFilter(clamped)
+                            }}
+                            className="h-8 w-full rounded-md border border-gray-200 bg-white px-2 text-xs text-gray-700"
+                          />
+                          <span className="text-gray-300">-</span>
+                          <input
+                            type="number"
+                            min={amountMinDraft}
+                            max={amountBounds.max}
+                            step="0.01"
+                            value={Number.isFinite(amountMaxDraft) ? Number(amountMaxDraft.toFixed(2)) : amountBounds.max}
+                            onChange={e => {
+                              const next = Number(e.target.value)
+                              if (Number.isNaN(next)) return
+                              const clamped = Math.min(amountBounds.max, Math.max(next, amountMinDraft))
+                              setAmountMaxDraft(clamped)
+                              setAmountMaxFilter(clamped)
+                            }}
+                            className="h-8 w-full rounded-md border border-gray-200 bg-white px-2 text-xs text-gray-700"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
               {/* Column headers */}
               <div className="flex items-center gap-4 px-4 py-2 bg-gray-50 border-b border-gray-100">
                 <div className="w-4 flex-shrink-0" />
@@ -614,7 +993,7 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
                 <div className="w-7 flex-shrink-0" />
               </div>
               <div className="divide-y divide-gray-100">
-                {filteredBills.map(bill => {
+                {yearBills.map(bill => {
                   // Stays overlapping this bill's period, excluding Vesna (always counted as Mama)
                   const periodDate = new Date(bill.due_date + "T12:00:00")
                   const monthStart = new Date(periodDate.getFullYear(), periodDate.getMonth(), 1).toISOString().split("T")[0]
@@ -623,31 +1002,29 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
                   const monthNextStart = new Date(periodDate.getFullYear(), periodDate.getMonth() + 1, 1).toISOString().split("T")[0]
                   const daysInMonth = new Date(periodDate.getFullYear(), periodDate.getMonth() + 1, 0).getDate()
 
-                  const guestsPresent = stays.filter(s =>
-                    s.from_date <= monthEnd && s.to_date >= monthStart &&
-                    !s.guest_name.toLowerCase().includes("vesna")
-                  )
-                  const period = periodDate.toLocaleDateString("en-US", { month: "long", year: "numeric" })
-
-                  // Days each guest overlaps with this billing month (to_date is exclusive checkout)
-                  const guestDaysMap = new Map(
-                    guestsPresent.map(s => {
-                      const overlapStart = Math.max(dayIndex(monthStart), dayIndex(s.from_date))
-                      const overlapEnd = Math.min(dayIndex(monthNextStart), dayIndex(s.to_date))
-                      return [s.id, Math.max(0, overlapEnd - overlapStart)] as const
-                    })
-                  )
-
-                  const includedGuests = guestsPresent.filter(s => isStayIncluded(bill.id, s.id))
-                  const includedGuestDays = includedGuests.reduce((sum, s) => sum + (guestDaysMap.get(s.id) ?? 0), 0)
+                  const guestSummaries = summarizeGuestsForBillPeriod(monthStart, monthEnd, monthNextStart)
+                  const defaultSelectedNames = bill.split_between ?? []
+                  const selectedGuestNames = billSplitToggles[bill.id] ?? new Set(defaultSelectedNames)
+                  const period = periodDate.toLocaleDateString("en-US", { month: "long" })
+                  const includedGuests = guestSummaries.filter(guest => selectedGuestNames.has(guest.name))
+                  const includedGuestDays = includedGuests.reduce((sum, guest) => sum + guest.days, 0)
                   const totalPersonDays = daysInMonth + includedGuestDays
                   const hasSplit = includedGuests.length > 0
                   // Each person pays in proportion to days present
-                  const mamaShare = bill.amount * (daysInMonth / totalPersonDays)
+                  const payerShare = bill.amount * (daysInMonth / totalPersonDays)
                   const shareFor = (days: number) => bill.amount * (days / totalPersonDays)
 
+                  const isVisible = filteredBillIdSet.has(bill.id)
+                  const monthStyle = monthTone(periodDate.getMonth())
+
                   return (
-                    <div key={bill.id} className="flex items-center gap-4 px-4 py-3.5 hover:bg-gray-50 group transition-colors">
+                    <div
+                      key={bill.id}
+                      className={cn(
+                        "flex items-center gap-4 px-4 overflow-hidden group transition-all duration-200 ease-out",
+                        isVisible ? "max-h-32 py-3.5 opacity-100 hover:bg-gray-50" : "max-h-0 py-0 opacity-0 pointer-events-none",
+                      )}
+                    >
                       {/* Status icon */}
                       <div className="flex-shrink-0">
                         {bill.paid
@@ -659,22 +1036,23 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
                       {/* Name + period */}
                       <div className="w-36 flex-shrink-0">
                         <p className="text-sm font-semibold text-gray-800">{bill.name}</p>
-                        <p className="text-xs text-gray-400">{period}</p>
+                        <span className={cn("inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border mt-0.5", monthStyle.bg, monthStyle.text, monthStyle.border)}>
+                          {period}
+                        </span>
                       </div>
 
                       {/* People — Mama always + toggleable guests with day counts */}
                       <div className="flex-1 flex flex-wrap items-center gap-1.5 min-w-0">
-                        {/* Mama — always present, not toggleable */}
+                        {/* Payer — always present, not toggleable */}
                         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-600 border border-gray-200 font-medium">
-                          Mama · {daysInMonth}d{hasSplit && ` · ${formatMoney(mamaShare)}`}
+                          {bill.paid_by || "Mama"} · {daysInMonth}d{hasSplit && ` · ${formatMoney(payerShare)}`}
                         </span>
-                        {guestsPresent.map(s => {
-                          const included = isStayIncluded(bill.id, s.id)
-                          const days = guestDaysMap.get(s.id) ?? 0
+                        {guestSummaries.map(guest => {
+                          const included = selectedGuestNames.has(guest.name)
                           return (
                             <button
-                              key={s.id}
-                              onClick={() => toggleStayInBill(bill.id, s.id)}
+                              key={`${bill.id}-${guest.name}`}
+                              onClick={() => toggleStayInBill(bill, guest.name, defaultSelectedNames)}
                               title={included ? "Click to exclude from split" : "Click to include in split"}
                               className={cn(
                                 "inline-flex items-center px-2 py-0.5 rounded-full text-xs border cursor-pointer transition-all",
@@ -683,17 +1061,17 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
                                   : "bg-white text-gray-400 border-gray-200 hover:border-blue-300 hover:text-blue-500"
                               )}
                             >
-                              {s.guest_name} · {days}d{included && ` · ${formatMoney(shareFor(days))}`}
+                              {guest.name} · {guest.days}d{included && ` · ${formatMoney(shareFor(guest.days))}`}
                             </button>
                           )
                         })}
                       </div>
 
-                      {/* Total amount + paid status (per-person split shown on the chips) */}
+                      {/* Total amount + status (per-person split shown on the chips) */}
                       <div className="flex-shrink-0 text-right">
                         <p className="text-base font-bold text-gray-900">{formatMoney(bill.amount)}</p>
-                        <p className={cn("text-xs", bill.paid ? "text-green-600" : "text-amber-600")}>
-                          {bill.paid ? "Paid" : "Unpaid"}
+                        <p className={cn("text-xs", bill.paid ? "text-green-600" : "text-blue-600")}>
+                          {bill.paid ? "Settled" : "Paid"}
                         </p>
                       </div>
 
@@ -707,7 +1085,7 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem className="cursor-pointer" onClick={() => handleToggleBill(bill)}>
-                              <CheckCircle2 className="h-3.5 w-3.5 mr-2" /> {bill.paid ? "Mark Unpaid" : "Mark Paid"}
+                              <CheckCircle2 className="h-3.5 w-3.5 mr-2" /> {bill.paid ? "Mark Paid" : "Mark Settled"}
                             </DropdownMenuItem>
                             <DropdownMenuItem className="cursor-pointer" onClick={() => { setEditingBill(bill); setBillDialogOpen(true) }}>
                               <Edit className="h-3.5 w-3.5 mr-2" /> Edit
@@ -755,12 +1133,17 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
         onOpenChange={open => { if (!open) { setBillDialogOpen(false); setEditingBill(null) } }}
         onSave={
           editingBill
-            ? (name, amount, period) => handleEditBill(editingBill.id, name, amount, period)
+            ? (name, amount, period, settled, paidBy, splitBetween) =>
+              handleEditBill(editingBill.id, name, amount, period, settled, paidBy, splitBetween)
             : handleAddBill
         }
+        stays={stays}
         initialName={editingBill?.name}
         initialAmount={editingBill?.amount}
         initialPeriod={editingBill?.due_date ? editingBill.due_date.slice(0, 7) : undefined}
+        initialSettled={editingBill?.paid ?? false}
+        initialPaidBy={editingBill?.paid_by || "Mama"}
+        initialSplitBetween={editingBill?.split_between}
         mode={editingBill ? "edit" : "create"}
       />
 
