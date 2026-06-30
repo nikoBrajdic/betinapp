@@ -1,7 +1,7 @@
 const { app, BrowserWindow, Menu, shell } = require('electron')
 const path = require('path')
 
-const APP_URL = process.env.ELECTRON_APP_URL || 'https://betin-app.vercel.app'
+const APP_URL = process.env.ELECTRON_APP_URL || 'https://betinapp.vercel.app'
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -13,6 +13,12 @@ function createWindow() {
     icon: path.join(__dirname, 'icons/icon.png'),
     backgroundColor: '#1a1464',
     autoHideMenuBar: true,
+    titleBarStyle: 'hidden',
+    titleBarOverlay: {
+      color: '#00000000',
+      symbolColor: '#ffffff',
+      height: 40,
+    },
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
