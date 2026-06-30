@@ -3,6 +3,30 @@ const path = require('path')
 const { setupAutoUpdater, checkForUpdatesNow } = require('./updater')
 
 const APP_URL = process.env.ELECTRON_APP_URL || 'https://betinapp.vercel.app'
+const DRAG_REGION_ID = '__betinapp_drag_region__'
+
+function injectDragRegion(win) {
+  const dragHeight = 40
+  const reservedRight = 140 // Keep clear of Windows caption buttons
+  void win.webContents.executeJavaScript(`
+    (() => {
+      const id = '${DRAG_REGION_ID}';
+      if (document.getElementById(id)) return;
+      const drag = document.createElement('div');
+      drag.id = id;
+      drag.style.position = 'fixed';
+      drag.style.top = '0';
+      drag.style.left = '0';
+      drag.style.right = '${reservedRight}px';
+      drag.style.height = '${dragHeight}px';
+      drag.style.background = 'transparent';
+      drag.style.pointerEvents = 'auto';
+      drag.style.zIndex = '2147483647';
+      drag.style.webkitAppRegion = 'drag';
+      document.body.appendChild(drag);
+    })();
+  `).catch(() => {})
+}
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -34,6 +58,7 @@ function createWindow() {
     shell.openExternal(url)
     return { action: 'deny' }
   })
+  win.webContents.on('did-finish-load', () => injectDragRegion(win))
 
   return win
 }
