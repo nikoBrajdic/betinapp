@@ -1,5 +1,6 @@
-const { app, BrowserWindow, Menu, shell } = require('electron')
+const { app, BrowserWindow, Menu, shell, ipcMain } = require('electron')
 const path = require('path')
+const { setupAutoUpdater, checkForUpdatesNow } = require('./updater')
 
 const APP_URL = process.env.ELECTRON_APP_URL || 'https://betinapp.vercel.app'
 
@@ -33,11 +34,15 @@ function createWindow() {
     shell.openExternal(url)
     return { action: 'deny' }
   })
+
+  return win
 }
 
 app.whenReady().then(() => {
   Menu.setApplicationMenu(null)
-  createWindow()
+  const mainWindow = createWindow()
+  setupAutoUpdater(mainWindow)
+  ipcMain.handle('app:check-for-updates', async () => checkForUpdatesNow())
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()

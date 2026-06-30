@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { usePresence } from "@/hooks/use-presence"
 import Link from "next/link"
@@ -15,6 +15,7 @@ import {
   BookOpen,
   Settings,
   LogOut,
+  RefreshCw,
   ChevronsLeft,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -97,6 +98,8 @@ function MiniCalendar() {
 export function Sidebar({ user }: SidebarProps) {
   const pathname = usePathname()
   const [collapsed, setCollapsed] = useState(false)
+  const [hasElectronUpdater, setHasElectronUpdater] = useState(false)
+  const [checkingUpdates, setCheckingUpdates] = useState(false)
 
   const getInitials = (name?: string, email?: string) => {
     if (name) return name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
@@ -110,6 +113,23 @@ export function Sidebar({ user }: SidebarProps) {
 
   const online = usePresence({ name: displayName, email: user.email ?? "", initials, avatarUrl: user.avatarUrl })
   const others = online.filter(u => u.email !== user.email)
+
+  useEffect(() => {
+    const updaterAvailable = typeof window !== "undefined" && Boolean((window as any).electronAPI?.checkForUpdates)
+    setHasElectronUpdater(updaterAvailable)
+  }, [])
+
+  const handleCheckUpdates = async () => {
+    if (!hasElectronUpdater || checkingUpdates) return
+    setCheckingUpdates(true)
+    try {
+      await (window as any).electronAPI.checkForUpdates()
+    } catch (error) {
+      console.error("Failed to check for updates:", error)
+    } finally {
+      setCheckingUpdates(false)
+    }
+  }
 
   return (
     <aside
@@ -234,6 +254,20 @@ export function Sidebar({ user }: SidebarProps) {
             </div>
           )}
         </div>
+        {hasElectronUpdater && (
+          <button
+            type="button"
+            onClick={handleCheckUpdates}
+            title="Check for updates"
+            className={cn(
+              "flex items-center gap-3 w-full py-2 rounded-xl text-xs font-medium text-white/50 hover:text-white hover:bg-white/10 transition-all",
+              collapsed ? "justify-center px-0" : "px-3 mt-1"
+            )}
+          >
+            <RefreshCw className={cn("h-4 w-4 flex-shrink-0", checkingUpdates && "animate-spin")} />
+            {!collapsed && <span>{checkingUpdates ? "Checking..." : "Check for updates"}</span>}
+          </button>
+        )}
         <form action={signOut}>
           <button
             type="submit"

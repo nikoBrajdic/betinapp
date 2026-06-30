@@ -112,6 +112,28 @@ Follow the comprehensive setup guide in [SETUP_GUIDE.md](./SETUP_GUIDE.md) for d
 4. Sign in with Google
 5. Access all dashboard features
 
+## Electron Auto-Updates
+
+The desktop build supports in-app auto-updates using `electron-updater`.
+
+- Provider: GitHub Releases (`nikoBrajdic/betinapp`)
+- Update checks: on app startup + periodic background checks
+- UX:
+  - "Update available" info popup when a new version is found
+  - background download
+  - "Restart and Install" popup when download completes
+
+### Publish a Windows update
+
+1. Bump version in `package.json` (must be higher than installed version)
+2. Create and publish release artifacts:
+   ```bash
+   npm run electron:publish:win
+   ```
+3. Ensure `GH_TOKEN` is set in the environment so `electron-builder` can upload to GitHub Releases
+
+Installed users will receive the update prompt in-app after the release is published.
+
 ## Security
 
 - All routes protected by authentication middleware

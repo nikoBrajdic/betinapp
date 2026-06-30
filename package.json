@@ -1,6 +1,6 @@
 {
   "name": "betinapp",
-  "version": "0.1.0",
+  "version": "1.0.1",
   "private": true,
   "main": "electron/main.js",
   "scripts": {
@@ -12,7 +12,8 @@
     "electron:icons": "node scripts/generate-icons.js",
     "electron:build:mac": "electron-builder --mac",
     "electron:build:win": "electron-builder --win",
-    "electron:build": "electron-builder --mac --win"
+    "electron:build": "electron-builder --mac --win",
+    "electron:publish:win": "electron-builder --win --publish always"
   },
   "build": {
     "appId": "com.betinapp.app",
@@ -54,6 +55,12 @@
       "allowToChangeInstallationDirectory": true,
       "installerIcon": "electron/icons/icon.ico",
       "uninstallerIcon": "electron/icons/icon.ico"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "nikoBrajdic",
+      "repo": "betinapp",
+      "releaseType": "release"
     }
   },
   "dependencies": {
@@ -98,6 +105,8 @@
     "lucide-react": "^0.454.0",
     "next": "16.0.10",
     "next-themes": "^0.4.6",
+    "electron-log": "^5.4.1",
+    "electron-updater": "^6.7.0",
     "react": "19.2.0",
     "react-day-picker": "9.8.0",
     "react-dom": "19.2.0",
