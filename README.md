@@ -134,6 +134,27 @@ The desktop build supports in-app auto-updates using `electron-updater`.
 
 Installed users will receive the update prompt in-app after the release is published.
 
+## Vercel Deployment (GitHub Actions)
+
+This repo includes a production deployment workflow at `.github/workflows/vercel-deploy.yml`.
+
+- Triggers:
+  - push to `main`
+  - manual run (`workflow_dispatch`)
+- Deploy method:
+  - `vercel pull --environment=production`
+  - `vercel deploy --prod`
+
+### Required GitHub repository secrets
+
+Add these in GitHub -> Settings -> Secrets and variables -> Actions:
+
+- `VERCEL_TOKEN`
+- `VERCEL_ORG_ID`
+- `VERCEL_PROJECT_ID`
+
+Once these three secrets are set, deployments are ready to run automatically on pushes to `main`.
+
 ## Security
 
 - All routes protected by authentication middleware
