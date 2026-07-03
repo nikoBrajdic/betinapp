@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { usePresence } from "@/hooks/use-presence"
 import Link from "next/link"
@@ -115,7 +115,6 @@ export function Sidebar({ user }: SidebarProps) {
 
   const online = usePresence({ name: displayName, email: user.email ?? "", initials, avatarUrl: user.avatarUrl })
   const others = online.filter(u => u.email !== user.email)
-  const edgeSwipeStartX = useRef<number | null>(null)
 
   useEffect(() => {
     const updaterAvailable = typeof window !== "undefined" && Boolean((window as any).electronAPI?.checkForUpdates)
@@ -152,41 +151,9 @@ export function Sidebar({ user }: SidebarProps) {
     }
   }
 
-  const handleEdgeTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
-    if (mobileOpen) return
-    const touch = event.touches[0]
-    if (!touch) return
-    // Only start tracking from the very left edge.
-    edgeSwipeStartX.current = touch.clientX <= 24 ? touch.clientX : null
-  }
-
-  const handleEdgeTouchMove = (event: React.TouchEvent<HTMLDivElement>) => {
-    if (mobileOpen || edgeSwipeStartX.current === null) return
-    const touch = event.touches[0]
-    if (!touch) return
-    if (touch.clientX - edgeSwipeStartX.current > 48) {
-      setMobileOpen(true)
-      edgeSwipeStartX.current = null
-    }
-  }
-
-  const handleEdgeTouchEnd = () => {
-    edgeSwipeStartX.current = null
-  }
-
   return (
     <>
       <div className="md:hidden">
-        {!mobileOpen && (
-          <div
-            className="fixed left-0 top-0 z-40 h-dvh w-4"
-            onTouchStart={handleEdgeTouchStart}
-            onTouchMove={handleEdgeTouchMove}
-            onTouchEnd={handleEdgeTouchEnd}
-            onTouchCancel={handleEdgeTouchEnd}
-            aria-hidden
-          />
-        )}
         <aside
           className={cn(
             "fixed left-0 top-0 z-50 h-dvh transition-all duration-300 ease-out bg-[#1a1464] overflow-hidden",

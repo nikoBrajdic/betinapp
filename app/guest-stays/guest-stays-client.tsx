@@ -141,18 +141,18 @@ export function GuestStaysClient({ guests, familyMembers }: GuestStaysClientProp
                 const t = typeConfig[stay.type] ?? typeConfig.friend
                 const n = nightCount(stay.from_date, stay.to_date)
                 return (
-                  <Card key={`${stay.id}-mobile`} className={cn("shadow-none border-2 px-4 py-3", statusRow[stay.status])}>
+                  <Card key={`${stay.id}-mobile`} className={cn("shadow-none border-2 px-3 py-2 gap-2", statusRow[stay.status])}>
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1.5">
                           <div className={cn("w-2 h-2 rounded-full flex-shrink-0", statusDot[stay.status])} />
-                          <p className="text-sm font-semibold text-gray-800 truncate">{stay.guest_name}</p>
+                          <p className="text-sm font-semibold text-gray-800 truncate leading-tight">{stay.guest_name}</p>
                         </div>
-                        {stay.room && <p className="text-xs text-gray-400 mt-0.5">{stay.room}</p>}
+                        {stay.room && <p className="text-[11px] text-gray-400 mt-0.5 leading-tight">{stay.room}</p>}
                       </div>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-7 w-7 cursor-pointer text-gray-400 hover:text-gray-700">
+                          <Button variant="ghost" size="icon" className="h-6 w-6 cursor-pointer text-gray-400 hover:text-gray-700">
                             <MoreHorizontal className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
@@ -169,12 +169,19 @@ export function GuestStaysClient({ guests, familyMembers }: GuestStaysClientProp
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
-                    <div className="mt-2 flex items-center gap-1.5 text-[11px] text-gray-500">
+                    {stay.notes && (
+                      <div className="mt-1">
+                        <p className="text-xs text-gray-500 leading-snug whitespace-normal break-words">
+                          {stay.notes}
+                        </p>
+                      </div>
+                    )}
+                    <div className="mt-1 flex items-center gap-1 text-[10px] text-gray-500 leading-tight">
                       <span className={cn("px-1.5 py-0.5 rounded-full font-medium", t.badge)}>{t.label}</span>
                       <span>{n}n</span>
+                      <span className="text-gray-300">•</span>
+                      <span>{shortDate(stay.from_date)} {"->"} {shortDate(stay.to_date)}</span>
                     </div>
-                    <p className="mt-2 text-sm text-gray-600">{shortDate(stay.from_date)} {"->"} {shortDate(stay.to_date)}</p>
-                    {stay.notes && <p className="mt-1 text-sm text-gray-400 line-clamp-2">{stay.notes}</p>}
                   </Card>
                 )
               })}

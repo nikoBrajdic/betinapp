@@ -152,6 +152,17 @@ function periodText(startDate?: string, endDate?: string) {
   return `${shortDate(`${startDate}T12:00:00`)} - ${shortDate(`${endDate}T12:00:00`)}`
 }
 
+function billPeriodLabel(startDate: Date, endDate: Date, includeYear: boolean) {
+  const sameMonth = startDate.getFullYear() === endDate.getFullYear() && startDate.getMonth() === endDate.getMonth()
+  if (sameMonth) {
+    return startDate.toLocaleDateString("en-US", { month: "long", ...(includeYear ? { year: "numeric" } : {}) })
+  }
+  if (includeYear) {
+    return `${startDate.toLocaleDateString("en-US", { month: "short", year: "numeric" })} - ${endDate.toLocaleDateString("en-US", { month: "short", year: "numeric" })}`
+  }
+  return `${startDate.toLocaleDateString("en-US", { month: "short" })} - ${endDate.toLocaleDateString("en-US", { month: "short" })}`
+}
+
 function personNightsForPeriod(stays: Stay[], startDate?: string, endDate?: string) {
   if (!startDate || !endDate) {
     return { total: null as number | null, people: "Need previous reading" }
@@ -443,6 +454,32 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
       })
       .sort((a, b) => b.date.localeCompare(a.date))
   }, [readings, readingUtilities, utilities])
+
+  const renderReadingValue = (row: ReadingRow) => {
+    if (row.parts && row.parts.length > 0) {
+      return (
+        <div className="leading-tight space-y-0.5 font-mono tracking-[0.02em] tabular-nums">
+          {[...row.parts]
+            .sort((a, b) => a.label.localeCompare(b.label))
+            .map(part => (
+              <div key={part.id} className="text-sm font-semibold text-gray-900 flex items-center gap-1.5">
+                <span className="text-gray-400 font-medium">{part.label}</span>
+                <span className="text-gray-300">|</span>
+                {formatReadingValue(row.name, part.value)}
+                {row.unit && <span className="text-gray-400 font-medium"> {row.unit}</span>}
+              </div>
+            ))}
+        </div>
+      )
+    }
+
+    return (
+      <span className="text-sm font-semibold text-gray-900 font-mono tracking-[0.02em] tabular-nums">
+        {row.displayValue}
+        {row.unit && <span className="text-gray-400 font-medium"> {row.unit}</span>}
+      </span>
+    )
+  }
 
   const settlementRows = useMemo(() => {
     const owedPairs = new Map<string, number>()
@@ -856,18 +893,7 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
                         <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
                           <div>
                             <p className="text-xs text-gray-400 uppercase tracking-wide">Reading</p>
-                            {row.parts && row.parts.length > 0 ? (
-                              <div className="font-semibold text-gray-900 leading-tight">
-                                {[...row.parts]
-                                  .sort((a, b) => a.label.localeCompare(b.label))
-                                  .map(part => (
-                                    <div key={part.id}>{part.label}: {formatReadingValue(row.name, part.value)}</div>
-                                  ))}
-                                {row.unit && <div className="text-gray-400 font-medium">{row.unit}</div>}
-                              </div>
-                            ) : (
-                              <p className="font-semibold text-gray-900">{row.displayValue}{row.unit ? ` ${row.unit}` : ""}</p>
-                            )}
+                            {renderReadingValue(row)}
                           </div>
                           <div>
                             <p className="text-xs text-gray-400 uppercase tracking-wide">Nights</p>
@@ -911,21 +937,7 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
                               <span className="font-medium text-gray-800">{row.name}</span>
                             </div>
                             <div className="w-28 flex-shrink-0">
-                              {row.parts && row.parts.length > 0 ? (
-                                <div className="font-semibold text-gray-900 leading-tight">
-                                  {[...row.parts]
-                                    .sort((a, b) => a.label.localeCompare(b.label))
-                                    .map(part => (
-                                      <div key={part.id}>{part.label}: {formatReadingValue(row.name, part.value)}</div>
-                                    ))}
-                                  {row.unit && <div className="text-gray-400 font-medium">{row.unit}</div>}
-                                </div>
-                              ) : (
-                                <>
-                                  <span className="font-semibold text-gray-900">{row.displayValue}</span>
-                                  {row.unit && <span className="text-gray-400 ml-1">{row.unit}</span>}
-                                </>
-                              )}
+                              {renderReadingValue(row)}
                             </div>
                             <div className="w-36 flex-shrink-0 text-sm text-gray-500">{periodText(row.previousDate, row.currentDate)}</div>
                             <div className="w-20 flex-shrink-0">
@@ -996,21 +1008,7 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
 
                         {/* Reading */}
                         <div className="w-28 flex-shrink-0">
-                          {row.parts && row.parts.length > 0 ? (
-                            <div className="font-semibold text-gray-900 leading-tight">
-                              {[...row.parts]
-                                .sort((a, b) => a.label.localeCompare(b.label))
-                                .map(part => (
-                                  <div key={part.id}>{part.label}: {formatReadingValue(row.name, part.value)}</div>
-                                ))}
-                              {row.unit && <div className="text-gray-400 font-medium">{row.unit}</div>}
-                            </div>
-                          ) : (
-                            <>
-                              <span className="font-semibold text-gray-900">{row.displayValue}</span>
-                              {row.unit && <span className="text-gray-400 ml-1">{row.unit}</span>}
-                            </>
-                          )}
+                          {renderReadingValue(row)}
                         </div>
 
                         {/* Period */}
@@ -1336,10 +1334,7 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
                   const periodNextStart = `${afterEnd.getFullYear()}-${pad(afterEnd.getMonth() + 1)}-01`
                   const daysInPeriod = dayIndex(periodNextStart) - dayIndex(periodStart)
 
-                  const isRange = sY !== eY || sM !== eM
-                  const period = !isRange
-                    ? startDate.toLocaleDateString("en-US", { month: "long", year: "numeric" })
-                    : `${startDate.toLocaleDateString("en-US", { month: "short", year: "numeric" })} - ${endDate.toLocaleDateString("en-US", { month: "short", year: "numeric" })}`
+                  const period = billPeriodLabel(startDate, endDate, hasActiveBillFilters)
 
                   // Guests in this period, combined by name; Mama (Vesna) is always counted separately
                   const guestSummaries = summarizeGuestsForBillPeriod(periodStart, periodEndIncl, periodNextStart)
@@ -1453,10 +1448,7 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
                     const periodEndIncl = `${eY}-${pad(eM + 1)}-${pad(new Date(eY, eM + 1, 0).getDate())}`
                     const periodNextStart = `${afterEnd.getFullYear()}-${pad(afterEnd.getMonth() + 1)}-01`
                     const daysInPeriod = dayIndex(periodNextStart) - dayIndex(periodStart)
-                    const isRange = sY !== eY || sM !== eM
-                    const period = !isRange
-                      ? startDate.toLocaleDateString("en-US", { month: "long", year: "numeric" })
-                      : `${startDate.toLocaleDateString("en-US", { month: "short", year: "numeric" })} - ${endDate.toLocaleDateString("en-US", { month: "short", year: "numeric" })}`
+                    const period = billPeriodLabel(startDate, endDate, hasActiveBillFilters)
                     const guestSummaries = summarizeGuestsForBillPeriod(periodStart, periodEndIncl, periodNextStart)
                     const defaultSelectedNames = bill.split_between ?? []
                     const selectedGuestNames = billSplitToggles[bill.id] ?? new Set(defaultSelectedNames)

@@ -1,18 +1,18 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Plus, Edit, Trash2, Mail } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { Edit, Trash2 } from "lucide-react"
 import { addToAllowlist, updateAllowlistRole, removeFromAllowlist } from "@/lib/actions/admin"
 import { useRouter } from "next/navigation"
+import { formatDistanceToNow } from "date-fns"
 
 interface AllowlistItem {
   id: string
@@ -53,15 +53,6 @@ export function AllowlistTable({ allowlist }: AllowlistTableProps) {
     }
   }
 
-  const handleEdit = async (id: string, newRole: string) => {
-    try {
-      await updateAllowlistRole(id, newRole)
-      router.refresh()
-    } catch (error) {
-      console.error("Failed to update allowlist:", error)
-    }
-  }
-
   const handleDelete = async (id: string) => {
     if (!confirm("Are you sure you want to remove this email from the allowlist?")) return
     
@@ -87,91 +78,77 @@ export function AllowlistTable({ allowlist }: AllowlistTableProps) {
     setRole("admin")
   }
 
-  const getRoleColor = (role: string) => {
-    switch (role) {
-      case "superadmin":
-        return "bg-purple-500/10 text-purple-700 dark:text-purple-400"
-      case "admin":
-        return "bg-blue-500/10 text-blue-700 dark:text-blue-400"
-      default:
-        return "bg-gray-500/10 text-gray-700 dark:text-gray-400"
+  useEffect(() => {
+    const handleAdd = () => {
+      setEditingItem(null)
+      setEmail("")
+      setRole("admin")
+      setIsDialogOpen(true)
     }
-  }
+    window.addEventListener("allowlist:add", handleAdd)
+    return () => window.removeEventListener("allowlist:add", handleAdd)
+  }, [])
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-xl font-semibold text-foreground">Email Allowlist</h2>
-          <p className="text-sm text-muted-foreground">
-            Manage which email addresses can access the application
-          </p>
-        </div>
-        <Button onClick={() => setIsDialogOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Email
-        </Button>
-      </div>
-
+    <>
       <Card>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Email</TableHead>
-              <TableHead>Role</TableHead>
-              <TableHead>Added</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {allowlist.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={4} className="text-center py-8">
-                  <Mail className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-                  <p className="text-muted-foreground">No emails in allowlist yet</p>
-                </TableCell>
-              </TableRow>
-            ) : (
-              allowlist.map((item) => (
-                <TableRow key={item.id}>
-                  <TableCell className="font-medium">{item.email}</TableCell>
-                  <TableCell>
-                    <Badge className={cn("text-xs", getRoleColor(item.role))}>
-                      {item.role.charAt(0).toUpperCase() + item.role.slice(1)}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    {new Date(item.created_at).toLocaleDateString("en-US", { 
-                      month: "short", 
-                      day: "numeric",
-                      year: "numeric"
-                    })}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => openEditDialog(item)}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-destructive hover:text-destructive"
-                        onClick={() => handleDelete(item.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
+        <CardHeader>
+          <CardTitle>Email Allowlist</CardTitle>
+          <CardDescription>
+            Manage which email addresses can access the application
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {allowlist.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">No emails in allowlist yet.</div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Role</TableHead>
+                  <TableHead>Added</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+              </TableHeader>
+              <TableBody>
+                {allowlist.map((item) => (
+                  <TableRow key={item.id}>
+                    <TableCell className="font-medium">{item.email}</TableCell>
+                    <TableCell>
+                      <Badge variant={item.role === "superadmin" ? "default" : "secondary"}>
+                        {item.role === "superadmin" ? "Super Admin" : "Admin"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {formatDistanceToNow(new Date(item.created_at), { addSuffix: true })}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => openEditDialog(item)}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-destructive hover:text-destructive"
+                          onClick={() => handleDelete(item.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
       </Card>
 
       <Dialog open={isDialogOpen} onOpenChange={closeDialog}>
@@ -216,6 +193,6 @@ export function AllowlistTable({ allowlist }: AllowlistTableProps) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   )
 }

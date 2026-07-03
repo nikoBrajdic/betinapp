@@ -117,7 +117,7 @@ export function CalendarClient({ events }: CalendarClientProps) {
   const todayStr = getLocalDateString(new Date())
 
   return (
-    <div className="p-5 h-full flex flex-col">
+    <div className="p-3 md:p-5 h-full flex flex-col min-h-0">
       {/* Month nav */}
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-base font-semibold text-gray-800">
@@ -136,12 +136,12 @@ export function CalendarClient({ events }: CalendarClientProps) {
       {/* Day headers */}
       <div className="grid grid-cols-7 mb-1">
         {["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map(d => (
-          <div key={d} className="py-1 text-center text-[11px] font-medium text-gray-400 uppercase tracking-wide">{d}</div>
+          <div key={d} className="py-0.5 text-center text-[10px] md:text-[11px] font-medium text-gray-400 uppercase tracking-wide">{d}</div>
         ))}
       </div>
 
       {/* Grid */}
-      <div className="grid grid-cols-7 flex-1">
+      <div className="grid grid-cols-7 grid-rows-6 flex-1 min-h-0">
         {cells.map(({ date, current }, i) => {
           const dateStr = getLocalDateString(date)
           const dayEvents = getEventsForDate(date)
@@ -153,7 +153,7 @@ export function CalendarClient({ events }: CalendarClientProps) {
               key={i}
               onClick={() => setSelectedDate(isSelected ? null : date)}
               className={cn(
-                "min-h-[100px] p-1.5 border-t border-gray-100 cursor-pointer transition-colors",
+                "min-h-0 h-full p-1 md:p-1.5 border-t border-gray-100 cursor-pointer transition-colors overflow-hidden",
                 !current && "bg-gray-50/50",
                 isSelected && "bg-blue-50",
                 current && !isSelected && "hover:bg-gray-50"
@@ -161,17 +161,17 @@ export function CalendarClient({ events }: CalendarClientProps) {
             >
               <div className="flex justify-end mb-0.5">
                 <span className={cn(
-                  "text-xs font-medium w-5 h-5 flex items-center justify-center rounded-full",
+                  "text-[10px] md:text-xs font-medium w-4 h-4 md:w-5 md:h-5 flex items-center justify-center rounded-full",
                   isToday ? "bg-[#1a1464] text-white font-bold" : current ? "text-gray-700" : "text-gray-300"
                 )}>
                   {date.getDate()}
                 </span>
               </div>
-              <div className="space-y-0.5">
+              <div className="space-y-0.5 overflow-hidden">
                 {dayEvents.slice(0, 3).map(event => (
                   <div
                     key={event.id}
-                    className={cn("text-[10px] px-1 py-0.5 rounded truncate leading-tight", categoryColor[event.category])}
+                    className={cn("text-[9px] md:text-[10px] px-1 py-0.5 rounded truncate leading-tight", categoryColor[event.category])}
                   >
                     {cleanTitle(event.title)}
                   </div>
