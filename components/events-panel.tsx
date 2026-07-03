@@ -104,7 +104,7 @@ export function EventsPanel({ events }: EventsPanelProps) {
   const dates = Object.keys(grouped).sort()
 
   return (
-    <div className="w-60 bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden flex-shrink-0">
+    <div className="w-full md:w-60 bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden flex-shrink-0">
       {/* Header */}
       <div className="px-4 pt-4 pb-2 border-b border-gray-100">
         {selectedDate ? (

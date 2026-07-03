@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { usePresence } from "@/hooks/use-presence"
 import Link from "next/link"
@@ -99,6 +99,7 @@ function MiniCalendar() {
 export function Sidebar({ user }: SidebarProps) {
   const pathname = usePathname()
   const [collapsed, setCollapsed] = useState(false)
+  const [mobileOpen, setMobileOpen] = useState(false)
   const [hasElectronUpdater, setHasElectronUpdater] = useState(false)
   const [checkingUpdates, setCheckingUpdates] = useState(false)
 
@@ -114,10 +115,29 @@ export function Sidebar({ user }: SidebarProps) {
 
   const online = usePresence({ name: displayName, email: user.email ?? "", initials, avatarUrl: user.avatarUrl })
   const others = online.filter(u => u.email !== user.email)
+  const edgeSwipeStartX = useRef<number | null>(null)
 
   useEffect(() => {
     const updaterAvailable = typeof window !== "undefined" && Boolean((window as any).electronAPI?.checkForUpdates)
     setHasElectronUpdater(updaterAvailable)
+  }, [])
+
+  useEffect(() => {
+    if (typeof document === "undefined") return
+    document.body.classList.toggle("mobile-sidebar-open", mobileOpen)
+    return () => {
+      document.body.classList.remove("mobile-sidebar-open")
+    }
+  }, [mobileOpen])
+
+  useEffect(() => {
+    setMobileOpen(false)
+  }, [pathname])
+
+  useEffect(() => {
+    const handler = () => setMobileOpen(open => !open)
+    window.addEventListener("sidebar:toggle-mobile", handler)
+    return () => window.removeEventListener("sidebar:toggle-mobile", handler)
   }, [])
 
   const handleCheckUpdates = async () => {
@@ -132,13 +152,160 @@ export function Sidebar({ user }: SidebarProps) {
     }
   }
 
+  const handleEdgeTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
+    if (mobileOpen) return
+    const touch = event.touches[0]
+    if (!touch) return
+    // Only start tracking from the very left edge.
+    edgeSwipeStartX.current = touch.clientX <= 24 ? touch.clientX : null
+  }
+
+  const handleEdgeTouchMove = (event: React.TouchEvent<HTMLDivElement>) => {
+    if (mobileOpen || edgeSwipeStartX.current === null) return
+    const touch = event.touches[0]
+    if (!touch) return
+    if (touch.clientX - edgeSwipeStartX.current > 48) {
+      setMobileOpen(true)
+      edgeSwipeStartX.current = null
+    }
+  }
+
+  const handleEdgeTouchEnd = () => {
+    edgeSwipeStartX.current = null
+  }
+
   return (
-    <aside
-      className={cn(
-        "flex flex-col flex-shrink-0 transition-all duration-300 ease-in-out",
-        collapsed ? "w-[60px]" : "w-[220px]"
-      )}
-    >
+    <>
+      <div className="md:hidden">
+        {!mobileOpen && (
+          <div
+            className="fixed left-0 top-0 z-40 h-dvh w-4"
+            onTouchStart={handleEdgeTouchStart}
+            onTouchMove={handleEdgeTouchMove}
+            onTouchEnd={handleEdgeTouchEnd}
+            onTouchCancel={handleEdgeTouchEnd}
+            aria-hidden
+          />
+        )}
+        <aside
+          className={cn(
+            "fixed left-0 top-0 z-50 h-dvh transition-all duration-300 ease-out bg-[#1a1464] overflow-hidden",
+            mobileOpen ? "w-screen border-r border-white/15" : "w-0 border-r-0"
+          )}
+        >
+          <div className="flex items-center h-12 px-1.5">
+            <button
+              onClick={() => setMobileOpen(open => !open)}
+              className="p-1.5 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors"
+              title={mobileOpen ? "Collapse navigation" : "Expand navigation"}
+            >
+              <ChevronsLeft className="h-4 w-4 transition-transform" />
+            </button>
+            {mobileOpen && <span className="ml-2 text-white font-bold text-lg tracking-wide">Betinapp</span>}
+          </div>
+
+          {mobileOpen && (
+            <>
+              <nav className="px-2 py-1 flex flex-col gap-1">
+                {navigation.map((item) => {
+                  const isActive = pathname === item.href
+                  return (
+                    <Link
+                      key={item.name}
+                      href={item.href}
+                      className={cn(
+                        "flex items-center gap-3 py-2.5 rounded-xl text-sm font-medium transition-all px-3",
+                        isActive
+                          ? "bg-white text-[#1a1464] shadow-sm"
+                          : "text-white/75 hover:text-white hover:bg-white/10"
+                      )}
+                    >
+                      <item.icon className="h-[18px] w-[18px] flex-shrink-0" />
+                      <span>{item.name}</span>
+                    </Link>
+                  )
+                })}
+                {user.profile?.role === "superadmin" && (
+                  <Link
+                    href="/admin/manage"
+                    className={cn(
+                      "flex items-center gap-3 py-2.5 rounded-xl text-sm font-medium transition-all px-3",
+                      pathname === "/admin/manage"
+                        ? "bg-white text-[#1a1464] shadow-sm"
+                        : "text-white/75 hover:text-white hover:bg-white/10"
+                    )}
+                  >
+                    <Settings className="h-[18px] w-[18px] flex-shrink-0" />
+                    <span>Manage Users</span>
+                  </Link>
+                )}
+              </nav>
+
+              <div className="mx-2 border-t border-white/10 mt-2" />
+              <MiniCalendar />
+
+              <div className="px-3 pb-3">
+                <p className="text-[10px] text-white/30 uppercase tracking-widest mb-2 font-medium">Online now</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {others.map(u => (
+                    <div key={u.email} title={u.name} className="relative h-7 w-7 flex-shrink-0">
+                      <div className="h-7 w-7 rounded-full bg-white/20 flex items-center justify-center overflow-hidden">
+                        {u.avatarUrl
+                          ? <img src={u.avatarUrl} alt={u.name} className="h-full w-full object-cover" referrerPolicy="no-referrer" />
+                          : <span className="text-[10px] font-semibold text-white">{u.initials}</span>
+                        }
+                      </div>
+                      <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-green-400 border-2 border-[#1a1464]" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="px-2 pb-2 pt-3 border-t border-white/10 mt-auto">
+                <div className="flex items-center gap-3 mb-1 px-3">
+                  <div className="h-8 w-8 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0 overflow-hidden" style={{ minWidth: 32 }}>
+                    {user.avatarUrl
+                      ? <img src={user.avatarUrl} alt={displayName} className="h-full w-full object-cover rounded-full" referrerPolicy="no-referrer" />
+                      : <span className="text-xs font-semibold text-white">{initials}</span>
+                    }
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-white truncate leading-tight">{displayName}</p>
+                    <p className="text-xs text-white/50 truncate leading-tight">{role}</p>
+                  </div>
+                </div>
+                {hasElectronUpdater && (
+                  <button
+                    type="button"
+                    onClick={handleCheckUpdates}
+                    className="flex items-center gap-3 w-full py-2 rounded-xl text-xs font-medium text-white/50 hover:text-white hover:bg-white/10 transition-all px-3 mt-1"
+                  >
+                    <RefreshCw className={cn("h-4 w-4 flex-shrink-0", checkingUpdates && "animate-spin")} />
+                    <span>{checkingUpdates ? "Checking..." : "Check for updates"}</span>
+                  </button>
+                )}
+                <form action={signOut}>
+                  <button
+                    type="submit"
+                    className="flex items-center gap-3 w-full py-2 rounded-xl text-xs font-medium text-white/50 hover:text-white hover:bg-white/10 transition-all px-3 mt-1"
+                  >
+                    <LogOut className="h-4 w-4 flex-shrink-0" />
+                    <span>Sign out</span>
+                  </button>
+                </form>
+              </div>
+            </>
+          )}
+        </aside>
+        <div className="h-0" />
+      </div>
+
+      <aside
+        className={cn(
+          "hidden md:flex flex-col flex-shrink-0 transition-all duration-300 ease-in-out",
+          collapsed ? "w-[60px]" : "w-[220px]"
+        )}
+      >
       {/* Logo + toggle */}
       <div className={cn(
         "flex items-center h-14 mb-4 gap-2",
@@ -283,6 +450,7 @@ export function Sidebar({ user }: SidebarProps) {
           </button>
         </form>
       </div>
-    </aside>
+      </aside>
+    </>
   )
 }

@@ -60,6 +60,7 @@ const typeConfig: Record<StayType, { label: string; badge: string }> = {
 
 export function GuestStaysClient({ guests, familyMembers }: GuestStaysClientProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [mobileView, setMobileView] = useState<"cards" | "table">("cards")
   const [editingStay, setEditingStay] = useState<Stay | null>(null)
   const [deleteStay, setDeleteStay] = useState<Stay | null>(null)
   const [selectedYear, setSelectedYear] = useState<number | null>(null)
@@ -109,7 +110,168 @@ export function GuestStaysClient({ guests, familyMembers }: GuestStaysClientProp
           </button>
         </div>
       ) : (
-        <Card className="shadow-none border-2 overflow-hidden">
+        <>
+          <div className="md:hidden mb-2">
+            <div className="flex gap-2 p-1 bg-gray-100 rounded-xl w-fit">
+              <button
+                type="button"
+                onClick={() => setMobileView("cards")}
+                className={cn(
+                  "px-3 py-1 rounded-lg text-sm font-medium transition-all cursor-pointer",
+                  mobileView === "cards" ? "bg-rose-500 text-white shadow-sm" : "text-gray-500 hover:text-gray-700",
+                )}
+              >
+                Cards
+              </button>
+              <button
+                type="button"
+                onClick={() => setMobileView("table")}
+                className={cn(
+                  "px-3 py-1 rounded-lg text-sm font-medium transition-all cursor-pointer",
+                  mobileView === "table" ? "bg-rose-500 text-white shadow-sm" : "text-gray-500 hover:text-gray-700",
+                )}
+              >
+                Table
+              </button>
+            </div>
+          </div>
+          {mobileView === "cards" && (
+            <div className="md:hidden space-y-2 mb-2">
+              {filteredStays.map(stay => {
+                const t = typeConfig[stay.type] ?? typeConfig.friend
+                const n = nightCount(stay.from_date, stay.to_date)
+                return (
+                  <Card key={`${stay.id}-mobile`} className={cn("shadow-none border-2 px-4 py-3", statusRow[stay.status])}>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <div className={cn("w-2 h-2 rounded-full flex-shrink-0", statusDot[stay.status])} />
+                          <p className="text-sm font-semibold text-gray-800 truncate">{stay.guest_name}</p>
+                        </div>
+                        {stay.room && <p className="text-xs text-gray-400 mt-0.5">{stay.room}</p>}
+                      </div>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 cursor-pointer text-gray-400 hover:text-gray-700">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem className="cursor-pointer" onClick={() => { setEditingStay(stay); setIsDialogOpen(true) }}>
+                            <Pencil className="h-3.5 w-3.5 mr-2" /> Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem className="cursor-pointer" onClick={() => handleDuplicate(stay)}>
+                            <Copy className="h-3.5 w-3.5 mr-2" /> Duplicate
+                          </DropdownMenuItem>
+                          <DropdownMenuItem className="cursor-pointer text-destructive focus:text-destructive" onClick={() => setDeleteStay(stay)}>
+                            <Trash2 className="h-3.5 w-3.5 mr-2" /> Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                    <div className="mt-2 flex items-center gap-1.5 text-[11px] text-gray-500">
+                      <span className={cn("px-1.5 py-0.5 rounded-full font-medium", t.badge)}>{t.label}</span>
+                      <span>{n}n</span>
+                    </div>
+                    <p className="mt-2 text-sm text-gray-600">{shortDate(stay.from_date)} {"->"} {shortDate(stay.to_date)}</p>
+                    {stay.notes && <p className="mt-1 text-sm text-gray-400 line-clamp-2">{stay.notes}</p>}
+                  </Card>
+                )
+              })}
+            </div>
+          )}
+          <div className={cn("md:hidden mb-2", mobileView === "table" ? "block" : "hidden")}>
+            <div className="overflow-x-auto">
+              <Card className="shadow-none border-2 overflow-hidden min-w-[760px]">
+                {/* Year tabs */}
+                {stayYears.length > 1 && (
+                  <div className="flex items-center gap-1 px-4 pt-3 pb-0">
+                    {stayYears.map(year => (
+                      <button
+                        key={`mobile-${year}`}
+                        onClick={() => setSelectedYear(year)}
+                        className={cn(
+                          "px-3 py-1 rounded-lg text-sm font-medium transition-colors cursor-pointer",
+                          activeYear === year
+                            ? "bg-rose-500 text-white"
+                            : "text-gray-400 hover:text-gray-700 hover:bg-gray-100"
+                        )}
+                      >
+                        {year}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <div className="flex items-center gap-4 px-4 py-2 bg-gray-50 border-b border-gray-100">
+                  <div className="w-3 flex-shrink-0" />
+                  <div className="w-40 flex-shrink-0 text-xs font-medium text-gray-400 uppercase tracking-wide">Guest</div>
+                  <div className="w-24 flex-shrink-0 text-xs font-medium text-gray-400 uppercase tracking-wide">Type</div>
+                  <div className="w-48 flex-shrink-0 text-xs font-medium text-gray-400 uppercase tracking-wide">Dates</div>
+                  <div className="w-14 flex-shrink-0 text-xs font-medium text-gray-400 uppercase tracking-wide">Nights</div>
+                  <div className="flex-1 text-xs font-medium text-gray-400 uppercase tracking-wide">Notes</div>
+                  <div className="w-7 flex-shrink-0" />
+                </div>
+                <div className="divide-y divide-gray-100">
+                  {filteredStays.map(stay => {
+                    const t = typeConfig[stay.type] ?? typeConfig.friend
+                    const n = nightCount(stay.from_date, stay.to_date)
+
+                    return (
+                      <div
+                        key={`table-mobile-${stay.id}`}
+                        title={stay.notes || undefined}
+                        aria-label={stay.notes ? `Notes: ${stay.notes}` : undefined}
+                        className={cn(
+                          "flex items-center gap-4 px-4 py-3.5 hover:bg-gray-50 group transition-colors",
+                          statusRow[stay.status]
+                        )}
+                      >
+                        <div className="w-3 flex-shrink-0 flex items-center justify-center">
+                          <div className={cn("w-2 h-2 rounded-full", statusDot[stay.status])} />
+                        </div>
+                        <div className="w-40 flex-shrink-0 min-w-0">
+                          <p className="text-sm font-semibold text-gray-800 truncate">{stay.guest_name}</p>
+                          {stay.room && <p className="text-xs text-gray-400 truncate">{stay.room}</p>}
+                        </div>
+                        <div className="w-24 flex-shrink-0">
+                          <span className={cn("text-xs px-2 py-0.5 rounded-full font-medium", t.badge)}>{t.label}</span>
+                        </div>
+                        <div className="w-48 flex-shrink-0 text-sm text-gray-600">
+                          {shortDate(stay.from_date)} {"->"} {shortDate(stay.to_date)}
+                        </div>
+                        <div className="w-14 flex-shrink-0">
+                          <span className="font-semibold text-gray-900">{n}</span>
+                          <span className="text-gray-400 ml-0.5 text-xs">n</span>
+                        </div>
+                        <div className="flex-1 text-sm text-gray-400 truncate min-w-0">{stay.notes}</div>
+                        <div className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-7 w-7 cursor-pointer text-gray-400 hover:text-gray-700">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem className="cursor-pointer" onClick={() => { setEditingStay(stay); setIsDialogOpen(true) }}>
+                                <Pencil className="h-3.5 w-3.5 mr-2" /> Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuItem className="cursor-pointer" onClick={() => handleDuplicate(stay)}>
+                                <Copy className="h-3.5 w-3.5 mr-2" /> Duplicate
+                              </DropdownMenuItem>
+                              <DropdownMenuItem className="cursor-pointer text-destructive focus:text-destructive" onClick={() => setDeleteStay(stay)}>
+                                <Trash2 className="h-3.5 w-3.5 mr-2" /> Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </Card>
+            </div>
+          </div>
+        <Card className="hidden md:block shadow-none border-2 overflow-hidden">
           {/* Year tabs */}
           {stayYears.length > 1 && (
             <div className="flex items-center gap-1 px-4 pt-3 pb-0">
@@ -150,6 +312,8 @@ export function GuestStaysClient({ guests, familyMembers }: GuestStaysClientProp
               return (
                 <div
                   key={stay.id}
+                  title={stay.notes || undefined}
+                  aria-label={stay.notes ? `Notes: ${stay.notes}` : undefined}
                   className={cn(
                     "flex items-center gap-4 px-4 py-3.5 hover:bg-gray-50 group transition-colors",
                     statusRow[stay.status]
@@ -213,6 +377,7 @@ export function GuestStaysClient({ guests, familyMembers }: GuestStaysClientProp
             })}
           </div>
         </Card>
+        </>
       )}
 
       <GuestStayDialog

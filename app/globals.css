@@ -125,3 +125,14 @@
     cursor: pointer;
   }
 }
+
+@media (max-width: 767px) {
+  .mobile-content-shift {
+    transition: transform 300ms ease-out;
+    will-change: transform;
+  }
+
+  body.mobile-sidebar-open .mobile-content-shift {
+    transform: translateX(100vw);
+  }
+}

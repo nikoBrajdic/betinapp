@@ -206,6 +206,8 @@ function monthTone(monthIndex: number) {
 
 export function UtilitiesClient({ utilities, readings, bills, stays }: UtilitiesClientProps) {
   const [activeTab, setActiveTab] = useState("readings")
+  const [mobileReadingsView, setMobileReadingsView] = useState<"cards" | "table">("cards")
+  const [mobileBillsView, setMobileBillsView] = useState<"cards" | "table">("cards")
   const [editingReading, setEditingReading] = useState<ReadingRow | null>(null)
   const [isReadingDialogOpen, setIsReadingDialogOpen] = useState(false)
   const [deleteReading, setDeleteReading] = useState<ReadingRow | null>(null)
@@ -787,94 +789,284 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
               </button>
             </div>
           ) : (
-            <Card className="shadow-none border-2 overflow-hidden">
-              {/* Column headers */}
-              <div className="flex items-center gap-4 px-4 py-2 bg-gray-50 border-b border-gray-100">
-                <div className="w-20 flex-shrink-0 text-xs font-medium text-gray-400 uppercase tracking-wide">Date</div>
-                <div className="w-32 flex-shrink-0 text-xs font-medium text-gray-400 uppercase tracking-wide">Meter</div>
-                <div className="w-28 flex-shrink-0 text-xs font-medium text-gray-400 uppercase tracking-wide">Reading</div>
-                <div className="w-36 flex-shrink-0 text-xs font-medium text-gray-400 uppercase tracking-wide">Period</div>
-                <div className="w-20 flex-shrink-0 text-xs font-medium text-gray-400 uppercase tracking-wide">Nights</div>
-                <div className="flex-1 text-xs font-medium text-gray-400 uppercase tracking-wide">People</div>
-                <div className="w-7 flex-shrink-0" />
+            <>
+              <div className="md:hidden mb-2">
+                <div className="flex gap-2 p-1 bg-gray-100 rounded-xl w-fit">
+                  <button
+                    type="button"
+                    onClick={() => setMobileReadingsView("cards")}
+                    className={cn(
+                      "px-3 py-1 rounded-lg text-sm font-medium transition-all cursor-pointer",
+                      mobileReadingsView === "cards" ? "bg-emerald-500 text-white shadow-sm" : "text-gray-500 hover:text-gray-700",
+                    )}
+                  >
+                    Cards
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMobileReadingsView("table")}
+                    className={cn(
+                      "px-3 py-1 rounded-lg text-sm font-medium transition-all cursor-pointer",
+                      mobileReadingsView === "table" ? "bg-emerald-500 text-white shadow-sm" : "text-gray-500 hover:text-gray-700",
+                    )}
+                  >
+                    Table
+                  </button>
+                </div>
               </div>
-              <div className="divide-y divide-gray-100">
-                {readingRows.map(row => {
-                  const Icon = utilityIcon(row.name)
-                  const nightSummary = personNightsForPeriod(stays, row.previousDate, row.currentDate)
-
-                  return (
-                    <div key={row.id} className="flex items-center gap-4 px-4 py-3.5 hover:bg-gray-50 group transition-colors">
-                      {/* Date */}
-                      <div className="w-20 flex-shrink-0 text-sm font-medium text-gray-800">
-                        {row.date ? shortDate(row.date) : "No date"}
-                      </div>
-
-                      {/* Meter */}
-                      <div className="w-32 flex-shrink-0 flex items-center gap-2">
-                        <Icon className="h-4 w-4 text-emerald-500 flex-shrink-0" />
-                        <span className="font-medium text-gray-800">{row.name}</span>
-                      </div>
-
-                      {/* Reading */}
-                      <div className="w-28 flex-shrink-0">
-                        <span className="font-semibold text-gray-900">{row.displayValue}</span>
-                        {row.unit && <span className="text-gray-400 ml-1">{row.unit}</span>}
-                      </div>
-
-                      {/* Period */}
-                      <div className="w-36 flex-shrink-0 text-sm text-gray-500">
-                        {periodText(row.previousDate, row.currentDate)}
-                      </div>
-
-                      {/* Stay nights */}
-                      <div className="w-20 flex-shrink-0">
-                        <span className="font-semibold text-gray-900">
-                          {nightSummary.total === null ? "-" : nightSummary.total}
-                        </span>
-                        {nightSummary.total !== null && <span className="text-gray-400 ml-1">n</span>}
-                      </div>
-
-                      {/* People */}
-                      <div className="flex-1 text-sm text-gray-600 min-w-0">
-                        {nightSummary.people}
-                      </div>
-
-                      {/* Actions */}
-                      <div className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 cursor-pointer text-gray-400 hover:text-gray-700"
-                            >
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                              className="cursor-pointer"
-                              onClick={() => setEditingReading(row)}
-                              disabled={!row.utility || row.readingIds.length === 0}
-                            >
-                              <Edit className="h-3.5 w-3.5 mr-2" /> Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              className="cursor-pointer text-destructive focus:text-destructive"
-                              onClick={() => setDeleteReading(row)}
-                              disabled={row.readingIds.length === 0}
-                            >
-                              <Trash2 className="h-3.5 w-3.5 mr-2" /> Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
+              {mobileReadingsView === "cards" && (
+                <div className="md:hidden space-y-2">
+                  {readingRows.map(row => {
+                    const Icon = utilityIcon(row.name)
+                    const nightSummary = personNightsForPeriod(stays, row.previousDate, row.currentDate)
+                    return (
+                      <Card key={row.id} className="shadow-none border-2 px-4 py-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <Icon className="h-4 w-4 text-emerald-500 flex-shrink-0" />
+                              <p className="text-sm font-semibold text-gray-800">{row.name}</p>
+                            </div>
+                            <p className="text-xs text-gray-400 mt-0.5">{row.date ? shortDate(row.date) : "No date"}</p>
+                          </div>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-7 w-7 cursor-pointer text-gray-400 hover:text-gray-700">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem
+                                className="cursor-pointer"
+                                onClick={() => setEditingReading(row)}
+                                disabled={!row.utility || row.readingIds.length === 0}
+                              >
+                                <Edit className="h-3.5 w-3.5 mr-2" /> Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                className="cursor-pointer text-destructive focus:text-destructive"
+                                onClick={() => setDeleteReading(row)}
+                                disabled={row.readingIds.length === 0}
+                              >
+                                <Trash2 className="h-3.5 w-3.5 mr-2" /> Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                        <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
+                          <div>
+                            <p className="text-xs text-gray-400 uppercase tracking-wide">Reading</p>
+                            {row.parts && row.parts.length > 0 ? (
+                              <div className="font-semibold text-gray-900 leading-tight">
+                                {[...row.parts]
+                                  .sort((a, b) => a.label.localeCompare(b.label))
+                                  .map(part => (
+                                    <div key={part.id}>{part.label}: {formatReadingValue(row.name, part.value)}</div>
+                                  ))}
+                                {row.unit && <div className="text-gray-400 font-medium">{row.unit}</div>}
+                              </div>
+                            ) : (
+                              <p className="font-semibold text-gray-900">{row.displayValue}{row.unit ? ` ${row.unit}` : ""}</p>
+                            )}
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-400 uppercase tracking-wide">Nights</p>
+                            <p className="font-semibold text-gray-900">{nightSummary.total === null ? "-" : `${nightSummary.total}n`}</p>
+                          </div>
+                        </div>
+                        <div className="mt-2">
+                          <p className="text-xs text-gray-400 uppercase tracking-wide">Period</p>
+                          <p className="text-sm text-gray-600">{periodText(row.previousDate, row.currentDate)}</p>
+                        </div>
+                        <div className="mt-2 min-w-0">
+                          <p className="text-xs text-gray-400 uppercase tracking-wide">People</p>
+                          <p className="text-sm text-gray-600 truncate">{nightSummary.people}</p>
+                        </div>
+                      </Card>
+                    )
+                  })}
+                </div>
+              )}
+              <div className={cn("md:hidden", mobileReadingsView === "cards" ? "hidden" : "block")}>
+                <div className="overflow-x-auto">
+                  <Card className="shadow-none border-2 overflow-hidden min-w-[760px]">
+                    <div className="flex items-center gap-4 px-4 py-2 bg-gray-50 border-b border-gray-100">
+                      <div className="w-20 flex-shrink-0 text-xs font-medium text-gray-400 uppercase tracking-wide">Date</div>
+                      <div className="w-32 flex-shrink-0 text-xs font-medium text-gray-400 uppercase tracking-wide">Meter</div>
+                      <div className="w-28 flex-shrink-0 text-xs font-medium text-gray-400 uppercase tracking-wide">Reading</div>
+                      <div className="w-36 flex-shrink-0 text-xs font-medium text-gray-400 uppercase tracking-wide">Period</div>
+                      <div className="w-20 flex-shrink-0 text-xs font-medium text-gray-400 uppercase tracking-wide">Nights</div>
+                      <div className="flex-1 text-xs font-medium text-gray-400 uppercase tracking-wide">People</div>
+                      <div className="w-7 flex-shrink-0" />
                     </div>
-                  )
-                })}
+                    <div className="divide-y divide-gray-100">
+                      {readingRows.map(row => {
+                        const Icon = utilityIcon(row.name)
+                        const nightSummary = personNightsForPeriod(stays, row.previousDate, row.currentDate)
+                        return (
+                          <div key={row.id} className="flex items-center gap-4 px-4 py-3.5 hover:bg-gray-50 group transition-colors">
+                            <div className="w-20 flex-shrink-0 text-sm font-medium text-gray-800">{row.date ? shortDate(row.date) : "No date"}</div>
+                            <div className="w-32 flex-shrink-0 flex items-center gap-2">
+                              <Icon className="h-4 w-4 text-emerald-500 flex-shrink-0" />
+                              <span className="font-medium text-gray-800">{row.name}</span>
+                            </div>
+                            <div className="w-28 flex-shrink-0">
+                              {row.parts && row.parts.length > 0 ? (
+                                <div className="font-semibold text-gray-900 leading-tight">
+                                  {[...row.parts]
+                                    .sort((a, b) => a.label.localeCompare(b.label))
+                                    .map(part => (
+                                      <div key={part.id}>{part.label}: {formatReadingValue(row.name, part.value)}</div>
+                                    ))}
+                                  {row.unit && <div className="text-gray-400 font-medium">{row.unit}</div>}
+                                </div>
+                              ) : (
+                                <>
+                                  <span className="font-semibold text-gray-900">{row.displayValue}</span>
+                                  {row.unit && <span className="text-gray-400 ml-1">{row.unit}</span>}
+                                </>
+                              )}
+                            </div>
+                            <div className="w-36 flex-shrink-0 text-sm text-gray-500">{periodText(row.previousDate, row.currentDate)}</div>
+                            <div className="w-20 flex-shrink-0">
+                              <span className="font-semibold text-gray-900">{nightSummary.total === null ? "-" : nightSummary.total}</span>
+                              {nightSummary.total !== null && <span className="text-gray-400 ml-1">n</span>}
+                            </div>
+                            <div className="flex-1 text-sm text-gray-600 min-w-0">{nightSummary.people}</div>
+                            <div className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="h-7 w-7 cursor-pointer text-gray-400 hover:text-gray-700">
+                                    <MoreHorizontal className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem
+                                    className="cursor-pointer"
+                                    onClick={() => setEditingReading(row)}
+                                    disabled={!row.utility || row.readingIds.length === 0}
+                                  >
+                                    <Edit className="h-3.5 w-3.5 mr-2" /> Edit
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    className="cursor-pointer text-destructive focus:text-destructive"
+                                    onClick={() => setDeleteReading(row)}
+                                    disabled={row.readingIds.length === 0}
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5 mr-2" /> Delete
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </Card>
+                </div>
               </div>
-            </Card>
+              <Card className="hidden md:block shadow-none border-2 overflow-hidden">
+                {/* Column headers */}
+                <div className="flex items-center gap-4 px-4 py-2 bg-gray-50 border-b border-gray-100">
+                  <div className="w-20 flex-shrink-0 text-xs font-medium text-gray-400 uppercase tracking-wide">Date</div>
+                  <div className="w-32 flex-shrink-0 text-xs font-medium text-gray-400 uppercase tracking-wide">Meter</div>
+                  <div className="w-28 flex-shrink-0 text-xs font-medium text-gray-400 uppercase tracking-wide">Reading</div>
+                  <div className="w-36 flex-shrink-0 text-xs font-medium text-gray-400 uppercase tracking-wide">Period</div>
+                  <div className="w-20 flex-shrink-0 text-xs font-medium text-gray-400 uppercase tracking-wide">Nights</div>
+                  <div className="flex-1 text-xs font-medium text-gray-400 uppercase tracking-wide">People</div>
+                  <div className="w-7 flex-shrink-0" />
+                </div>
+                <div className="divide-y divide-gray-100">
+                  {readingRows.map(row => {
+                    const Icon = utilityIcon(row.name)
+                    const nightSummary = personNightsForPeriod(stays, row.previousDate, row.currentDate)
+
+                    return (
+                      <div key={row.id} className="flex items-center gap-4 px-4 py-3.5 hover:bg-gray-50 group transition-colors">
+                        {/* Date */}
+                        <div className="w-20 flex-shrink-0 text-sm font-medium text-gray-800">
+                          {row.date ? shortDate(row.date) : "No date"}
+                        </div>
+
+                        {/* Meter */}
+                        <div className="w-32 flex-shrink-0 flex items-center gap-2">
+                          <Icon className="h-4 w-4 text-emerald-500 flex-shrink-0" />
+                          <span className="font-medium text-gray-800">{row.name}</span>
+                        </div>
+
+                        {/* Reading */}
+                        <div className="w-28 flex-shrink-0">
+                          {row.parts && row.parts.length > 0 ? (
+                            <div className="font-semibold text-gray-900 leading-tight">
+                              {[...row.parts]
+                                .sort((a, b) => a.label.localeCompare(b.label))
+                                .map(part => (
+                                  <div key={part.id}>{part.label}: {formatReadingValue(row.name, part.value)}</div>
+                                ))}
+                              {row.unit && <div className="text-gray-400 font-medium">{row.unit}</div>}
+                            </div>
+                          ) : (
+                            <>
+                              <span className="font-semibold text-gray-900">{row.displayValue}</span>
+                              {row.unit && <span className="text-gray-400 ml-1">{row.unit}</span>}
+                            </>
+                          )}
+                        </div>
+
+                        {/* Period */}
+                        <div className="w-36 flex-shrink-0 text-sm text-gray-500">
+                          {periodText(row.previousDate, row.currentDate)}
+                        </div>
+
+                        {/* Stay nights */}
+                        <div className="w-20 flex-shrink-0">
+                          <span className="font-semibold text-gray-900">
+                            {nightSummary.total === null ? "-" : nightSummary.total}
+                          </span>
+                          {nightSummary.total !== null && <span className="text-gray-400 ml-1">n</span>}
+                        </div>
+
+                        {/* People */}
+                        <div className="flex-1 text-sm text-gray-600 min-w-0">
+                          {nightSummary.people}
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 cursor-pointer text-gray-400 hover:text-gray-700"
+                              >
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem
+                                className="cursor-pointer"
+                                onClick={() => setEditingReading(row)}
+                                disabled={!row.utility || row.readingIds.length === 0}
+                              >
+                                <Edit className="h-3.5 w-3.5 mr-2" /> Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                className="cursor-pointer text-destructive focus:text-destructive"
+                                onClick={() => setDeleteReading(row)}
+                                disabled={row.readingIds.length === 0}
+                              >
+                                <Trash2 className="h-3.5 w-3.5 mr-2" /> Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </Card>
+            </>
           )}
         </TabsContent>
 
@@ -887,7 +1079,32 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
               </button>
             </div>
           ) : (
-            <Card className="shadow-none border-2 overflow-hidden">
+            <>
+              <div className="md:hidden mb-2">
+                <div className="flex gap-2 p-1 bg-gray-100 rounded-xl w-fit">
+                  <button
+                    type="button"
+                    onClick={() => setMobileBillsView("cards")}
+                    className={cn(
+                      "px-3 py-1 rounded-lg text-sm font-medium transition-all cursor-pointer",
+                      mobileBillsView === "cards" ? "bg-blue-500 text-white shadow-sm" : "text-gray-500 hover:text-gray-700",
+                    )}
+                  >
+                    Cards
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMobileBillsView("table")}
+                    className={cn(
+                      "px-3 py-1 rounded-lg text-sm font-medium transition-all cursor-pointer",
+                      mobileBillsView === "table" ? "bg-blue-500 text-white shadow-sm" : "text-gray-500 hover:text-gray-700",
+                    )}
+                  >
+                    Table
+                  </button>
+                </div>
+              </div>
+              <Card className="shadow-none border-2 overflow-hidden">
               {/* Year tabs */}
               <div className="flex items-center justify-between px-4 pt-3 pb-2">
                 <div className="flex items-center gap-1">
@@ -1087,13 +1304,24 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
                 </div>
               </div>
               {/* Column headers */}
-              <div className="flex items-center gap-4 px-4 py-2 bg-gray-50 border-b border-gray-100">
+              <div
+                className={cn(
+                  "items-center gap-4 px-4 py-2 bg-gray-50 border-b border-gray-100",
+                  mobileBillsView === "cards" ? "hidden md:flex" : "flex",
+                )}
+              >
                 <div className="w-36 flex-shrink-0 text-xs font-medium text-gray-400 uppercase tracking-wide">Bill</div>
                 <div className="flex-1 text-xs font-medium text-gray-400 uppercase tracking-wide">Split between</div>
                 <div className="w-24 flex-shrink-0 text-xs font-medium text-gray-400 uppercase tracking-wide text-right">Amount</div>
                 <div className="w-7 flex-shrink-0" />
               </div>
-              <div className="divide-y divide-gray-100">
+              <div
+                className={cn(
+                  "divide-y divide-gray-100",
+                  mobileBillsView === "cards" ? "hidden md:block" : "block",
+                  mobileBillsView === "table" ? "overflow-x-auto" : "",
+                )}
+              >
                 {yearBills.map(bill => {
                   // This bill's billing period — a single month, or a range of whole months (period_end)
                   const pad = (n: number) => String(n).padStart(2, "0")
@@ -1133,6 +1361,7 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
                       key={bill.id}
                       className={cn(
                         "flex items-center gap-4 px-4 overflow-hidden group transition-all duration-200 ease-out",
+                        mobileBillsView === "table" ? "min-w-[760px]" : "",
                         isVisible ? "max-h-32 py-3.5 opacity-100 hover:bg-gray-50" : "max-h-0 py-0 opacity-0 pointer-events-none",
                       )}
                     >
@@ -1211,7 +1440,110 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
                   )
                 })}
               </div>
+              {mobileBillsView === "cards" && (
+                <div className="md:hidden divide-y divide-gray-100">
+                  {yearBills.map(bill => {
+                    const pad = (n: number) => String(n).padStart(2, "0")
+                    const startDate = new Date(bill.due_date + "T12:00:00")
+                    const endDate = bill.period_end ? new Date(bill.period_end + "T12:00:00") : startDate
+                    const sY = startDate.getFullYear(), sM = startDate.getMonth()
+                    const eY = endDate.getFullYear(), eM = endDate.getMonth()
+                    const afterEnd = new Date(eY, eM + 1, 1)
+                    const periodStart = `${sY}-${pad(sM + 1)}-01`
+                    const periodEndIncl = `${eY}-${pad(eM + 1)}-${pad(new Date(eY, eM + 1, 0).getDate())}`
+                    const periodNextStart = `${afterEnd.getFullYear()}-${pad(afterEnd.getMonth() + 1)}-01`
+                    const daysInPeriod = dayIndex(periodNextStart) - dayIndex(periodStart)
+                    const isRange = sY !== eY || sM !== eM
+                    const period = !isRange
+                      ? startDate.toLocaleDateString("en-US", { month: "long", year: "numeric" })
+                      : `${startDate.toLocaleDateString("en-US", { month: "short", year: "numeric" })} - ${endDate.toLocaleDateString("en-US", { month: "short", year: "numeric" })}`
+                    const guestSummaries = summarizeGuestsForBillPeriod(periodStart, periodEndIncl, periodNextStart)
+                    const defaultSelectedNames = bill.split_between ?? []
+                    const selectedGuestNames = billSplitToggles[bill.id] ?? new Set(defaultSelectedNames)
+                    const includedGuests = guestSummaries.filter(guest => selectedGuestNames.has(guest.name))
+                    const includedGuestDays = includedGuests.reduce((sum, guest) => sum + guest.days, 0)
+                    const totalPersonDays = daysInPeriod + includedGuestDays
+                    const hasSplit = includedGuests.length > 0
+                    const payerShare = bill.amount * (daysInPeriod / totalPersonDays)
+                    const shareFor = (days: number) => bill.amount * (days / totalPersonDays)
+                    const isVisible = filteredBillIdSet.has(bill.id)
+                    const monthStyle = monthTone(startDate.getMonth())
+
+                    return (
+                      <div
+                        key={`${bill.id}-card`}
+                        className={cn(
+                          "px-4 py-3 transition-all duration-200 ease-out",
+                          isVisible ? "max-h-[420px] opacity-100" : "max-h-0 py-0 opacity-0 pointer-events-none overflow-hidden",
+                        )}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              {bill.paid
+                                ? <CheckCircle2 className="h-4 w-4 text-green-500" />
+                                : <AlertCircle className="h-4 w-4 text-amber-500" />
+                              }
+                              <p className="text-sm font-semibold text-gray-800">{bill.name}</p>
+                            </div>
+                            <span className={cn("inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border mt-1", monthStyle.bg, monthStyle.text, monthStyle.border)}>
+                              {period}
+                            </span>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-base font-bold text-gray-900">{formatMoney(bill.amount)}</p>
+                            <p className={cn("text-xs", bill.paid ? "text-green-600" : "text-blue-600")}>{bill.paid ? "Settled" : "Paid"}</p>
+                          </div>
+                        </div>
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-600 border border-gray-200 font-medium">
+                            {bill.paid_by || "Mama"} · {daysInPeriod}d{hasSplit && ` · ${formatMoney(payerShare)}`}
+                          </span>
+                          {guestSummaries.map(guest => {
+                            const included = selectedGuestNames.has(guest.name)
+                            return (
+                              <button
+                                key={`${bill.id}-${guest.name}-card`}
+                                onClick={() => toggleStayInBill(bill, guest.name, defaultSelectedNames)}
+                                className={cn(
+                                  "inline-flex items-center px-2 py-0.5 rounded-full text-xs border cursor-pointer transition-all",
+                                  included
+                                    ? "bg-blue-500 text-white border-blue-500"
+                                    : "bg-white text-gray-400 border-gray-200 hover:border-blue-300 hover:text-blue-500",
+                                )}
+                              >
+                                {guest.name} · {guest.days}d{included && ` · ${formatMoney(shareFor(guest.days))}`}
+                              </button>
+                            )
+                          })}
+                        </div>
+                        <div className="mt-2 flex justify-end">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-7 w-7 cursor-pointer text-gray-400 hover:text-gray-700">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem className="cursor-pointer" onClick={() => handleToggleBill(bill)}>
+                                <CheckCircle2 className="h-3.5 w-3.5 mr-2" /> {bill.paid ? "Mark Paid" : "Mark Settled"}
+                              </DropdownMenuItem>
+                              <DropdownMenuItem className="cursor-pointer" onClick={() => { setEditingBill(bill); setBillDialogOpen(true) }}>
+                                <Edit className="h-3.5 w-3.5 mr-2" /> Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuItem className="cursor-pointer text-destructive focus:text-destructive" onClick={() => setDeleteBill_(bill)}>
+                                <Trash2 className="h-3.5 w-3.5 mr-2" /> Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
             </Card>
+            </>
           )}
         </TabsContent>
       </Tabs>

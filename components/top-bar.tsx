@@ -1,7 +1,7 @@
 "use client"
 
 import { usePathname } from "next/navigation"
-import { Plus } from "lucide-react"
+import { ChevronsRight, Plus } from "lucide-react"
 
 const pageConfig: Record<string, { title: string; subtitle?: string; action?: string }> = {
   "/":             { title: "Dashboard", subtitle: "Making life at the coast easier, since 2026" },
@@ -27,19 +27,33 @@ export function TopBar() {
     window.dispatchEvent(new CustomEvent("topbar:new"))
   }
 
+  const handleMobileSidebarToggle = () => {
+    window.dispatchEvent(new CustomEvent("sidebar:toggle-mobile"))
+  }
+
   return (
-    <div className="flex items-center justify-between px-2 py-1 flex-shrink-0 min-h-[48px]">
+    <div className="flex items-center justify-between px-1 md:px-2 py-1 flex-shrink-0 min-h-[44px] md:min-h-[48px]">
       <div>
-        <h2 className="text-white font-bold text-2xl leading-tight">{config.title}</h2>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleMobileSidebarToggle}
+            className="md:hidden inline-flex items-center justify-center h-8 w-8 rounded-lg text-white/75 hover:text-white hover:bg-white/10 transition-colors"
+            title="Open navigation"
+          >
+            <ChevronsRight className="h-4 w-4" />
+          </button>
+          <h2 className="text-white font-bold text-xl md:text-2xl leading-tight">{config.title}</h2>
+        </div>
         {config.subtitle && (
-          <p className="text-white/55 text-sm leading-tight mt-0.5">{config.subtitle}</p>
+          <p className="hidden sm:block text-white/55 text-xs md:text-sm leading-tight mt-0.5">{config.subtitle}</p>
         )}
       </div>
 
       {config.action && (
         <button
           onClick={handleAction}
-          className="flex items-center gap-1.5 px-4 py-2 bg-white text-[#1a1464] text-sm font-semibold rounded-xl hover:bg-white/90 transition-colors shadow-sm cursor-pointer"
+          className="flex items-center gap-1.5 px-3 md:px-4 py-1.5 md:py-2 bg-white text-[#1a1464] text-xs md:text-sm font-semibold rounded-lg md:rounded-xl hover:bg-white/90 transition-colors shadow-sm cursor-pointer"
         >
           <Plus className="h-4 w-4" />
           {config.action}
