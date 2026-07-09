@@ -19,6 +19,8 @@ export async function createBill(formData: {
   paid: boolean
   paidBy: string
   splitBetween: string[]
+  splitPreset?: "default" | "equal" | "weighted"
+  splitWeights?: Record<string, number>
   category: string
   recurring: boolean
 }) {
@@ -31,6 +33,8 @@ export async function createBill(formData: {
     paid: formData.paid,
     paid_by: formData.paidBy,
     split_between: formData.splitBetween,
+    split_preset: formData.splitPreset ?? "default",
+    split_weights: formData.splitWeights ?? {},
     category: formData.category,
     recurring: formData.recurring,
   })
@@ -50,6 +54,8 @@ export async function updateBill(
     paid: boolean
     paidBy: string
     splitBetween: string[]
+    splitPreset?: "default" | "equal" | "weighted"
+    splitWeights?: Record<string, number>
     category: string
     recurring: boolean
   },
@@ -65,6 +71,8 @@ export async function updateBill(
       paid: formData.paid,
       paid_by: formData.paidBy,
       split_between: formData.splitBetween,
+      split_preset: formData.splitPreset ?? "default",
+      split_weights: formData.splitWeights ?? {},
       category: formData.category,
       recurring: formData.recurring,
       updated_at: new Date().toISOString(),

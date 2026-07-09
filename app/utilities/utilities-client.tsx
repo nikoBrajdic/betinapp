@@ -60,6 +60,8 @@ interface Bill {
   paid: boolean
   paid_by?: string
   split_between?: string[]
+  split_preset?: "default" | "equal" | "weighted"
+  split_weights?: Record<string, number>
   category: "utilities" | "rent" | "insurance" | "subscription" | "other"
   recurring: boolean
 }
@@ -215,6 +217,72 @@ function monthTone(monthIndex: number) {
   return tones[monthIndex] ?? { bg: "bg-gray-50", text: "text-gray-600", border: "border-gray-100" }
 }
 
+function computeBillShares(
+  bill: Bill,
+  payer: string,
+  daysInPeriod: number,
+  includedGuests: GuestSummary[],
+) {
+  const guestShares = new Map<string, number>()
+  const participantNames = Array.from(new Set([payer, ...includedGuests.map(guest => guest.name)]))
+
+  if (participantNames.length === 0) {
+    return { payerShare: 0, guestShares }
+  }
+
+  if (bill.split_preset === "equal") {
+    const equalShare = bill.amount / participantNames.length
+    for (const guest of includedGuests) guestShares.set(guest.name, equalShare)
+    return { payerShare: equalShare, guestShares }
+  }
+
+  if (bill.split_preset === "weighted") {
+    const weights = bill.split_weights ?? {}
+    const participantWeights = participantNames.map(name => ({
+      name,
+      weight: typeof weights[name] === "number" && weights[name] > 0 ? weights[name] : 1,
+    }))
+    const totalWeight = participantWeights.reduce((sum, item) => sum + item.weight, 0)
+    if (totalWeight <= 0) {
+      return { payerShare: 0, guestShares }
+    }
+    const payerWeight = participantWeights.find(item => item.name === payer)?.weight ?? 1
+    const payerShare = bill.amount * (payerWeight / totalWeight)
+    for (const guest of includedGuests) {
+      const weight = participantWeights.find(item => item.name === guest.name)?.weight ?? 1
+      guestShares.set(guest.name, bill.amount * (weight / totalWeight))
+    }
+    return { payerShare, guestShares }
+  }
+
+  // Default behavior: payer covers full period days, guests cover overlap days.
+  const includedGuestDays = includedGuests.reduce((sum, guest) => sum + guest.days, 0)
+  const totalPersonDays = daysInPeriod + includedGuestDays
+  if (totalPersonDays <= 0) {
+    return { payerShare: 0, guestShares }
+  }
+  const payerShare = bill.amount * (daysInPeriod / totalPersonDays)
+  for (const guest of includedGuests) {
+    guestShares.set(guest.name, bill.amount * (guest.days / totalPersonDays))
+  }
+  return { payerShare, guestShares }
+}
+
+function selectedSplitGuests(
+  bill: Bill,
+  payer: string,
+  guestSummaries: GuestSummary[],
+  selectedGuestNames: Set<string>,
+) {
+  const guestDaysByName = new Map(guestSummaries.map(guest => [guest.name, guest.days]))
+  if (bill.split_preset === "default") {
+    return guestSummaries.filter(guest => guest.name !== payer && selectedGuestNames.has(guest.name))
+  }
+  return Array.from(selectedGuestNames)
+    .filter(name => name !== payer)
+    .map(name => ({ name, days: guestDaysByName.get(name) ?? 0 }))
+}
+
 export function UtilitiesClient({ utilities, readings, bills, stays }: UtilitiesClientProps) {
   const [activeTab, setActiveTab] = useState("readings")
   const [mobileReadingsView, setMobileReadingsView] = useState<"cards" | "table">("cards")
@@ -319,6 +387,8 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
         paid: bill.paid,
         paidBy: bill.paid_by || "Mama",
         splitBetween,
+        splitPreset: bill.split_preset ?? "default",
+        splitWeights: bill.split_weights ?? {},
         category: bill.category,
         recurring: bill.recurring,
       }))
@@ -500,14 +570,13 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
       const guestSummaries = summarizeGuestsForBillPeriod(monthStart, monthEnd, monthNextStart)
       const defaultSelectedNames = bill.split_between ?? []
       const selectedGuestNames = billSplitToggles[bill.id] ?? new Set(defaultSelectedNames)
-      const includedGuests = guestSummaries.filter(guest => selectedGuestNames.has(guest.name))
-      const includedGuestDays = includedGuests.reduce((sum, guest) => sum + guest.days, 0)
-      const totalPersonDays = daysInMonth + includedGuestDays
-      if (includedGuests.length === 0 || totalPersonDays <= 0) continue
       const payer = bill.paid_by || "Mama"
+      const includedGuests = selectedSplitGuests(bill, payer, guestSummaries, selectedGuestNames)
+      if (includedGuests.length === 0) continue
+      const { guestShares } = computeBillShares(bill, payer, daysInMonth, includedGuests)
 
       for (const guest of includedGuests) {
-        const share = bill.amount * (guest.days / totalPersonDays)
+        const share = guestShares.get(guest.name) ?? 0
         if (share <= 0) continue
         const pairKey = `${guest.name}::${payer}`
         owedPairs.set(pairKey, (owedPairs.get(pairKey) ?? 0) + share)
@@ -599,6 +668,8 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
     settled: boolean,
     paidBy: string,
     splitBetween: string[],
+    splitPreset: "default" | "equal" | "weighted",
+    splitWeights: Record<string, number>,
   ) => {
     try {
       await trackSave(createBill({
@@ -608,6 +679,8 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
         paid: settled,
         paidBy,
         splitBetween,
+        splitPreset,
+        splitWeights,
         category: "utilities",
         recurring: true,
       }))
@@ -626,6 +699,8 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
     settled: boolean,
     paidBy: string,
     splitBetween: string[],
+    splitPreset: "default" | "equal" | "weighted",
+    splitWeights: Record<string, number>,
   ) => {
     const existing = bills.find(bill => bill.id === id)
     try {
@@ -636,20 +711,13 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
         paid: existing ? settled : false,
         paidBy,
         splitBetween,
+        splitPreset,
+        splitWeights,
         category: "utilities",
         recurring: true,
       }))
       // Reflect split changes immediately in UI without waiting for server refresh.
-      const pad = (n: number) => String(n).padStart(2, "0")
-      const startDate = new Date(`${period}-01T12:00:00`)
-      const endDate = periodEnd ? new Date(`${periodEnd}-01T12:00:00`) : startDate
-      const afterEnd = new Date(endDate.getFullYear(), endDate.getMonth() + 1, 1)
-      const monthStart = `${startDate.getFullYear()}-${pad(startDate.getMonth() + 1)}-01`
-      const monthEnd = `${endDate.getFullYear()}-${pad(endDate.getMonth() + 1)}-${pad(new Date(endDate.getFullYear(), endDate.getMonth() + 1, 0).getDate())}`
-      const monthNextStart = `${afterEnd.getFullYear()}-${pad(afterEnd.getMonth() + 1)}-01`
-      const guestNamesInPeriod = summarizeGuestsForBillPeriod(monthStart, monthEnd, monthNextStart).map(guest => guest.name)
-      const selectedNames = splitBetween.filter(name => guestNamesInPeriod.includes(name))
-      setBillSplitToggles(current => ({ ...current, [id]: new Set(selectedNames) }))
+      setBillSplitToggles(current => ({ ...current, [id]: new Set(splitBetween) }))
       refresh()
     } catch (error) {
       console.error("Failed to update bill:", error)
@@ -665,6 +733,8 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
         paid: !bill.paid,
         paidBy: bill.paid_by || "Mama",
         splitBetween: bill.split_between ?? [],
+        splitPreset: bill.split_preset ?? "default",
+        splitWeights: bill.split_weights ?? {},
         category: bill.category,
         recurring: bill.recurring,
       }))
@@ -1340,13 +1410,14 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
                   const guestSummaries = summarizeGuestsForBillPeriod(periodStart, periodEndIncl, periodNextStart)
                   const defaultSelectedNames = bill.split_between ?? []
                   const selectedGuestNames = billSplitToggles[bill.id] ?? new Set(defaultSelectedNames)
-                  const includedGuests = guestSummaries.filter(guest => selectedGuestNames.has(guest.name))
-                  const includedGuestDays = includedGuests.reduce((sum, guest) => sum + guest.days, 0)
-                  const totalPersonDays = daysInPeriod + includedGuestDays
+                  const payer = bill.paid_by || "Mama"
+                  const includedGuests = selectedSplitGuests(bill, payer, guestSummaries, selectedGuestNames)
                   const hasSplit = includedGuests.length > 0
-                  // Each person pays in proportion to days present
-                  const payerShare = bill.amount * (daysInPeriod / totalPersonDays)
-                  const shareFor = (days: number) => bill.amount * (days / totalPersonDays)
+                  const { payerShare, guestShares } = computeBillShares(bill, payer, daysInPeriod, includedGuests)
+                  const shareFor = (guestName: string) => guestShares.get(guestName) ?? 0
+                  const guestDaysByName = new Map(guestSummaries.map(guest => [guest.name, guest.days]))
+                  const guestChipNames = Array.from(new Set([...guestSummaries.map(guest => guest.name), ...Array.from(selectedGuestNames)]))
+                    .filter(name => name !== payer)
 
                   const isVisible = filteredBillIdSet.has(bill.id)
                   const monthStyle = monthTone(startDate.getMonth())
@@ -1379,15 +1450,16 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
                       {/* People — Mama always + toggleable guests with day counts */}
                       <div className="flex-1 flex flex-wrap items-center gap-1.5 min-w-0">
                         {/* Payer — always present, not toggleable */}
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-600 border border-gray-200 font-medium">
-                          {bill.paid_by || "Mama"} · {daysInPeriod}d{hasSplit && ` · ${formatMoney(payerShare)}`}
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-blue-100 text-blue-700 border border-blue-200 font-medium">
+                          {payer}{bill.split_preset === "default" ? ` · ${daysInPeriod}d` : ""}{hasSplit && ` · ${formatMoney(payerShare)}`}
                         </span>
-                        {guestSummaries.map(guest => {
-                          const included = selectedGuestNames.has(guest.name)
+                        {guestChipNames.map(guestName => {
+                          const included = selectedGuestNames.has(guestName)
+                          const guestDays = guestDaysByName.get(guestName) ?? 0
                           return (
                             <button
-                              key={`${bill.id}-${guest.name}`}
-                              onClick={() => toggleStayInBill(bill, guest.name, defaultSelectedNames)}
+                              key={`${bill.id}-${guestName}`}
+                              onClick={() => toggleStayInBill(bill, guestName, defaultSelectedNames)}
                               title={included ? "Click to exclude from split" : "Click to include in split"}
                               className={cn(
                                 "inline-flex items-center px-2 py-0.5 rounded-full text-xs border cursor-pointer transition-all",
@@ -1396,7 +1468,7 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
                                   : "bg-white text-gray-400 border-gray-200 hover:border-blue-300 hover:text-blue-500"
                               )}
                             >
-                              {guest.name} · {guest.days}d{included && ` · ${formatMoney(shareFor(guest.days))}`}
+                              {guestName}{bill.split_preset === "default" ? ` · ${guestDays}d` : ""}{included && ` · ${formatMoney(shareFor(guestName))}`}
                             </button>
                           )
                         })}
@@ -1452,12 +1524,14 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
                     const guestSummaries = summarizeGuestsForBillPeriod(periodStart, periodEndIncl, periodNextStart)
                     const defaultSelectedNames = bill.split_between ?? []
                     const selectedGuestNames = billSplitToggles[bill.id] ?? new Set(defaultSelectedNames)
-                    const includedGuests = guestSummaries.filter(guest => selectedGuestNames.has(guest.name))
-                    const includedGuestDays = includedGuests.reduce((sum, guest) => sum + guest.days, 0)
-                    const totalPersonDays = daysInPeriod + includedGuestDays
+                    const payer = bill.paid_by || "Mama"
+                    const includedGuests = selectedSplitGuests(bill, payer, guestSummaries, selectedGuestNames)
                     const hasSplit = includedGuests.length > 0
-                    const payerShare = bill.amount * (daysInPeriod / totalPersonDays)
-                    const shareFor = (days: number) => bill.amount * (days / totalPersonDays)
+                    const { payerShare, guestShares } = computeBillShares(bill, payer, daysInPeriod, includedGuests)
+                    const shareFor = (guestName: string) => guestShares.get(guestName) ?? 0
+                    const guestDaysByName = new Map(guestSummaries.map(guest => [guest.name, guest.days]))
+                    const guestChipNames = Array.from(new Set([...guestSummaries.map(guest => guest.name), ...Array.from(selectedGuestNames)]))
+                      .filter(name => name !== payer)
                     const isVisible = filteredBillIdSet.has(bill.id)
                     const monthStyle = monthTone(startDate.getMonth())
 
@@ -1488,15 +1562,16 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
                           </div>
                         </div>
                         <div className="mt-2 flex flex-wrap gap-1.5">
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-600 border border-gray-200 font-medium">
-                            {bill.paid_by || "Mama"} · {daysInPeriod}d{hasSplit && ` · ${formatMoney(payerShare)}`}
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-blue-100 text-blue-700 border border-blue-200 font-medium">
+                            {payer}{bill.split_preset === "default" ? ` · ${daysInPeriod}d` : ""}{hasSplit && ` · ${formatMoney(payerShare)}`}
                           </span>
-                          {guestSummaries.map(guest => {
-                            const included = selectedGuestNames.has(guest.name)
+                          {guestChipNames.map(guestName => {
+                            const included = selectedGuestNames.has(guestName)
+                            const guestDays = guestDaysByName.get(guestName) ?? 0
                             return (
                               <button
-                                key={`${bill.id}-${guest.name}-card`}
-                                onClick={() => toggleStayInBill(bill, guest.name, defaultSelectedNames)}
+                                key={`${bill.id}-${guestName}-card`}
+                                onClick={() => toggleStayInBill(bill, guestName, defaultSelectedNames)}
                                 className={cn(
                                   "inline-flex items-center px-2 py-0.5 rounded-full text-xs border cursor-pointer transition-all",
                                   included
@@ -1504,7 +1579,7 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
                                     : "bg-white text-gray-400 border-gray-200 hover:border-blue-300 hover:text-blue-500",
                                 )}
                               >
-                                {guest.name} · {guest.days}d{included && ` · ${formatMoney(shareFor(guest.days))}`}
+                                {guestName}{bill.split_preset === "default" ? ` · ${guestDays}d` : ""}{included && ` · ${formatMoney(shareFor(guestName))}`}
                               </button>
                             )
                           })}
@@ -1568,8 +1643,8 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
         onOpenChange={open => { if (!open) { setBillDialogOpen(false); setEditingBill(null) } }}
         onSave={
           editingBill
-            ? (name, amount, period, periodEnd, settled, paidBy, splitBetween) =>
-              handleEditBill(editingBill.id, name, amount, period, periodEnd, settled, paidBy, splitBetween)
+            ? (name, amount, period, periodEnd, settled, paidBy, splitBetween, splitPreset, splitWeights) =>
+              handleEditBill(editingBill.id, name, amount, period, periodEnd, settled, paidBy, splitBetween, splitPreset, splitWeights)
             : handleAddBill
         }
         stays={stays}
@@ -1581,6 +1656,8 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
         initialSettled={editingBill?.paid ?? false}
         initialPaidBy={editingBill?.paid_by || "Mama"}
         initialSplitBetween={editingBill?.split_between}
+        initialSplitPreset={editingBill?.split_preset ?? "default"}
+        initialSplitWeights={editingBill?.split_weights ?? {}}
         mode={editingBill ? "edit" : "create"}
       />
 

@@ -1,18 +1,19 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Plus } from "lucide-react"
+import { Plus, X } from "lucide-react"
 import { CURRENCY_SYMBOL } from "@/lib/currency"
 import { cn } from "@/lib/utils"
 
-const BILL_NAMES = ["Voda", "Struja", "Internet", "Jezinac", "HRT", "Komunalna naknada"]
+const BILL_NAMES = ["Voda", "Struja", "Internet", "Ježinac", "HRT", "Komunalna naknada"]
 
 type PeriodMode = "month" | "range"
+type SplitPreset = "default" | "equal" | "weighted"
 
 interface BillDialogProps {
   open: boolean
@@ -25,6 +26,8 @@ interface BillDialogProps {
     settled: boolean,
     paidBy: string,
     splitBetween: string[],
+    splitPreset: SplitPreset,
+    splitWeights: Record<string, number>,
   ) => void
   stays: Array<{ guest_name: string; from_date: string; to_date: string }>
   payerSuggestions?: string[]
@@ -35,6 +38,8 @@ interface BillDialogProps {
   initialSettled?: boolean
   initialPaidBy?: string
   initialSplitBetween?: string[]
+  initialSplitPreset?: SplitPreset
+  initialSplitWeights?: Record<string, number>
   mode: "create" | "edit"
 }
 
@@ -59,6 +64,8 @@ export function BillDialog({
   initialSettled = false,
   initialPaidBy = "Mama",
   initialSplitBetween = [],
+  initialSplitPreset = "default",
+  initialSplitWeights = {},
   mode,
 }: BillDialogProps) {
   const [name, setName] = useState(initialName || BILL_NAMES[0])
@@ -68,10 +75,15 @@ export function BillDialog({
   const [settled, setSettled] = useState(initialSettled)
   const [paidBy, setPaidBy] = useState(initialPaidBy || "Mama")
   const [splitBetween, setSplitBetween] = useState<string[]>(initialSplitBetween)
+  const [splitPreset, setSplitPreset] = useState<SplitPreset>(initialSplitPreset)
+  const [splitWeights, setSplitWeights] = useState<Record<string, number>>(initialSplitWeights)
   const [periodEnd, setPeriodEnd] = useState(initialPeriodEnd ?? initialPeriod ?? currentPeriod())
   const [customPayers, setCustomPayers] = useState<string[]>([])
   const [addingPayer, setAddingPayer] = useState(false)
   const [newPayer, setNewPayer] = useState("")
+  const [customSplitters, setCustomSplitters] = useState<string[]>([])
+  const [addingSplitter, setAddingSplitter] = useState(false)
+  const [newSplitter, setNewSplitter] = useState("")
 
   const occupantsForPeriod = useMemo(() => {
     const [year, month] = period.split("-").map(Number)
@@ -90,6 +102,7 @@ export function BillDialog({
     return Array.from(names).sort((a, b) => a.localeCompare(b))
   }, [period, stays])
   const initialSplitKey = (initialSplitBetween ?? []).join("|")
+  const initialSplitWeightsKey = JSON.stringify(initialSplitWeights ?? {})
 
   const residentPayerOptions = useMemo(
     () => Array.from(new Set(occupantsForPeriod)),
@@ -108,13 +121,38 @@ export function BillDialog({
     ...(customPayers.includes(paidBy) ? [paidBy] : []),
     ...(!residentPayerOptions.includes(paidBy) && !nonResidentSuggestions.includes(paidBy) ? [paidBy] : []),
   ]))
+  const allKnownSplitterOptions = useMemo(
+    () => Array.from(new Set([
+      ...payerSuggestions,
+      ...stays.map(stay => stay.guest_name),
+      ...occupantsForPeriod,
+      ...splitBetween,
+      ...customSplitters,
+    ])),
+    [payerSuggestions, stays, occupantsForPeriod, splitBetween, customSplitters],
+  )
+  const nonOccupantSplitterSuggestions = useMemo(
+    () => allKnownSplitterOptions.filter(option => !occupantsForPeriod.includes(option)),
+    [allKnownSplitterOptions, occupantsForPeriod],
+  )
+  const splitterPills = Array.from(new Set([
+    ...occupantsForPeriod,
+    ...customSplitters,
+    ...splitBetween,
+  ]))
+  const weightedParticipants = useMemo(
+    () => Array.from(new Set([paidBy, ...splitBetween])).filter(Boolean),
+    [paidBy, splitBetween],
+  )
 
-  const canonicalizePayer = (value: string) => {
+  const canonicalize = (value: string, options: string[]) => {
     const trimmed = value.trim()
     if (!trimmed) return ""
-    const exact = allKnownPayerOptions.find(option => option.trim().toLowerCase() === trimmed.toLowerCase())
+    const exact = options.find(option => option.trim().toLowerCase() === trimmed.toLowerCase())
     return exact ?? trimmed
   }
+  const canonicalizePayer = (value: string) => canonicalize(value, allKnownPayerOptions)
+  const canonicalizeSplitter = (value: string) => canonicalize(value, allKnownSplitterOptions)
 
   useEffect(() => {
     if (!open) return
@@ -127,6 +165,12 @@ export function BillDialog({
     setSettled(initialSettled)
     setPaidBy(initialPayer)
     setSplitBetween(current => sameList(current, initialSplitBetween) ? current : initialSplitBetween)
+    setSplitPreset(initialSplitPreset)
+    setSplitWeights(initialSplitWeights ?? {})
+    setCustomSplitters(current => {
+      const next = initialSplitBetween.filter(name => !occupantsForPeriod.includes(name) && name !== initialPayer)
+      return sameList(current, next) ? current : next
+    })
     setCustomPayers(current => {
       const shouldBeCustom = initialPayer !== "Mama"
       const next = shouldBeCustom ? [initialPayer] : []
@@ -134,29 +178,34 @@ export function BillDialog({
     })
     setAddingPayer(false)
     setNewPayer("")
-  }, [open, initialName, initialAmount, initialPeriod, initialPeriodEnd, initialSettled, initialPaidBy, initialSplitKey])
-
-  useEffect(() => {
-    if (!open || mode !== "create") return
-    if (residentPayerOptions.length === 0) return
-    if (!residentPayerOptions.includes(paidBy)) {
-      const preferred = residentPayerOptions.includes("Mama") ? "Mama" : residentPayerOptions[0]
-      setPaidBy(preferred)
-    }
-  }, [open, mode, residentPayerOptions, paidBy])
+    setAddingSplitter(false)
+    setNewSplitter("")
+  }, [open, initialName, initialAmount, initialPeriod, initialPeriodEnd, initialSettled, initialPaidBy, initialSplitKey, initialSplitPreset, initialSplitWeightsKey])
 
   useEffect(() => {
     if (!open) return
     if (mode === "create") {
-      const defaults = occupantsForPeriod.filter(name => name !== paidBy)
-      setSplitBetween(current => sameList(current, defaults) ? current : defaults)
+      const defaults = Array.from(new Set([paidBy, ...occupantsForPeriod]))
+      setSplitBetween(current => {
+        const preservedCustom = current.filter(name => !occupantsForPeriod.includes(name))
+        const next = Array.from(new Set([...defaults, ...preservedCustom]))
+        return sameList(current, next) ? current : next
+      })
       return
     }
-    setSplitBetween(current => {
-      const next = current.filter(name => name !== paidBy)
-      return sameList(current, next) ? current : next
-    })
   }, [period, paidBy, occupantsForPeriod, open, mode])
+
+  useEffect(() => {
+    if (!open || splitPreset !== "weighted") return
+    setSplitWeights(current => {
+      const next: Record<string, number> = {}
+      for (const participant of weightedParticipants) {
+        const existing = current[participant]
+        next[participant] = typeof existing === "number" && existing > 0 ? existing : 1
+      }
+      return next
+    })
+  }, [open, splitPreset, weightedParticipants])
 
   // Range is valid only when end is on/after start
   const rangeValid = periodMode === "month" || periodEnd >= period
@@ -165,7 +214,16 @@ export function BillDialog({
   const handleSave = () => {
     if (!canSave) return
     const end = periodMode === "range" && periodEnd !== period ? periodEnd : null
-    onSave(name, Number.parseFloat(amount), period, end, settled, canonicalizePayer(paidBy), splitBetween)
+    const canonicalPaidBy = canonicalizePayer(paidBy)
+    const canonicalSplitBetween = splitBetween.map(name => canonicalizeSplitter(name)).filter(name => name)
+    const weightsForSave: Record<string, number> = {}
+    if (splitPreset === "weighted") {
+      for (const participant of Array.from(new Set([canonicalPaidBy, ...canonicalSplitBetween]))) {
+        const value = splitWeights[participant]
+        weightsForSave[participant] = typeof value === "number" && value > 0 ? value : 1
+      }
+    }
+    onSave(name, Number.parseFloat(amount), period, end, settled, canonicalPaidBy, canonicalSplitBetween, splitPreset, weightsForSave)
     setName(BILL_NAMES[0])
     setAmount("")
     setPeriodMode("month")
@@ -174,6 +232,11 @@ export function BillDialog({
     setSettled(false)
     setPaidBy("Mama")
     setSplitBetween([])
+    setSplitPreset("default")
+    setSplitWeights({})
+    setCustomSplitters([])
+    setAddingSplitter(false)
+    setNewSplitter("")
     onOpenChange(false)
   }
 
@@ -196,11 +259,40 @@ export function BillDialog({
     setNewPayer("")
   }
 
+  const addCustomSplitter = () => {
+    const candidate = canonicalizeSplitter(newSplitter)
+    if (!candidate) return
+    setSplitBetween(current => current.includes(candidate) ? current : [...current, candidate])
+    if (!occupantsForPeriod.includes(candidate)) {
+      setCustomSplitters(current => current.includes(candidate) ? current : [...current, candidate])
+    }
+    setAddingSplitter(false)
+    setNewSplitter("")
+  }
+
+  const removePayerOption = (option: string) => {
+    setCustomPayers(current => current.filter(name => name !== option))
+    if (paidBy === option) {
+      const fallback = residentPayerOptions.includes("Mama")
+        ? "Mama"
+        : residentPayerOptions[0] || "Mama"
+      setPaidBy(fallback)
+    }
+  }
+
+  const removeSplitterOption = (option: string) => {
+    setCustomSplitters(current => current.filter(name => name !== option))
+    setSplitBetween(current => current.filter(name => name !== option))
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[420px]">
         <DialogHeader>
           <DialogTitle>{mode === "create" ? "Add Bill" : "Edit Bill"}</DialogTitle>
+          <DialogDescription className="sr-only">
+            Configure bill amount, period, status, participants, and split preset.
+          </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">
           <div className="space-y-2">
@@ -311,7 +403,21 @@ export function BillDialog({
                       : "bg-white text-gray-400 border-gray-200 hover:border-blue-300 hover:text-blue-500"
                   }`}
                 >
-                  {option}
+                  <span>{option}</span>
+                  {(customPayers.includes(option) || !residentPayerOptions.includes(option)) && (
+                    <span
+                      role="button"
+                      aria-label={`Remove ${option}`}
+                      onClick={e => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        removePayerOption(option)
+                      }}
+                      className="ml-1 inline-flex items-center justify-center rounded-full hover:bg-black/10 p-0.5"
+                    >
+                      <X className="h-3 w-3" />
+                    </span>
+                  )}
                 </button>
               ))}
               {!addingPayer ? (
@@ -362,12 +468,10 @@ export function BillDialog({
           <div className="space-y-2">
             <Label>Split between</Label>
             <div className="flex flex-wrap items-center gap-2">
-              {occupantsForPeriod.length === 0 ? (
+              {splitterPills.length === 0 ? (
                 <span className="text-sm text-gray-400">No occupants found for this period.</span>
               ) : (
-                occupantsForPeriod
-                  .filter(option => option !== paidBy)
-                  .map(option => {
+                splitterPills.map(option => {
                     const selected = splitBetween.includes(option)
                     return (
                       <button
@@ -380,13 +484,132 @@ export function BillDialog({
                             : "bg-white text-gray-400 border-gray-200 hover:border-blue-300 hover:text-blue-500"
                         }`}
                       >
-                        {option}
+                        <span>{option}</span>
+                        {(customSplitters.includes(option) || !occupantsForPeriod.includes(option)) && (
+                          <span
+                            role="button"
+                            aria-label={`Remove ${option}`}
+                            onClick={e => {
+                              e.preventDefault()
+                              e.stopPropagation()
+                              removeSplitterOption(option)
+                            }}
+                            className="ml-1 inline-flex items-center justify-center rounded-full hover:bg-black/10 p-0.5"
+                          >
+                            <X className="h-3 w-3" />
+                          </span>
+                        )}
                       </button>
                     )
                   })
               )}
+              {!addingSplitter ? (
+                <button
+                  type="button"
+                  onClick={() => setAddingSplitter(true)}
+                  className="inline-flex items-center justify-center h-8 w-8 rounded-full border border-gray-200 text-gray-400 hover:border-blue-300 hover:text-blue-500 cursor-pointer transition-all"
+                  title="Add splitter"
+                >
+                  <Plus className="h-4 w-4" />
+                </button>
+              ) : (
+                <div className="flex items-center gap-1">
+                  <Input
+                    value={newSplitter}
+                    onChange={e => setNewSplitter(e.target.value)}
+                    placeholder="Name"
+                    className="h-8 w-28"
+                    list="bill-splitter-suggestions"
+                    onKeyDown={e => {
+                      if (e.key === "Enter") {
+                        e.preventDefault()
+                        addCustomSplitter()
+                      }
+                      if (e.key === "Escape") {
+                        setAddingSplitter(false)
+                        setNewSplitter("")
+                      }
+                    }}
+                    autoFocus
+                  />
+                  <datalist id="bill-splitter-suggestions">
+                    {nonOccupantSplitterSuggestions.map(option => (
+                      <option key={option} value={option} />
+                    ))}
+                  </datalist>
+                  <button
+                    type="button"
+                    onClick={addCustomSplitter}
+                    className="px-2 py-1 text-xs rounded-md border border-gray-200 text-gray-600 hover:border-blue-300 hover:text-blue-600 cursor-pointer"
+                  >
+                    Add
+                  </button>
+                </div>
+              )}
             </div>
           </div>
+          <div className="space-y-2">
+            <Label>Split preset</Label>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setSplitPreset("default")}
+                className={`inline-flex items-center px-3 py-1 rounded-full text-sm border cursor-pointer transition-all ${
+                  splitPreset === "default"
+                    ? "bg-blue-500 text-white border-blue-500"
+                    : "bg-white text-gray-400 border-gray-200 hover:border-blue-300 hover:text-blue-500"
+                }`}
+              >
+                Default
+              </button>
+              <button
+                type="button"
+                onClick={() => setSplitPreset("equal")}
+                className={`inline-flex items-center px-3 py-1 rounded-full text-sm border cursor-pointer transition-all ${
+                  splitPreset === "equal"
+                    ? "bg-blue-500 text-white border-blue-500"
+                    : "bg-white text-gray-400 border-gray-200 hover:border-blue-300 hover:text-blue-500"
+                }`}
+              >
+                Equal split
+              </button>
+              <button
+                type="button"
+                onClick={() => setSplitPreset("weighted")}
+                className={`inline-flex items-center px-3 py-1 rounded-full text-sm border cursor-pointer transition-all ${
+                  splitPreset === "weighted"
+                    ? "bg-blue-500 text-white border-blue-500"
+                    : "bg-white text-gray-400 border-gray-200 hover:border-blue-300 hover:text-blue-500"
+                }`}
+              >
+                Weighted ratios
+              </button>
+            </div>
+          </div>
+          {splitPreset === "weighted" && (
+            <div className="space-y-2">
+              <Label>Custom ratios</Label>
+              <div className="space-y-2">
+                {weightedParticipants.map(participant => (
+                  <div key={participant} className="flex items-center gap-2">
+                    <span className="text-sm text-gray-600 min-w-0 flex-1 truncate">{participant}</span>
+                    <Input
+                      type="number"
+                      min="0.01"
+                      step="0.01"
+                      value={splitWeights[participant] ?? 1}
+                      onChange={e => {
+                        const raw = Number(e.target.value)
+                        const next = Number.isFinite(raw) && raw > 0 ? raw : 1
+                        setSplitWeights(current => ({ ...current, [participant]: next }))
+                      }}
+                      className="h-8 w-24 text-right"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
