@@ -219,12 +219,16 @@ function monthTone(monthIndex: number) {
 
 function computeBillShares(
   bill: Bill,
-  payer: string,
+  payerName: string,
+  payerIncluded: boolean,
   daysInPeriod: number,
   includedGuests: GuestSummary[],
 ) {
   const guestShares = new Map<string, number>()
-  const participantNames = Array.from(new Set([payer, ...includedGuests.map(guest => guest.name)]))
+  const participantNames = Array.from(new Set([
+    ...(payerIncluded ? ["__payer__"] : []),
+    ...includedGuests.map(guest => guest.name),
+  ]))
 
   if (participantNames.length === 0) {
     return { payerShare: 0, guestShares }
@@ -238,15 +242,18 @@ function computeBillShares(
 
   if (bill.split_preset === "weighted") {
     const weights = bill.split_weights ?? {}
-    const participantWeights = participantNames.map(name => ({
-      name,
-      weight: typeof weights[name] === "number" && weights[name] > 0 ? weights[name] : 1,
-    }))
+    const participantWeights = participantNames.map(name => {
+      const weightKey = name === "__payer__" ? payerName : name
+      return {
+        name,
+        weight: typeof weights[weightKey] === "number" && weights[weightKey] > 0 ? weights[weightKey] : 1,
+      }
+    })
     const totalWeight = participantWeights.reduce((sum, item) => sum + item.weight, 0)
     if (totalWeight <= 0) {
       return { payerShare: 0, guestShares }
     }
-    const payerWeight = participantWeights.find(item => item.name === payer)?.weight ?? 1
+    const payerWeight = participantWeights.find(item => item.name === "__payer__")?.weight ?? 0
     const payerShare = bill.amount * (payerWeight / totalWeight)
     for (const guest of includedGuests) {
       const weight = participantWeights.find(item => item.name === guest.name)?.weight ?? 1
@@ -257,11 +264,11 @@ function computeBillShares(
 
   // Default behavior: payer covers full period days, guests cover overlap days.
   const includedGuestDays = includedGuests.reduce((sum, guest) => sum + guest.days, 0)
-  const totalPersonDays = daysInPeriod + includedGuestDays
+  const totalPersonDays = (payerIncluded ? daysInPeriod : 0) + includedGuestDays
   if (totalPersonDays <= 0) {
     return { payerShare: 0, guestShares }
   }
-  const payerShare = bill.amount * (daysInPeriod / totalPersonDays)
+  const payerShare = payerIncluded ? bill.amount * (daysInPeriod / totalPersonDays) : 0
   for (const guest of includedGuests) {
     guestShares.set(guest.name, bill.amount * (guest.days / totalPersonDays))
   }
@@ -571,9 +578,10 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
       const defaultSelectedNames = bill.split_between ?? []
       const selectedGuestNames = billSplitToggles[bill.id] ?? new Set(defaultSelectedNames)
       const payer = bill.paid_by || "Mama"
+      const payerIncluded = selectedGuestNames.has(payer)
       const includedGuests = selectedSplitGuests(bill, payer, guestSummaries, selectedGuestNames)
       if (includedGuests.length === 0) continue
-      const { guestShares } = computeBillShares(bill, payer, daysInMonth, includedGuests)
+      const { guestShares } = computeBillShares(bill, payer, payerIncluded, daysInMonth, includedGuests)
 
       for (const guest of includedGuests) {
         const share = guestShares.get(guest.name) ?? 0
@@ -1411,9 +1419,10 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
                   const defaultSelectedNames = bill.split_between ?? []
                   const selectedGuestNames = billSplitToggles[bill.id] ?? new Set(defaultSelectedNames)
                   const payer = bill.paid_by || "Mama"
+                  const payerIncluded = selectedGuestNames.has(payer)
                   const includedGuests = selectedSplitGuests(bill, payer, guestSummaries, selectedGuestNames)
                   const hasSplit = includedGuests.length > 0
-                  const { payerShare, guestShares } = computeBillShares(bill, payer, daysInPeriod, includedGuests)
+                  const { payerShare, guestShares } = computeBillShares(bill, payer, payerIncluded, daysInPeriod, includedGuests)
                   const shareFor = (guestName: string) => guestShares.get(guestName) ?? 0
                   const guestDaysByName = new Map(guestSummaries.map(guest => [guest.name, guest.days]))
                   const guestChipNames = Array.from(new Set([...guestSummaries.map(guest => guest.name), ...Array.from(selectedGuestNames)]))
@@ -1451,7 +1460,7 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
                       <div className="flex-1 flex flex-wrap items-center gap-1.5 min-w-0">
                         {/* Payer — always present, not toggleable */}
                         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-blue-100 text-blue-700 border border-blue-200 font-medium">
-                          {payer}{bill.split_preset === "default" ? ` · ${daysInPeriod}d` : ""}{hasSplit && ` · ${formatMoney(payerShare)}`}
+                          {payer}{bill.split_preset === "default" ? ` · ${daysInPeriod}d` : ""}{payerIncluded && hasSplit && ` · ${formatMoney(payerShare)}`}
                         </span>
                         {guestChipNames.map(guestName => {
                           const included = selectedGuestNames.has(guestName)
@@ -1525,9 +1534,10 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
                     const defaultSelectedNames = bill.split_between ?? []
                     const selectedGuestNames = billSplitToggles[bill.id] ?? new Set(defaultSelectedNames)
                     const payer = bill.paid_by || "Mama"
+                    const payerIncluded = selectedGuestNames.has(payer)
                     const includedGuests = selectedSplitGuests(bill, payer, guestSummaries, selectedGuestNames)
                     const hasSplit = includedGuests.length > 0
-                    const { payerShare, guestShares } = computeBillShares(bill, payer, daysInPeriod, includedGuests)
+                    const { payerShare, guestShares } = computeBillShares(bill, payer, payerIncluded, daysInPeriod, includedGuests)
                     const shareFor = (guestName: string) => guestShares.get(guestName) ?? 0
                     const guestDaysByName = new Map(guestSummaries.map(guest => [guest.name, guest.days]))
                     const guestChipNames = Array.from(new Set([...guestSummaries.map(guest => guest.name), ...Array.from(selectedGuestNames)]))
@@ -1563,7 +1573,7 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
                         </div>
                         <div className="mt-2 flex flex-wrap gap-1.5">
                           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-blue-100 text-blue-700 border border-blue-200 font-medium">
-                            {payer}{bill.split_preset === "default" ? ` · ${daysInPeriod}d` : ""}{hasSplit && ` · ${formatMoney(payerShare)}`}
+                            {payer}{bill.split_preset === "default" ? ` · ${daysInPeriod}d` : ""}{payerIncluded && hasSplit && ` · ${formatMoney(payerShare)}`}
                           </span>
                           {guestChipNames.map(guestName => {
                             const included = selectedGuestNames.has(guestName)

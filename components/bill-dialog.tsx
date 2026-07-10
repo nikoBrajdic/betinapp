@@ -117,10 +117,10 @@ export function BillDialog({
     [allKnownPayerOptions, residentPayerOptions],
   )
   const payerPills = Array.from(new Set([
+    paidBy,
     ...residentPayerOptions,
-    ...(customPayers.includes(paidBy) ? [paidBy] : []),
-    ...(!residentPayerOptions.includes(paidBy) && !nonResidentSuggestions.includes(paidBy) ? [paidBy] : []),
-  ]))
+    ...customPayers,
+  ])).filter(Boolean)
   const allKnownSplitterOptions = useMemo(
     () => Array.from(new Set([
       ...payerSuggestions,
