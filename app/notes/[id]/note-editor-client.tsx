@@ -7,11 +7,13 @@ import {
   Trash2, Loader2, GripVertical, Pencil,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { updateNote, type Note } from "@/lib/actions/notes"
+import { createNote, deleteNote, updateNote, type Note } from "@/lib/actions/notes"
 import type { Block, ImageItem } from "@/lib/actions/diary"
 import { trackSave } from "@/lib/save-events"
 import { createClient } from "@/lib/supabase/client"
 import { ImageLightbox } from "@/components/image-lightbox"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
 
 function genId() { return Math.random().toString(36).slice(2, 9) }
 
@@ -308,6 +310,8 @@ function BlockRow({
 export function NoteEditorClient({ note }: { note: Note }) {
   const [title, setTitle] = useState(note.title)
   const [blocks, setBlocks] = useState<Block[]>(note.content ?? [])
+  const [savedTitle, setSavedTitle] = useState(note.title)
+  const [savedBlocks, setSavedBlocks] = useState<Block[]>(note.content ?? [])
   const [isEditing, setIsEditing] = useState(false)
   const [focusedId, setFocusedId] = useState<string | null>(null)
   const [focusPosition, setFocusPosition] = useState<number | null>(null)
@@ -315,19 +319,33 @@ export function NoteEditorClient({ note }: { note: Note }) {
   const [savedAt, setSavedAt] = useState<Date | null>(null)
   const [globalDragOver, setGlobalDragOver] = useState(false)
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
+  const [newNoteWarningOpen, setNewNoteWarningOpen] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
 
   const allImageUrls = blocks.flatMap(b => b.type === "image" ? b.images.map(img => img.url) : [])
   const dragIdx = useRef<number | null>(null)
   const dragOverIdx = useRef<number | null>(null)
   const [dragOverBlock, setDragOverBlock] = useState<number | null>(null)
   const saveTimer = useRef<NodeJS.Timeout | null>(null)
+  const latestTitleRef = useRef(title)
+  const latestBlocksRef = useRef(blocks)
   const router = useRouter()
+
+  useEffect(() => {
+    latestTitleRef.current = title
+    latestBlocksRef.current = blocks
+  }, [title, blocks])
 
   const scheduleSave = useCallback((t: string, b: Block[]) => {
     if (saveTimer.current) clearTimeout(saveTimer.current)
     setSaving(true)
     saveTimer.current = setTimeout(async () => {
-      try { await trackSave(updateNote(note.id, { title: t, content: b })); setSavedAt(new Date()) }
+      try {
+        await trackSave(updateNote(note.id, { title: t, content: b }))
+        setSavedTitle(t)
+        setSavedBlocks(b)
+        setSavedAt(new Date())
+      }
       catch (e) { console.error(e) }
       setSaving(false)
     }, 1200)
@@ -335,6 +353,45 @@ export function NoteEditorClient({ note }: { note: Note }) {
 
   const setBlocksAndSave = (next: Block[]) => { setBlocks(next); scheduleSave(title, next) }
   const setTitleAndSave = (t: string) => { setTitle(t); scheduleSave(t, blocks) }
+
+  const hasUnsavedChanges = useCallback(() => {
+    return (
+      latestTitleRef.current !== savedTitle ||
+      JSON.stringify(latestBlocksRef.current) !== JSON.stringify(savedBlocks)
+    )
+  }, [savedBlocks, savedTitle])
+
+  const persistNow = useCallback(async () => {
+    if (saveTimer.current) {
+      clearTimeout(saveTimer.current)
+      saveTimer.current = null
+    }
+    const currentTitle = latestTitleRef.current
+    const currentBlocks = latestBlocksRef.current
+    setSaving(true)
+    await trackSave(updateNote(note.id, { title: currentTitle, content: currentBlocks }))
+    setSavedTitle(currentTitle)
+    setSavedBlocks(currentBlocks)
+    setSavedAt(new Date())
+    setSaving(false)
+  }, [note.id])
+
+  const startNewNote = useCallback(async () => {
+    const created = await trackSave(createNote("Untitled"))
+    router.push(`/notes/${created.id}`)
+  }, [router])
+
+  useEffect(() => {
+    const handleTopbarNew = () => setNewNoteWarningOpen(true)
+    window.addEventListener("topbar:new", handleTopbarNew)
+    return () => window.removeEventListener("topbar:new", handleTopbarNew)
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      if (saveTimer.current) clearTimeout(saveTimer.current)
+    }
+  }, [])
 
   const addBlock = (type: "heading" | "paragraph" | "image", afterId?: string) => {
     const newBlock: Block =
@@ -440,12 +497,20 @@ export function NoteEditorClient({ note }: { note: Note }) {
           </button>
           <div className="flex items-center justify-between">
             <h1 className="text-4xl font-bold text-gray-900 tracking-tight">{title}</h1>
-            <button
-              onClick={() => setIsEditing(true)}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-sm font-medium text-gray-600 hover:text-gray-900 cursor-pointer transition-colors flex-shrink-0 ml-4"
-            >
-              <Pencil className="h-3.5 w-3.5" /> Edit
-            </button>
+            <div className="flex items-center gap-2 flex-shrink-0 ml-4">
+              <button
+                onClick={() => setDeleteOpen(true)}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-red-50 hover:bg-red-100 text-sm font-medium text-red-600 hover:text-red-700 cursor-pointer transition-colors"
+              >
+                <Trash2 className="h-3.5 w-3.5" /> Delete
+              </button>
+              <button
+                onClick={() => setIsEditing(true)}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-sm font-medium text-gray-600 hover:text-gray-900 cursor-pointer transition-colors"
+              >
+                <Pencil className="h-3.5 w-3.5" /> Edit
+              </button>
+            </div>
           </div>
         </div>
 
@@ -484,6 +549,66 @@ export function NoteEditorClient({ note }: { note: Note }) {
             onNavigate={setLightboxIndex}
           />
         )}
+
+        <Dialog open={newNoteWarningOpen} onOpenChange={setNewNoteWarningOpen}>
+          <DialogContent className="sm:max-w-[430px]">
+            <DialogHeader>
+              <DialogTitle>Leave this note and create a new one?</DialogTitle>
+              <DialogDescription>
+                Unsaved edits will be lost. You can save first, discard, or cancel and keep editing this note.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setNewNoteWarningOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                variant="outline"
+                onClick={async () => {
+                  if (saveTimer.current) {
+                    clearTimeout(saveTimer.current)
+                    saveTimer.current = null
+                  }
+                  setNewNoteWarningOpen(false)
+                  await startNewNote()
+                }}
+              >
+                Discard
+              </Button>
+              <Button
+                onClick={async () => {
+                  if (hasUnsavedChanges()) await persistNow()
+                  setNewNoteWarningOpen(false)
+                  await startNewNote()
+                }}
+              >
+                Save
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+          <DialogContent className="sm:max-w-[380px]">
+            <DialogHeader>
+              <DialogTitle>Delete "{title}"?</DialogTitle>
+              <DialogDescription>This action cannot be undone.</DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setDeleteOpen(false)}>Cancel</Button>
+              <Button
+                variant="destructive"
+                onClick={async () => {
+                  setDeleteOpen(false)
+                  await trackSave(deleteNote(note.id))
+                  router.push("/notes")
+                }}
+              >
+                Delete
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     )
   }
@@ -522,6 +647,12 @@ export function NoteEditorClient({ note }: { note: Note }) {
             <span className="text-xs text-gray-400">
               {saving ? "Saving…" : savedAt ? `Saved ${savedAt.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}` : ""}
             </span>
+            <button
+              onClick={() => setDeleteOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-red-50 hover:bg-red-100 text-sm font-medium text-red-600 hover:text-red-700 cursor-pointer transition-colors"
+            >
+              <Trash2 className="h-3.5 w-3.5" /> Delete
+            </button>
             <button
               onClick={() => setIsEditing(false)}
               className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gray-800 hover:bg-gray-900 text-sm font-medium text-white cursor-pointer transition-colors"
@@ -584,6 +715,66 @@ export function NoteEditorClient({ note }: { note: Note }) {
           <ImageIcon className="h-3.5 w-3.5" /> Image
         </button>
       </div>
+
+      <Dialog open={newNoteWarningOpen} onOpenChange={setNewNoteWarningOpen}>
+        <DialogContent className="sm:max-w-[430px]">
+          <DialogHeader>
+            <DialogTitle>Leave this note and create a new one?</DialogTitle>
+            <DialogDescription>
+              Unsaved edits will be lost. You can save first, discard, or cancel and keep editing this note.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setNewNoteWarningOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="outline"
+              onClick={async () => {
+                if (saveTimer.current) {
+                  clearTimeout(saveTimer.current)
+                  saveTimer.current = null
+                }
+                setNewNoteWarningOpen(false)
+                await startNewNote()
+              }}
+            >
+              Discard
+            </Button>
+            <Button
+              onClick={async () => {
+                if (hasUnsavedChanges()) await persistNow()
+                setNewNoteWarningOpen(false)
+                await startNewNote()
+              }}
+            >
+              Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <DialogContent className="sm:max-w-[380px]">
+          <DialogHeader>
+            <DialogTitle>Delete "{title}"?</DialogTitle>
+            <DialogDescription>This action cannot be undone.</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteOpen(false)}>Cancel</Button>
+            <Button
+              variant="destructive"
+              onClick={async () => {
+                setDeleteOpen(false)
+                await trackSave(deleteNote(note.id))
+                router.push("/notes")
+              }}
+            >
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

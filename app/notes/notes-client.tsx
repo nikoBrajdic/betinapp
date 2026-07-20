@@ -11,12 +11,15 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { ConfirmDeleteDialog } from "@/components/confirm-delete-dialog"
 import { FileText, Plus, Trash2, MoreHorizontal } from "lucide-react"
 import { createNote, deleteNote, type Note } from "@/lib/actions/notes"
+import { type NoteDocument } from "@/lib/actions/note-documents"
 import { trackSave } from "@/lib/save-events"
 import { useRealtimeRefresh } from "@/hooks/use-realtime-refresh"
 import type { Block } from "@/lib/actions/diary"
+import { DocumentsClient } from "./documents-client"
 
 interface NotesClientProps {
   notes: Note[]
+  documents: NoteDocument[]
 }
 
 function getPreview(note: Note): string {
@@ -38,13 +41,14 @@ function getThumbnails(note: Note): string[] {
   return urls
 }
 
-export function NotesClient({ notes }: NotesClientProps) {
+export function NotesClient({ notes, documents }: NotesClientProps) {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [newTitle, setNewTitle] = useState("")
   const [creating, setCreating] = useState(false)
   const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [tab, setTab] = useState<"general" | "documents">("general")
   const router = useRouter()
-  useRealtimeRefresh(["notes"])
+  useRealtimeRefresh(["notes", "note_documents"])
 
   useEffect(() => {
     const handler = () => setDialogOpen(true)
@@ -71,7 +75,28 @@ export function NotesClient({ notes }: NotesClientProps) {
 
   return (
     <div className="p-8">
-      {notes.length === 0 ? (
+      <div className="mb-4">
+        <div className="inline-flex items-center gap-1 rounded-xl bg-gray-100 p-1">
+          <button
+            type="button"
+            onClick={() => setTab("general")}
+            className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${tab === "general" ? "bg-blue-500 text-white" : "text-gray-600 hover:text-gray-800"}`}
+          >
+            General
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab("documents")}
+            className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${tab === "documents" ? "bg-blue-500 text-white" : "text-gray-600 hover:text-gray-800"}`}
+          >
+            Documents
+          </button>
+        </div>
+      </div>
+
+      {tab === "documents" ? (
+        <DocumentsClient documents={documents} />
+      ) : notes.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-24 gap-4">
           <p className="text-gray-400 text-base">No notes yet</p>
           <button onClick={() => setDialogOpen(true)} className="flex items-center gap-2 px-6 py-2.5 bg-indigo-500 hover:bg-indigo-600 text-white text-sm font-medium rounded-xl cursor-pointer transition-colors">
