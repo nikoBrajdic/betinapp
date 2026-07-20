@@ -16,8 +16,53 @@ import { trackSave } from "@/lib/save-events"
 type ViewMode = "grid" | "details"
 type SortKey = "name" | "size" | "modified" | "addedBy" | "lastModifiedBy"
 type SortDirection = "asc" | "desc"
+type ColumnKey = "type" | "name" | "size" | "modified" | "addedBy"
 
 const ACCEPTED_TYPES = ".txt,.md,.markdown,.xml,.json,.csv,.yml,.yaml,.ini,.conf,.log,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.rtf,.odt,.ods"
+const MIN_COLUMN_WIDTHS: Record<ColumnKey, number> = {
+  type: 40,
+  name: 220,
+  size: 100,
+  modified: 140,
+  addedBy: 150,
+}
+const COLUMN_KEYS: ColumnKey[] = ["type", "name", "size", "modified", "addedBy"]
+
+function shrinkProportionally(
+  widths: Record<ColumnKey, number>,
+  keys: ColumnKey[],
+  shrinkAmount: number
+): { next: Record<ColumnKey, number>; applied: number } {
+  const next = { ...widths }
+  if (shrinkAmount <= 0 || keys.length === 0) return { next, applied: 0 }
+
+  let remaining = shrinkAmount
+  let flexKeys = [...keys]
+
+  while (remaining > 0.01 && flexKeys.length > 0) {
+    const flexTotal = flexKeys.reduce((sum, key) => sum + next[key], 0)
+    if (flexTotal <= 0) break
+
+    let movedThisRound = 0
+    const nextFlexKeys: ColumnKey[] = []
+
+    for (const key of flexKeys) {
+      const ratio = next[key] / flexTotal
+      const targetTake = remaining * ratio
+      const available = next[key] - MIN_COLUMN_WIDTHS[key]
+      const taken = Math.min(targetTake, Math.max(0, available))
+      next[key] -= taken
+      movedThisRound += taken
+      if (next[key] - MIN_COLUMN_WIDTHS[key] > 0.01) nextFlexKeys.push(key)
+    }
+
+    if (movedThisRound <= 0.01) break
+    remaining -= movedThisRound
+    flexKeys = nextFlexKeys
+  }
+
+  return { next, applied: shrinkAmount - remaining }
+}
 
 const plainExtensions = new Set(["txt", "md", "markdown", "xml", "json", "csv", "yml", "yaml", "ini", "conf", "log"])
 
@@ -51,6 +96,13 @@ export function DocumentsClient({ documents }: { documents: NoteDocument[] }) {
   const [wrongTypeOpen, setWrongTypeOpen] = useState(false)
   const [wrongTypeText, setWrongTypeText] = useState("")
   const [deleteDoc, setDeleteDoc] = useState<NoteDocument | null>(null)
+  const [columnWidths, setColumnWidths] = useState<Record<ColumnKey, number>>({
+    type: 40,
+    name: 320,
+    size: 110,
+    modified: 170,
+    addedBy: 170,
+  })
   const addInputRef = useRef<HTMLInputElement | null>(null)
   const updateInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
   const supabase = useMemo(() => createClient(), [])
@@ -90,6 +142,71 @@ export function DocumentsClient({ documents }: { documents: NoteDocument[] }) {
       setSortKey(key)
       setSortDirection(key === "modified" ? "desc" : "asc")
     }
+  }
+
+  const startResize = (key: ColumnKey, startX: number) => {
+    const startWidths = { ...columnWidths }
+    const dividerIndex = COLUMN_KEYS.indexOf(key)
+    const leftKeys = COLUMN_KEYS.slice(0, dividerIndex)
+    const rightKeys = COLUMN_KEYS.slice(dividerIndex + 1)
+
+    const onMove = (event: MouseEvent) => {
+      const delta = event.clientX - startX
+      const nextWidths: Record<ColumnKey, number> = { ...startWidths }
+
+      if (delta >= 0) {
+        // Rule 1 (drag right): resized column grows linearly;
+        // columns to the right shrink proportionally; columns to the left stay fixed.
+        if (rightKeys.length === 0) {
+          nextWidths[key] = startWidths[key] + delta
+        } else {
+          const { next: shrunkRight, applied } = shrinkProportionally(nextWidths, rightKeys, delta)
+          Object.assign(nextWidths, shrunkRight)
+          nextWidths[key] = startWidths[key] + applied
+        }
+        setColumnWidths(nextWidths)
+        return
+      }
+
+      // Drag left: first shrink immediate left column linearly until min.
+      const desiredKey = startWidths[key] + delta
+      const clampedKey = Math.max(MIN_COLUMN_WIDTHS[key], desiredKey)
+      const primaryShrink = startWidths[key] - clampedKey
+      const overshoot = -delta - primaryShrink // extra left drag past this column's minimum
+
+      nextWidths[key] = clampedKey
+
+      // Expansion amount that must be absorbed by columns to the right of divider.
+      let totalRightExpansion = primaryShrink
+
+      // Rule 2: once immediate left column reaches min, continue by shrinking columns to its left
+      // (same proportional-min-guard behavior), and send that width to the right side.
+      if (overshoot > 0 && leftKeys.length > 0) {
+        const { next: shrunkLeft, applied } = shrinkProportionally(nextWidths, leftKeys, overshoot)
+        Object.assign(nextWidths, shrunkLeft)
+        totalRightExpansion += applied
+      }
+
+      if (totalRightExpansion > 0 && rightKeys.length > 0) {
+        const rightStartTotal = rightKeys.reduce((sum, columnKey) => sum + startWidths[columnKey], 0)
+        if (rightStartTotal > 0) {
+          for (const columnKey of rightKeys) {
+            const ratio = startWidths[columnKey] / rightStartTotal
+            nextWidths[columnKey] = startWidths[columnKey] + totalRightExpansion * ratio
+          }
+        }
+      }
+
+      setColumnWidths(nextWidths)
+    }
+
+    const onUp = () => {
+      window.removeEventListener("mousemove", onMove)
+      window.removeEventListener("mouseup", onUp)
+    }
+
+    window.addEventListener("mousemove", onMove)
+    window.addEventListener("mouseup", onUp)
   }
 
   const uploadToStorage = async (file: File) => {
@@ -174,7 +291,7 @@ export function DocumentsClient({ documents }: { documents: NoteDocument[] }) {
             <Card key={doc.id} className="p-4 border-2 shadow-none">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <button type="button" onClick={() => openDocument(doc)} className="font-semibold text-gray-800 truncate text-left hover:text-blue-600">{doc.name}</button>
+                  <button type="button" onClick={() => openDocument(doc)} className="font-semibold text-gray-800 text-left hover:text-blue-600 whitespace-normal break-words leading-tight">{doc.name}</button>
                   <p className="text-xs text-gray-400 uppercase">{doc.file_type}</p>
                 </div>
                 <DropdownMenu>
@@ -199,36 +316,84 @@ export function DocumentsClient({ documents }: { documents: NoteDocument[] }) {
         </div>
       ) : (
         <Card className="shadow-none border-2 overflow-hidden">
-          <div className="flex items-center gap-4 px-4 py-2 bg-gray-50 border-b border-gray-100 text-xs font-medium text-gray-400 uppercase tracking-wide">
-            <button type="button" onClick={() => toggleSort("name")} className="w-[28%] text-left hover:text-gray-600">Name</button>
-            <button type="button" onClick={() => toggleSort("size")} className="w-[12%] text-left hover:text-gray-600">Size</button>
-            <button type="button" onClick={() => toggleSort("modified")} className="w-[18%] text-left hover:text-gray-600">Date modified</button>
-            <button type="button" onClick={() => toggleSort("addedBy")} className="w-[18%] text-left hover:text-gray-600">Added by</button>
-            <button type="button" onClick={() => toggleSort("lastModifiedBy")} className="flex-1 text-left hover:text-gray-600">Last modified by</button>
-            <div className="w-7 flex-shrink-0" />
-          </div>
-          <div className="divide-y divide-gray-100">
-            {filteredDocs.map(doc => (
-              <div key={doc.id} className="flex items-center gap-4 px-4 py-3.5 hover:bg-gray-50 group transition-colors">
-                <button type="button" onClick={() => openDocument(doc)} className="w-[28%] min-w-0 text-left font-medium text-gray-800 truncate hover:text-blue-600">{doc.name}</button>
-                <div className="w-[12%] text-sm text-gray-600">{humanSize(doc.size_bytes)}</div>
-                <div className="w-[18%] text-sm text-gray-600">{dateText(doc.updated_at)}</div>
-                <div className="w-[18%] text-sm text-gray-600 truncate">{doc.added_by_name}</div>
-                <div className="flex-1 text-sm text-gray-600 truncate">{doc.last_modified_by_name}</div>
-                <div className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-400 hover:text-gray-700"><MoreHorizontal className="h-4 w-4" /></Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem className="cursor-pointer" onClick={() => updateInputRefs.current[doc.id]?.click()}>Update version</DropdownMenuItem>
-                      <DropdownMenuItem className="cursor-pointer text-destructive focus:text-destructive" onClick={() => setDeleteDoc(doc)}>Delete</DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                  <input ref={el => { updateInputRefs.current[doc.id] = el }} className="hidden" type="file" accept={ACCEPTED_TYPES} onChange={e => handleUpdate(doc, e.target.files?.[0])} />
+          <div className="overflow-x-auto">
+            <div className="min-w-max">
+              <div className="flex items-center gap-4 px-4 py-2 bg-gray-50 border-b border-gray-100 text-xs font-medium text-gray-400 uppercase tracking-wide">
+                <div className="relative flex-shrink-0" style={{ width: columnWidths.type }}>
+                  <span className="w-full text-left normal-case">Type</span>
+                  <div className="absolute right-0 top-0 h-full w-2 cursor-col-resize flex items-center justify-end" onMouseDown={e => { e.preventDefault(); startResize("type", e.clientX) }}>
+                    <span className="h-4 w-px bg-gray-300" />
+                  </div>
                 </div>
+                <div className="relative flex-shrink-0" style={{ width: columnWidths.name }}>
+                  <button type="button" onClick={() => toggleSort("name")} className="w-full text-left hover:text-gray-600">Name</button>
+                  <div className="absolute right-0 top-0 h-full w-2 cursor-col-resize flex items-center justify-end" onMouseDown={e => { e.preventDefault(); startResize("name", e.clientX) }}>
+                    <span className="h-4 w-px bg-gray-300" />
+                  </div>
+                </div>
+                <div className="relative flex-shrink-0" style={{ width: columnWidths.size }}>
+                  <button type="button" onClick={() => toggleSort("size")} className="w-full text-left hover:text-gray-600">Size</button>
+                  <div className="absolute right-0 top-0 h-full w-2 cursor-col-resize flex items-center justify-end" onMouseDown={e => { e.preventDefault(); startResize("size", e.clientX) }}>
+                    <span className="h-4 w-px bg-gray-300" />
+                  </div>
+                </div>
+                <div className="relative flex-shrink-0" style={{ width: columnWidths.modified }}>
+                  <button type="button" onClick={() => toggleSort("modified")} className="w-full text-left hover:text-gray-600">Date modified</button>
+                  <div className="absolute right-0 top-0 h-full w-2 cursor-col-resize flex items-center justify-end" onMouseDown={e => { e.preventDefault(); startResize("modified", e.clientX) }}>
+                    <span className="h-4 w-px bg-gray-300" />
+                  </div>
+                </div>
+                <div className="relative flex-shrink-0" style={{ width: columnWidths.addedBy }}>
+                  <button type="button" onClick={() => toggleSort("addedBy")} className="w-full text-left hover:text-gray-600">Added by</button>
+                  <div className="absolute right-0 top-0 h-full w-2 cursor-col-resize flex items-center justify-end" onMouseDown={e => { e.preventDefault(); startResize("addedBy", e.clientX) }}>
+                    <span className="h-4 w-px bg-gray-300" />
+                  </div>
+                </div>
+                <div className="flex-1 min-w-[170px]">
+                  <button type="button" onClick={() => toggleSort("lastModifiedBy")} className="w-full text-left hover:text-gray-600">Last modified by</button>
+                </div>
+                <div className="w-7 flex-shrink-0" />
               </div>
-            ))}
+              <div className="divide-y divide-gray-100">
+                {filteredDocs.map(doc => (
+                  <div key={doc.id} className="flex items-center gap-4 px-4 py-3.5 hover:bg-gray-50 group transition-colors">
+                    <div
+                      className="flex-shrink-0 text-xs font-semibold text-gray-400 uppercase tracking-wide truncate"
+                      style={{ width: columnWidths.type }}
+                      title={doc.file_type.toUpperCase()}
+                    >
+                      {doc.file_type.toUpperCase()}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => openDocument(doc)}
+                      className="min-w-0 text-left font-medium text-gray-800 truncate hover:text-blue-600"
+                      style={{ width: columnWidths.name }}
+                      title={doc.name}
+                      aria-label={doc.name}
+                    >
+                      {doc.name}
+                    </button>
+                    <div className="text-sm text-gray-600 flex-shrink-0" style={{ width: columnWidths.size }}>{humanSize(doc.size_bytes)}</div>
+                    <div className="text-sm text-gray-600 flex-shrink-0" style={{ width: columnWidths.modified }}>{dateText(doc.updated_at)}</div>
+                    <div className="text-sm text-gray-600 truncate flex-shrink-0" style={{ width: columnWidths.addedBy }} title={doc.added_by_name}>{doc.added_by_name}</div>
+                    <div className="text-sm text-gray-600 truncate flex-1 min-w-[170px]" title={doc.last_modified_by_name}>{doc.last_modified_by_name}</div>
+                    <div className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-400 hover:text-gray-700"><MoreHorizontal className="h-4 w-4" /></Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem className="cursor-pointer" onClick={() => updateInputRefs.current[doc.id]?.click()}>Update version</DropdownMenuItem>
+                          <DropdownMenuItem className="cursor-pointer text-destructive focus:text-destructive" onClick={() => setDeleteDoc(doc)}>Delete</DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                      <input ref={el => { updateInputRefs.current[doc.id] = el }} className="hidden" type="file" accept={ACCEPTED_TYPES} onChange={e => handleUpdate(doc, e.target.files?.[0])} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </Card>
       )}
