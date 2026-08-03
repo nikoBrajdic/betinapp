@@ -167,17 +167,23 @@ export function CalendarClient({ events }: CalendarClientProps) {
                   {date.getDate()}
                 </span>
               </div>
-              <div className="space-y-0.5 overflow-hidden">
-                {dayEvents.slice(0, 3).map(event => (
-                  <div
+              <div className="flex flex-wrap gap-0.5 overflow-hidden">
+                {dayEvents.slice(0, 6).map(event => (
+                  <span
                     key={event.id}
-                    className={cn("text-[9px] md:text-[10px] px-1 py-0.5 rounded truncate leading-tight", categoryColor[event.category])}
+                    title={cleanTitle(event.title)}
+                    className={cn(
+                      "text-[9px] md:text-[10px] px-1.5 py-0.5 rounded-full leading-tight truncate max-w-full font-medium",
+                      categoryColor[event.category]
+                    )}
                   >
                     {cleanTitle(event.title)}
-                  </div>
+                  </span>
                 ))}
-                {dayEvents.length > 3 && (
-                  <div className="text-[10px] text-gray-400 px-1">+{dayEvents.length - 3}</div>
+                {dayEvents.length > 6 && (
+                  <span className="text-[9px] md:text-[10px] px-1.5 py-0.5 rounded-full leading-tight bg-gray-100 text-gray-500 font-medium">
+                    +{dayEvents.length - 6}
+                  </span>
                 )}
               </div>
             </div>
