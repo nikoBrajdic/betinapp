@@ -1,11 +1,12 @@
 import type React from "react"
-import type { Metadata } from "next"
+import type { Metadata, Viewport } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
 import { Sidebar } from "@/components/sidebar"
 import { TopBar } from "@/components/top-bar"
 import { EventsPanel } from "@/components/events-panel"
 import { SaveIndicator } from "@/components/save-indicator"
+import { PwaRegister } from "@/components/pwa-register"
 import { getCurrentUser } from "@/lib/actions/auth"
 import { getEvents } from "@/lib/actions/events"
 
@@ -14,6 +15,19 @@ const inter = Inter({ subsets: ["latin"] })
 export const metadata: Metadata = {
   title: "Betinapp",
   description: "Shared household management dashboard",
+  manifest: "/manifest.webmanifest",
+  themeColor: "#1a1464",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Betinapp",
+  },
+}
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
 }
 
 export default async function RootLayout({
@@ -27,6 +41,7 @@ export default async function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${inter.className} antialiased`}>
+        <PwaRegister />
         {user ? (
           <div
             className="flex h-dvh w-screen overflow-hidden p-2 md:p-4 gap-2 md:gap-4 flex-col md:flex-row"

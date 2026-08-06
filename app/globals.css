@@ -136,3 +136,9 @@
     transform: translateX(100vw);
   }
 }
+
+/* Electron frameless window: keep top-right actions clear of caption controls */
+body.electron-titlebar-overlay .electron-topbar-safe {
+  padding-top: 1.1rem;
+  min-height: 52px;
+}

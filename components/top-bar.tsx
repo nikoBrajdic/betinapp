@@ -32,7 +32,7 @@ export function TopBar() {
   }
 
   return (
-    <div className="flex items-center justify-between px-1 md:px-2 py-1 flex-shrink-0 min-h-[44px] md:min-h-[48px]">
+    <div className="electron-topbar-safe flex items-center justify-between px-1 md:px-2 py-1 flex-shrink-0 min-h-[44px] md:min-h-[48px]">
       <div>
         <div className="flex items-center gap-2">
           <button
