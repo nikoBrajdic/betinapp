@@ -13,15 +13,27 @@ import { BookOpen, Plus, Trash2, Image as ImageIcon, MoreHorizontal } from "luci
 import { createDiaryEntry, deleteDiaryEntry, type DiaryEntry } from "@/lib/actions/diary"
 import { trackSave } from "@/lib/save-events"
 import { useRealtimeRefresh } from "@/hooks/use-realtime-refresh"
+import { useT, useLanguage } from "@/lib/language"
 
 interface DiaryClientProps {
   entries: DiaryEntry[]
 }
 
-function getPreview(entry: DiaryEntry): string {
+function getPreview(entry: DiaryEntry, empty: string): string {
   const block = entry.content.find(b => b.type === "paragraph" || b.type === "heading")
-  if (!block) return "Empty entry"
-  return (block as any).text || "Empty entry"
+  if (!block) return empty
+  return (block as any).text || empty
+}
+
+// Croatian noun agreement for "block": 1 blok, 2–4 bloka, else blokova.
+function blockWord(n: number, lang: "en" | "hr"): string {
+  if (lang === "hr") {
+    const m10 = n % 10, m100 = n % 100
+    if (m10 === 1 && m100 !== 11) return "blok"
+    if (m10 >= 2 && m10 <= 4 && !(m100 >= 12 && m100 <= 14)) return "bloka"
+    return "blokova"
+  }
+  return n === 1 ? "block" : "blocks"
 }
 
 function getThumbnails(entry: DiaryEntry): string[] {
@@ -43,6 +55,9 @@ export function DiaryClient({ entries }: DiaryClientProps) {
   const [creating, setCreating] = useState(false)
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const router = useRouter()
+  const t = useT()
+  const { lang } = useLanguage()
+  const dateLocale = lang === "hr" ? "hr-HR" : "en-US"
   useRealtimeRefresh(["diary_entries"])
 
   useEffect(() => {
@@ -72,9 +87,9 @@ export function DiaryClient({ entries }: DiaryClientProps) {
     <div className="p-8">
       {entries.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-24 gap-4">
-          <p className="text-gray-400 text-base">No diary entries yet</p>
+          <p className="text-gray-400 text-base">{t("diary.noEntries")}</p>
           <button onClick={() => setDialogOpen(true)} className="flex items-center gap-2 px-6 py-2.5 bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium rounded-xl cursor-pointer transition-colors">
-            <Plus className="h-4 w-4" /> New Entry
+            <Plus className="h-4 w-4" /> {t("diary.newEntry")}
           </button>
         </div>
       ) : (
@@ -106,7 +121,7 @@ export function DiaryClient({ entries }: DiaryClientProps) {
                         className="cursor-pointer text-destructive focus:text-destructive"
                         onClick={e => { e.stopPropagation(); setDeleteId(entry.id) }}
                       >
-                        <Trash2 className="h-3.5 w-3.5 mr-2" /> Delete
+                        <Trash2 className="h-3.5 w-3.5 mr-2" /> {t("common.delete")}
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -120,13 +135,13 @@ export function DiaryClient({ entries }: DiaryClientProps) {
                     ))}
                   </div>
                 ) : (
-                  <p className="text-sm text-gray-400 line-clamp-2 mb-3">{getPreview(entry)}</p>
+                  <p className="text-sm text-gray-400 line-clamp-2 mb-3">{getPreview(entry, t("diary.emptyEntry"))}</p>
                 )}
 
                 <div className="flex items-center gap-3 text-xs text-gray-400">
-                  <span>{new Date(entry.updated_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
+                  <span>{new Date(entry.updated_at).toLocaleDateString(dateLocale, { month: "short", day: "numeric" })}</span>
                   {totalImages > 0 && <span className="flex items-center gap-1"><ImageIcon className="h-3 w-3" /> {totalImages}</span>}
-                  {blockCount > 0 && <span>{blockCount} block{blockCount !== 1 ? "s" : ""}</span>}
+                  {blockCount > 0 && <span>{blockCount} {blockWord(blockCount, lang)}</span>}
                 </div>
               </Card>
             )
@@ -137,17 +152,17 @@ export function DiaryClient({ entries }: DiaryClientProps) {
       {/* New entry dialog */}
       <Dialog open={dialogOpen} onOpenChange={open => { if (!open) { setDialogOpen(false); setNewTitle("") } }}>
         <DialogContent className="sm:max-w-[360px]">
-          <DialogHeader><DialogTitle>New Diary Entry</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{t("diary.newEntryTitle")}</DialogTitle></DialogHeader>
           <div className="py-2 space-y-1.5">
-            <Label htmlFor="diary-title">Title (e.g. 2025)</Label>
+            <Label htmlFor="diary-title">{t("diary.titleLabel")}</Label>
             <Input id="diary-title" placeholder="2025" value={newTitle}
               onChange={e => setNewTitle(e.target.value)}
               onKeyDown={e => e.key === "Enter" && handleCreate()} autoFocus />
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)} className="cursor-pointer">Cancel</Button>
+            <Button variant="outline" onClick={() => setDialogOpen(false)} className="cursor-pointer">{t("common.cancel")}</Button>
             <Button onClick={handleCreate} disabled={!newTitle.trim() || creating} className="cursor-pointer">
-              {creating ? "Creating…" : "Create"}
+              {creating ? t("diary.creating") : t("diary.create")}
             </Button>
           </DialogFooter>
         </DialogContent>

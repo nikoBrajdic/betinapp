@@ -11,6 +11,7 @@ import { updateDiaryEntry, type DiaryEntry, type Block, type ImageItem } from "@
 import { trackSave } from "@/lib/save-events"
 import { createClient } from "@/lib/supabase/client"
 import { ImageLightbox } from "@/components/image-lightbox"
+import { useT, useLanguage } from "@/lib/language"
 
 // ── Utilities ─────────────────────────────────────────────────────────────────
 
@@ -91,6 +92,7 @@ function ImageBlock({
   onOpenLightbox: (index: number) => void
   globalOffset: number
 }) {
+  const t = useT()
   const [uploading, setUploading] = useState(false)
   const [dragOver, setDragOver] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -162,14 +164,14 @@ function ImageBlock({
                   <button
                     onClick={() => document.getElementById(`img-replace-${block.id}-${i}`)?.click()}
                     className="flex h-7 w-7 items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 hover:text-amber-600 cursor-pointer transition-colors"
-                    title={`Replace image${block.images.length > 1 ? ` ${i + 1}/${block.images.length}` : ""}`}
+                    title={`${t("diary.replaceImage")}${block.images.length > 1 ? ` ${i + 1}/${block.images.length}` : ""}`}
                   >
                     <ImageIcon className="h-4 w-4" />
                   </button>
                   <button
                     onClick={() => removeImage(i)}
                     className="flex h-7 w-7 items-center justify-center rounded-full text-gray-400 hover:bg-red-50 hover:text-red-600 cursor-pointer transition-colors"
-                    title={`Delete image${block.images.length > 1 ? ` ${i + 1}/${block.images.length}` : ""}`}
+                    title={`${t("diary.deleteImage")}${block.images.length > 1 ? ` ${i + 1}/${block.images.length}` : ""}`}
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>
@@ -204,14 +206,14 @@ function ImageBlock({
           style={{ maxWidth: 500 }}
         >
           {uploading
-            ? <><Loader2 className="h-4 w-4 animate-spin" /> Uploading…</>
-            : <><ImageIcon className="h-4 w-4" /> Drop image or click to upload</>
+            ? <><Loader2 className="h-4 w-4 animate-spin" /> {t("diary.uploading")}</>
+            : <><ImageIcon className="h-4 w-4" /> {t("diary.dropOrClick")}</>
           }
         </div>
       )}
       {uploading && block.images.length > 0 && (
         <div className="flex items-center gap-2 text-sm text-amber-500 mt-1">
-          <Loader2 className="h-4 w-4 animate-spin" /> Uploading…
+          <Loader2 className="h-4 w-4 animate-spin" /> {t("diary.uploading")}
         </div>
       )}
       <input ref={fileRef} id={`img-add-${block.id}`} type="file" accept="image/*" multiple className="hidden"
@@ -233,6 +235,7 @@ function BlockRow({
   isDragOver: boolean; entryId: string; onAddImageAfter: () => void
   onOpenLightbox: (index: number) => void; globalOffset: number
 }) {
+  const t = useT()
   const handleKey = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     const text = (block as any).text ?? ""
     if (e.key === "Enter" && !e.shiftKey) {
@@ -276,7 +279,7 @@ function BlockRow({
         {block.type === "heading" && (
           <AutoTextarea
             value={block.text} onChange={text => onChange({ ...block, text })}
-            onKeyDown={handleKey} placeholder="Heading…"
+            onKeyDown={handleKey} placeholder={t("diary.headingPlaceholder")}
             autoFocus={focused}
             focusPosition={focusPosition}
             className="text-xl font-semibold text-gray-800 py-0.5"
@@ -285,7 +288,7 @@ function BlockRow({
         {block.type === "paragraph" && (
           <AutoTextarea
             value={block.text} onChange={text => onChange({ ...block, text })}
-            onKeyDown={handleKey} placeholder="Write something…"
+            onKeyDown={handleKey} placeholder={t("diary.writeSomething")}
             autoFocus={focused}
             focusPosition={focusPosition}
             className={cn("text-base text-gray-700 py-0.5", block.bold && "font-semibold")}
@@ -308,7 +311,7 @@ function BlockRow({
                 : { ...block, type: "heading" } as Block
             )}
             className="p-1.5 rounded-lg text-gray-400 hover:text-gray-800 hover:bg-gray-200 cursor-pointer transition-colors"
-            title={block.type === "heading" ? "To text" : "To heading"}
+            title={block.type === "heading" ? t("diary.toText") : t("diary.toHeading")}
           >
             {block.type === "heading" ? <Type className="h-4 w-4" /> : <Heading2 className="h-4 w-4" />}
           </button>
@@ -321,7 +324,7 @@ function BlockRow({
                   ? "text-gray-900 bg-gray-200"
                   : "text-gray-400 hover:text-gray-800 hover:bg-gray-200"
               )}
-              title="Bold"
+              title={t("diary.bold")}
             >
               <Bold className="h-4 w-4" />
             </button>
@@ -331,7 +334,7 @@ function BlockRow({
           <button
             onClick={onAddImageAfter}
             className="p-1.5 rounded-lg text-gray-400 hover:text-amber-600 hover:bg-amber-50 cursor-pointer transition-colors"
-            title="Add image below"
+            title={t("diary.addImageBelow")}
           >
             <ImageIcon className="h-4 w-4" />
           </button>
@@ -342,7 +345,7 @@ function BlockRow({
               : () => (document.getElementById(`img-add-${block.id}`) as HTMLElement)?.click()
             }
             className="rounded-lg p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 cursor-pointer transition-colors"
-            title={block.images.length >= 3 ? "Add image row below" : "Add photo to row"}
+            title={block.images.length >= 3 ? t("diary.addImageRowBelow") : t("diary.addPhotoToRow")}
           >
             <ImageIcon className="h-4 w-4" />
           </button>
@@ -351,7 +354,7 @@ function BlockRow({
           <button
             onClick={onDelete}
             className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 cursor-pointer transition-colors"
-            title="Delete block"
+            title={t("diary.deleteBlock")}
           >
             <Trash2 className="h-4 w-4" />
           </button>
@@ -359,7 +362,7 @@ function BlockRow({
           <button
             onClick={onDelete}
             className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 cursor-pointer transition-colors"
-            title="Delete image block"
+            title={t("diary.deleteImageBlock")}
           >
             <Trash2 className="h-4 w-4" />
           </button>
@@ -371,6 +374,9 @@ function BlockRow({
 
 // ── Main editor ───────────────────────────────────────────────────────────────
 export function DiaryEditorClient({ entry }: { entry: DiaryEntry }) {
+  const t = useT()
+  const { lang } = useLanguage()
+  const timeLocale = lang === "hr" ? "hr-HR" : "en-US"
   const [title, setTitle] = useState(entry.title)
   const [blocks, setBlocks] = useState<Block[]>(
     // Migrate old single-image blocks to new format
@@ -524,7 +530,7 @@ export function DiaryEditorClient({ entry }: { entry: DiaryEntry }) {
         <div className="mb-6">
           <button onClick={() => router.push("/diary")}
             className="flex items-center gap-1 text-sm text-gray-400 hover:text-gray-700 cursor-pointer transition-colors mb-4">
-            <ChevronLeft className="h-4 w-4" /> All entries
+            <ChevronLeft className="h-4 w-4" /> {t("diary.allEntries")}
           </button>
           <div className="flex items-center justify-between">
             <h1 className="text-4xl font-bold text-gray-900 tracking-tight">{title}</h1>
@@ -532,7 +538,7 @@ export function DiaryEditorClient({ entry }: { entry: DiaryEntry }) {
               onClick={() => setIsEditing(true)}
               className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-sm font-medium text-gray-600 hover:text-gray-900 cursor-pointer transition-colors flex-shrink-0 ml-4"
             >
-              <Pencil className="h-3.5 w-3.5" /> Edit
+              <Pencil className="h-3.5 w-3.5" /> {t("common.edit")}
             </button>
           </div>
         </div>
@@ -592,7 +598,7 @@ export function DiaryEditorClient({ entry }: { entry: DiaryEntry }) {
       {/* Global drop overlay */}
       {globalDragOver && (
         <div className="fixed inset-0 z-50 bg-amber-50/80 border-4 border-dashed border-amber-400 flex items-center justify-center pointer-events-none">
-          <p className="text-amber-600 text-xl font-semibold">Drop image to add to diary</p>
+          <p className="text-amber-600 text-xl font-semibold">{t("diary.dropToDiary")}</p>
         </div>
       )}
 
@@ -612,18 +618,18 @@ export function DiaryEditorClient({ entry }: { entry: DiaryEntry }) {
                 else { setFocusedId(blocks[0].id); setFocusPosition(0) }
               }
             }}
-            placeholder="Title…"
+            placeholder={t("diary.titlePlaceholder")}
             className="text-4xl font-bold text-gray-900 tracking-tight flex-1"
           />
           <div className="flex items-center gap-2 flex-shrink-0 ml-4">
             <span className="text-xs text-gray-400">
-              {saving ? "Saving…" : savedAt ? `Saved ${savedAt.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}` : ""}
+              {saving ? t("diary.saving") : savedAt ? `${t("diary.saved")} ${savedAt.toLocaleTimeString(timeLocale, { hour: "2-digit", minute: "2-digit" })}` : ""}
             </span>
             <button
               onClick={() => setIsEditing(false)}
               className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gray-800 hover:bg-gray-900 text-sm font-medium text-white cursor-pointer transition-colors"
             >
-              Done
+              {t("diary.done")}
             </button>
           </div>
         </div>
@@ -669,12 +675,12 @@ export function DiaryEditorClient({ entry }: { entry: DiaryEntry }) {
 
       {/* Add block toolbar */}
       <div className="flex items-center gap-2 mt-6 pl-5">
-        <span className="text-xs text-gray-300 mr-1">Add</span>
+        <span className="text-xs text-gray-300 mr-1">{t("diary.add")}</span>
         {([
-          { type: "paragraph" as const, icon: <Type className="h-3.5 w-3.5" />, label: "Text" },
-          { type: "heading" as const, icon: <Heading2 className="h-3.5 w-3.5" />, label: "Heading" },
-          { type: "image" as const, icon: <ImageIcon className="h-3.5 w-3.5" />, label: "Image" },
-        ] as const).map(({ type, icon, label }) => (
+          { type: "paragraph" as const, icon: <Type className="h-3.5 w-3.5" />, label: t("diary.text") },
+          { type: "heading" as const, icon: <Heading2 className="h-3.5 w-3.5" />, label: t("diary.heading") },
+          { type: "image" as const, icon: <ImageIcon className="h-3.5 w-3.5" />, label: t("diary.image") },
+        ]).map(({ type, icon, label }) => (
           <button key={type}
             onClick={() => addBlock(type, blocks[blocks.length - 1]?.id)}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-gray-400 hover:text-gray-700 hover:bg-gray-100 cursor-pointer transition-colors border border-gray-200"
