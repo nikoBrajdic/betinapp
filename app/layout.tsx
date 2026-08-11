@@ -9,6 +9,7 @@ import { SaveIndicator } from "@/components/save-indicator"
 import { PwaRegister } from "@/components/pwa-register"
 import { getCurrentUser } from "@/lib/actions/auth"
 import { getEvents } from "@/lib/actions/events"
+import { LanguageProvider } from "@/lib/language"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -42,6 +43,7 @@ export default async function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className={`${inter.className} antialiased`}>
         <PwaRegister />
+        <LanguageProvider>
         {user ? (
           <div
             className="flex h-dvh w-screen overflow-hidden p-2 md:p-4 gap-2 md:gap-4 flex-col md:flex-row"
@@ -76,6 +78,7 @@ export default async function RootLayout({
             {children}
           </main>
         )}
+        </LanguageProvider>
       </body>
     </html>
   )

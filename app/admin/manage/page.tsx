@@ -7,14 +7,22 @@ import { AdminManageClient } from "@/components/admin-manage-client"
 export default async function AdminManagePage() {
   const user = await getCurrentUser()
 
-  if (!user || user.profile?.role !== "superadmin") {
+  if (!user) {
     redirect("/")
   }
 
-  const { admins } = await getAdmins()
-  const allowlist = await getAllowlist()
+  const isSuperadmin = user.profile?.role === "superadmin"
+
+  // Only superadmins can see/manage users and the allow list; everyone else gets settings only.
+  const { admins } = isSuperadmin ? await getAdmins() : { admins: [] }
+  const allowlist = isSuperadmin ? await getAllowlist() : []
 
   return (
-    <AdminManageClient admins={admins} allowlist={allowlist} currentUserRole={user.profile?.role} />
+    <AdminManageClient
+      admins={admins}
+      allowlist={allowlist}
+      currentUserRole={user.profile?.role}
+      isSuperadmin={isSuperadmin}
+    />
   )
 }

@@ -192,20 +192,18 @@ export function Sidebar({ user }: SidebarProps) {
                     </Link>
                   )
                 })}
-                {user.profile?.role === "superadmin" && (
-                  <Link
-                    href="/admin/manage"
-                    className={cn(
-                      "flex items-center gap-3 py-2.5 rounded-xl text-sm font-medium transition-all px-3",
-                      pathname === "/admin/manage"
-                        ? "bg-white text-[#1a1464] shadow-sm"
-                        : "text-white/75 hover:text-white hover:bg-white/10"
-                    )}
-                  >
-                    <Settings className="h-[18px] w-[18px] flex-shrink-0" />
-                    <span>Manage Users</span>
-                  </Link>
-                )}
+                <Link
+                  href="/admin/manage"
+                  className={cn(
+                    "flex items-center gap-3 py-2.5 rounded-xl text-sm font-medium transition-all px-3",
+                    pathname === "/admin/manage"
+                      ? "bg-white text-[#1a1464] shadow-sm"
+                      : "text-white/75 hover:text-white hover:bg-white/10"
+                  )}
+                >
+                  <Settings className="h-[18px] w-[18px] flex-shrink-0" />
+                  <span>Settings</span>
+                </Link>
               </nav>
 
               <div className="mx-2 border-t border-white/10 mt-2" />
@@ -315,25 +313,21 @@ export function Sidebar({ user }: SidebarProps) {
           )
         })}
 
-        {user.profile?.role === "superadmin" && (
-          <>
-            <div className="my-2 border-t border-white/10" />
-            <Link
-              href="/admin/manage"
-              title={collapsed ? "Manage Admins" : undefined}
-              className={cn(
-                "flex items-center gap-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150",
-                collapsed ? "justify-center px-0" : "px-3",
-                pathname === "/admin/manage"
-                  ? "bg-white text-[#1a1464] shadow-sm"
-                  : "text-white/65 hover:text-white hover:bg-white/10"
-              )}
-            >
-              <Settings className="h-[18px] w-[18px] flex-shrink-0" />
-              {!collapsed && <span>Manage Users</span>}
-            </Link>
-          </>
-        )}
+        <div className="my-2 border-t border-white/10" />
+        <Link
+          href="/admin/manage"
+          title={collapsed ? "Settings" : undefined}
+          className={cn(
+            "flex items-center gap-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150",
+            collapsed ? "justify-center px-0" : "px-3",
+            pathname === "/admin/manage"
+              ? "bg-white text-[#1a1464] shadow-sm"
+              : "text-white/65 hover:text-white hover:bg-white/10"
+          )}
+        >
+          <Settings className="h-[18px] w-[18px] flex-shrink-0" />
+          {!collapsed && <span>Settings</span>}
+        </Link>
       </nav>
 
       {/* Mini calendar (only when expanded) */}
