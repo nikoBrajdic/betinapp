@@ -20,15 +20,16 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { signOut } from "@/lib/actions/auth"
+import { useT } from "@/lib/language"
 
 const navigation = [
-  { name: "Dashboard", href: "/", icon: LayoutDashboard },
-  { name: "Notes", href: "/notes", icon: FileText },
-  { name: "Tasks", href: "/tasks", icon: CheckSquare },
-  { name: "Calendar", href: "/calendar", icon: Calendar },
-  { name: "Utilities", href: "/utilities", icon: Zap },
-  { name: "Stays", href: "/guest-stays", icon: Home },
-  { name: "Diary", href: "/diary", icon: BookOpen },
+  { name: "Dashboard", tKey: "nav.dashboard", href: "/", icon: LayoutDashboard },
+  { name: "Notes", tKey: "nav.notes", href: "/notes", icon: FileText },
+  { name: "Tasks", tKey: "nav.tasks", href: "/tasks", icon: CheckSquare },
+  { name: "Calendar", tKey: "nav.calendar", href: "/calendar", icon: Calendar },
+  { name: "Utilities", tKey: "nav.utilities", href: "/utilities", icon: Zap },
+  { name: "Stays", tKey: "nav.stays", href: "/guest-stays", icon: Home },
+  { name: "Diary", tKey: "nav.diary", href: "/diary", icon: BookOpen },
 ]
 
 interface SidebarProps {
@@ -97,6 +98,7 @@ function MiniCalendar() {
 }
 
 export function Sidebar({ user }: SidebarProps) {
+  const t = useT()
   const pathname = usePathname()
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -111,7 +113,7 @@ export function Sidebar({ user }: SidebarProps) {
 
   const initials = getInitials(user.profile?.full_name, user.email)
   const displayName = user.profile?.full_name || user.email?.split("@")[0] || "User"
-  const role = user.profile?.role === "superadmin" ? "Super Admin" : "Admin"
+  const role = user.profile?.role === "superadmin" ? t("role.superadmin") : t("role.admin")
 
   const online = usePresence({ name: displayName, email: user.email ?? "", initials, avatarUrl: user.avatarUrl })
   const others = online.filter(u => u.email !== user.email)
@@ -164,7 +166,7 @@ export function Sidebar({ user }: SidebarProps) {
             <button
               onClick={() => setMobileOpen(open => !open)}
               className="p-1.5 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors"
-              title={mobileOpen ? "Collapse navigation" : "Expand navigation"}
+              title={mobileOpen ? t("sidebar.closeNav") : t("sidebar.openNav")}
             >
               <ChevronsLeft className="h-4 w-4 transition-transform" />
             </button>
@@ -188,7 +190,7 @@ export function Sidebar({ user }: SidebarProps) {
                       )}
                     >
                       <item.icon className="h-[18px] w-[18px] flex-shrink-0" />
-                      <span>{item.name}</span>
+                      <span>{t(item.tKey)}</span>
                     </Link>
                   )
                 })}
@@ -202,7 +204,7 @@ export function Sidebar({ user }: SidebarProps) {
                   )}
                 >
                   <Settings className="h-[18px] w-[18px] flex-shrink-0" />
-                  <span>Settings</span>
+                  <span>{t("nav.settings")}</span>
                 </Link>
               </nav>
 
@@ -210,7 +212,7 @@ export function Sidebar({ user }: SidebarProps) {
               <MiniCalendar />
 
               <div className="px-3 pb-3">
-                <p className="text-[10px] text-white/30 uppercase tracking-widest mb-2 font-medium">Online now</p>
+                <p className="text-[10px] text-white/30 uppercase tracking-widest mb-2 font-medium">{t("sidebar.onlineNow")}</p>
                 <div className="flex flex-wrap gap-1.5">
                   {others.map(u => (
                     <div key={u.email} title={u.name} className="relative h-7 w-7 flex-shrink-0">
@@ -246,7 +248,7 @@ export function Sidebar({ user }: SidebarProps) {
                     className="flex items-center gap-3 w-full py-2 rounded-xl text-xs font-medium text-white/50 hover:text-white hover:bg-white/10 transition-all px-3 mt-1"
                   >
                     <RefreshCw className={cn("h-4 w-4 flex-shrink-0", checkingUpdates && "animate-spin")} />
-                    <span>{checkingUpdates ? "Checking..." : "Check for updates"}</span>
+                    <span>{checkingUpdates ? t("sidebar.checking") : t("sidebar.checkUpdates")}</span>
                   </button>
                 )}
                 <form action={signOut}>
@@ -255,7 +257,7 @@ export function Sidebar({ user }: SidebarProps) {
                     className="flex items-center gap-3 w-full py-2 rounded-xl text-xs font-medium text-white/50 hover:text-white hover:bg-white/10 transition-all px-3 mt-1"
                   >
                     <LogOut className="h-4 w-4 flex-shrink-0" />
-                    <span>Sign out</span>
+                    <span>{t("sidebar.signOut")}</span>
                   </button>
                 </form>
               </div>
@@ -279,7 +281,7 @@ export function Sidebar({ user }: SidebarProps) {
         <button
           onClick={() => setCollapsed(!collapsed)}
           className="p-1.5 rounded-lg text-white/50 hover:text-white hover:bg-white/10 transition-colors flex-shrink-0 cursor-pointer"
-          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          title={collapsed ? t("sidebar.expand") : t("sidebar.collapse")}
         >
           <ChevronsLeft className={cn("h-4 w-4 transition-transform duration-300", collapsed && "rotate-180")} />
         </button>
@@ -298,7 +300,7 @@ export function Sidebar({ user }: SidebarProps) {
             <Link
               key={item.name}
               href={item.href}
-              title={collapsed ? item.name : undefined}
+              title={collapsed ? t(item.tKey) : undefined}
               className={cn(
                 "flex items-center gap-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150",
                 collapsed ? "justify-center px-0" : "px-3",
@@ -308,7 +310,7 @@ export function Sidebar({ user }: SidebarProps) {
               )}
             >
               <item.icon className="h-[18px] w-[18px] flex-shrink-0" />
-              {!collapsed && <span>{item.name}</span>}
+              {!collapsed && <span>{t(item.tKey)}</span>}
             </Link>
           )
         })}
@@ -316,7 +318,7 @@ export function Sidebar({ user }: SidebarProps) {
         <div className="my-2 border-t border-white/10" />
         <Link
           href="/admin/manage"
-          title={collapsed ? "Settings" : undefined}
+          title={collapsed ? t("nav.settings") : undefined}
           className={cn(
             "flex items-center gap-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150",
             collapsed ? "justify-center px-0" : "px-3",
@@ -326,7 +328,7 @@ export function Sidebar({ user }: SidebarProps) {
           )}
         >
           <Settings className="h-[18px] w-[18px] flex-shrink-0" />
-          {!collapsed && <span>Settings</span>}
+          {!collapsed && <span>{t("nav.settings")}</span>}
         </Link>
       </nav>
 
@@ -342,7 +344,7 @@ export function Sidebar({ user }: SidebarProps) {
       {others.length > 0 && (
         <div className={cn("px-3 pb-3", collapsed && "px-2 flex justify-center")}>
           {!collapsed && (
-            <p className="text-[10px] text-white/30 uppercase tracking-widest mb-2 font-medium">Online now</p>
+            <p className="text-[10px] text-white/30 uppercase tracking-widest mb-2 font-medium">{t("sidebar.onlineNow")}</p>
           )}
           <div className="flex flex-wrap gap-1.5">
             {others.map(u => (
@@ -387,27 +389,27 @@ export function Sidebar({ user }: SidebarProps) {
           <button
             type="button"
             onClick={handleCheckUpdates}
-            title="Check for updates"
+            title={t("sidebar.checkUpdates")}
             className={cn(
               "flex items-center gap-3 w-full py-2 rounded-xl text-xs font-medium text-white/50 hover:text-white hover:bg-white/10 transition-all",
               collapsed ? "justify-center px-0" : "px-3 mt-1"
             )}
           >
             <RefreshCw className={cn("h-4 w-4 flex-shrink-0", checkingUpdates && "animate-spin")} />
-            {!collapsed && <span>{checkingUpdates ? "Checking..." : "Check for updates"}</span>}
+            {!collapsed && <span>{checkingUpdates ? t("sidebar.checking") : t("sidebar.checkUpdates")}</span>}
           </button>
         )}
         <form action={signOut}>
           <button
             type="submit"
-            title="Sign out"
+            title={t("sidebar.signOut")}
             className={cn(
               "flex items-center gap-3 w-full py-2 rounded-xl text-xs font-medium text-white/50 hover:text-white hover:bg-white/10 transition-all",
               collapsed ? "justify-center px-0" : "px-3 mt-1"
             )}
           >
             <LogOut className="h-4 w-4 flex-shrink-0" />
-            {!collapsed && <span>Sign out</span>}
+            {!collapsed && <span>{t("sidebar.signOut")}</span>}
           </button>
         </form>
       </div>
