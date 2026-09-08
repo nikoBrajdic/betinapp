@@ -1,5 +1,6 @@
 "use client"
 
+import type * as React from "react"
 import { useState, useEffect } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
@@ -7,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
+import { Segmented, SegmentedItem } from "@/components/ui/segmented"
 
 type StayType = "family" | "friend"
 
@@ -26,6 +28,10 @@ interface GuestStayDialogProps {
   onOpenChange: (open: boolean) => void
   stay?: Stay | null
   familyMembers: { name: string; email: string }[]
+  /** Rendered under the title — the calendar puts its stay/event tabs here. */
+  headerTabs?: React.ReactNode
+  /** Overrides the default "New Stay" heading. */
+  title?: string
   onSave: (data: {
     guestName: string
     room: string
@@ -36,7 +42,7 @@ interface GuestStayDialogProps {
   }) => void
 }
 
-export function GuestStayDialog({ open, onOpenChange, stay, familyMembers, onSave }: GuestStayDialogProps) {
+export function GuestStayDialog({ open, onOpenChange, stay, familyMembers, onSave, headerTabs, title }: GuestStayDialogProps) {
   const [name, setName] = useState("")
   const [room, setRoom] = useState("")
   const [checkIn, setCheckIn] = useState("")
@@ -65,35 +71,27 @@ export function GuestStayDialog({ open, onOpenChange, stay, familyMembers, onSav
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[460px]">
+      <DialogContent size="md">
         <DialogHeader>
-          <DialogTitle>{stay?.id ? "Edit Stay" : stay ? "Duplicate Stay" : "New Stay"}</DialogTitle>
+          <DialogTitle>{title ?? (stay?.id ? "Edit Stay" : stay ? "Duplicate Stay" : "New Stay")}</DialogTitle>
+          {headerTabs}
         </DialogHeader>
 
         <div className="space-y-4 py-2">
           {/* Type toggle */}
-          <div className="flex gap-2 p-1 bg-gray-100 rounded-xl w-fit">
-            {(["family", "friend"] as StayType[]).map(t => (
-              <button
-                key={t}
-                onClick={() => {
-                  setType(t)
-                  // Switching to family: keep the name only if it matches a member
-                  if (t === "family" && !familyMembers.some(m => m.name.split(" ")[0] === name)) setName("")
-                }}
-                className={cn(
-                  "px-4 py-1.5 rounded-lg text-sm font-medium transition-all cursor-pointer",
-                  type === t
-                    ? t === "family"
-                      ? "bg-blue-500 text-white shadow-sm"
-                      : "bg-violet-500 text-white shadow-sm"
-                    : "text-gray-500 hover:text-gray-700"
-                )}
-              >
-                {t === "family" ? "👨‍👩‍👧 Family" : "👫 Friend"}
-              </button>
-            ))}
-          </div>
+          <Segmented
+            value={type}
+            accent={type === "family" ? "brand" : "tasks"}
+            onValueChange={value => {
+              const next = value as StayType
+              setType(next)
+              // Switching to family: keep the name only if it matches a member
+              if (next === "family" && !familyMembers.some(m => m.name.split(" ")[0] === name)) setName("")
+            }}
+          >
+            <SegmentedItem value="family">👨‍👩‍👧 Family</SegmentedItem>
+            <SegmentedItem value="friend">👫 Friend</SegmentedItem>
+          </Segmented>
 
           {/* Name */}
           <div className="space-y-1.5">
@@ -114,7 +112,7 @@ export function GuestStayDialog({ open, onOpenChange, stay, familyMembers, onSav
                         type="button"
                         onClick={() => setName(firstName)}
                         className={cn(
-                          "px-3 py-1.5 rounded-full text-sm font-medium border transition-colors cursor-pointer",
+                          "px-3 py-1.5 rounded-full text-sm font-medium border transition-colors",
                           selected
                             ? "bg-blue-500 text-white border-blue-500"
                             : "bg-white text-gray-600 border-gray-200 hover:border-blue-300 hover:text-blue-500"
@@ -161,8 +159,8 @@ export function GuestStayDialog({ open, onOpenChange, stay, familyMembers, onSav
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} className="cursor-pointer">Cancel</Button>
-          <Button onClick={handleSave} disabled={!canSave} className="cursor-pointer">
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button onClick={handleSave} disabled={!canSave}>
             {stay?.id ? "Save" : "Add Stay"}
           </Button>
         </DialogFooter>

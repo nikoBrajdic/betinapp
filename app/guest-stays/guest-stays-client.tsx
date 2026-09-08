@@ -6,6 +6,10 @@ import { Card } from "@/components/ui/card"
 import { Plus, Pencil, Trash2, Copy, MoreHorizontal } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { ConfirmDeleteDialog } from "@/components/confirm-delete-dialog"
+import { PageShell } from "@/components/ui/page-shell"
+import { EmptyState } from "@/components/ui/empty-state"
+import { Segmented, SegmentedItem } from "@/components/ui/segmented"
+import { Pill } from "@/components/ui/pill"
 import { cn } from "@/lib/utils"
 import { GuestStayDialog } from "@/components/guest-stay-dialog"
 import { createGuestStay, updateGuestStay, deleteGuestStay } from "@/lib/actions/guest-stays"
@@ -41,26 +45,21 @@ function nightCount(from: string, to: string) {
   return Math.round((new Date(to).getTime() - new Date(from).getTime()) / 86400000)
 }
 
-const statusDot: Record<Status, string> = {
-  upcoming: "bg-blue-400",
-  current:  "bg-green-400",
-  past:     "bg-gray-300",
+const statusConfig: Record<Status, { label: string; dot: string; accent: "brand" | "readings" | "neutral" }> = {
+  upcoming: { label: "Upcoming", dot: "#3b82f6", accent: "brand" },
+  current:  { label: "Current",  dot: "#10b981", accent: "readings" },
+  past:     { label: "Past",     dot: "#9ca3af", accent: "neutral" },
 }
 
-const statusRow: Record<Status, string> = {
-  upcoming: "",
-  current:  "bg-green-50/40",
-  past:     "opacity-60",
-}
-
-const typeConfig: Record<StayType, { label: string; badge: string }> = {
-  family: { label: "👨‍👩‍👧 Family", badge: "bg-blue-100 text-blue-700" },
-  friend: { label: "👫 Friend",  badge: "bg-violet-100 text-violet-700" },
+const typeConfig: Record<StayType, { label: string; accent: "brand" | "tasks" }> = {
+  family: { label: "👨‍👩‍👧 Family", accent: "brand" },
+  friend: { label: "👫 Friend",  accent: "tasks" },
 }
 
 export function GuestStaysClient({ guests, familyMembers }: GuestStaysClientProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [mobileView, setMobileView] = useState<"cards" | "table">("cards")
+  const [statusFilter, setStatusFilter] = useState<Status | null>(null)
   const [editingStay, setEditingStay] = useState<Stay | null>(null)
   const [deleteStay, setDeleteStay] = useState<Stay | null>(null)
   const [selectedYear, setSelectedYear] = useState<number | null>(null)
@@ -96,44 +95,58 @@ export function GuestStaysClient({ guests, familyMembers }: GuestStaysClientProp
 
   const stayYears = [...new Set(guests.map(g => new Date(g.from_date + "T12:00:00").getFullYear()))].sort((a, b) => b - a)
   const activeYear = selectedYear ?? stayYears[0] ?? new Date().getFullYear()
-  const filteredStays = [...guests]
+  const staysInYear = [...guests]
     .filter(g => new Date(g.from_date + "T12:00:00").getFullYear() === activeYear)
     .sort((a, b) => new Date(b.from_date).getTime() - new Date(a.from_date).getTime())
 
+  // By late season the list is mostly past stays, so let the status narrow it.
+  const statusCounts = staysInYear.reduce<Record<Status, number>>(
+    (acc, stay) => ({ ...acc, [stay.status]: (acc[stay.status] ?? 0) + 1 }),
+    { upcoming: 0, current: 0, past: 0 },
+  )
+
+  const filteredStays = statusFilter
+    ? staysInYear.filter(stay => stay.status === statusFilter)
+    : staysInYear
+
   return (
-    <div className="p-6">
+    <PageShell>
       {guests.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-24 gap-4">
-          <p className="text-gray-400 text-base">No stays yet</p>
-          <button onClick={() => setIsDialogOpen(true)} className="flex items-center gap-2 px-6 py-2.5 bg-rose-500 hover:bg-rose-600 text-white text-sm font-medium rounded-xl cursor-pointer transition-colors">
-            <Plus className="h-4 w-4" /> New Stay
-          </button>
-        </div>
+        <EmptyState
+          message="No stays yet"
+          action={<><Plus /> New Stay</>}
+          onAction={() => setIsDialogOpen(true)}
+          accent="stays"
+        />
       ) : (
         <>
+          {/* Status filter */}
+          <div className="flex flex-wrap items-center gap-1.5 mb-3">
+            <Pill
+              label="All"
+              meta={staysInYear.length}
+              state={statusFilter === null ? "on" : "off"}
+              accent="stays"
+              onClick={() => setStatusFilter(null)}
+            />
+            {(["upcoming", "current", "past"] as Status[]).map(status => (
+              <Pill
+                key={status}
+                label={statusConfig[status].label}
+                meta={statusCounts[status]}
+                dot={statusFilter === status ? undefined : statusConfig[status].dot}
+                state={statusFilter === status ? "on" : "off"}
+                accent="stays"
+                onClick={() => setStatusFilter(current => (current === status ? null : status))}
+              />
+            ))}
+          </div>
+
           <div className="md:hidden mb-2">
-            <div className="flex gap-2 p-1 bg-gray-100 rounded-xl w-fit">
-              <button
-                type="button"
-                onClick={() => setMobileView("cards")}
-                className={cn(
-                  "px-3 py-1 rounded-lg text-sm font-medium transition-all cursor-pointer",
-                  mobileView === "cards" ? "bg-rose-500 text-white shadow-sm" : "text-gray-500 hover:text-gray-700",
-                )}
-              >
-                Cards
-              </button>
-              <button
-                type="button"
-                onClick={() => setMobileView("table")}
-                className={cn(
-                  "px-3 py-1 rounded-lg text-sm font-medium transition-all cursor-pointer",
-                  mobileView === "table" ? "bg-rose-500 text-white shadow-sm" : "text-gray-500 hover:text-gray-700",
-                )}
-              >
-                Table
-              </button>
-            </div>
+            <Segmented value={mobileView} onValueChange={v => setMobileView(v as "cards" | "table")} accent="stays">
+              <SegmentedItem value="cards">Cards</SegmentedItem>
+              <SegmentedItem value="table">Table</SegmentedItem>
+            </Segmented>
           </div>
           {mobileView === "cards" && (
             <div className="md:hidden space-y-2 mb-2">
@@ -141,29 +154,37 @@ export function GuestStaysClient({ guests, familyMembers }: GuestStaysClientProp
                 const t = typeConfig[stay.type] ?? typeConfig.friend
                 const n = nightCount(stay.from_date, stay.to_date)
                 return (
-                  <Card key={`${stay.id}-mobile`} className={cn("shadow-none border-2 px-3 py-2 gap-2", statusRow[stay.status])}>
+                  <Card
+                    key={`${stay.id}-mobile`}
+                    onClick={() => { setEditingStay(stay); setIsDialogOpen(true) }}
+                    className="shadow-none border-2 px-3 py-2 gap-2 cursor-pointer transition-colors hover:border-rose-200"
+                  >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <div className="flex items-center gap-1.5">
-                          <div className={cn("w-2 h-2 rounded-full flex-shrink-0", statusDot[stay.status])} />
-                          <p className="text-sm font-semibold text-gray-800 truncate leading-tight">{stay.guest_name}</p>
+                        <p className="text-sm font-semibold text-gray-800 truncate leading-tight">{stay.guest_name}</p>
+                        <div className="mt-1">
+                          <Pill
+                            label={statusConfig[stay.status].label}
+                            dot={statusConfig[stay.status].dot}
+                            accent={statusConfig[stay.status].accent}
+                          />
                         </div>
                         {stay.room && <p className="text-[11px] text-gray-400 mt-0.5 leading-tight">{stay.room}</p>}
                       </div>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-6 w-6 cursor-pointer text-gray-400 hover:text-gray-700">
+                          <Button variant="ghost" size="icon" className="h-6 w-6 text-gray-400 hover:text-gray-700">
                             <MoreHorizontal className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem className="cursor-pointer" onClick={() => { setEditingStay(stay); setIsDialogOpen(true) }}>
+                        <DropdownMenuContent align="end" onClick={e => e.stopPropagation()}>
+                          <DropdownMenuItem onClick={() => { setEditingStay(stay); setIsDialogOpen(true) }}>
                             <Pencil className="h-3.5 w-3.5 mr-2" /> Edit
                           </DropdownMenuItem>
-                          <DropdownMenuItem className="cursor-pointer" onClick={() => handleDuplicate(stay)}>
+                          <DropdownMenuItem onClick={() => handleDuplicate(stay)}>
                             <Copy className="h-3.5 w-3.5 mr-2" /> Duplicate
                           </DropdownMenuItem>
-                          <DropdownMenuItem className="cursor-pointer text-destructive focus:text-destructive" onClick={() => setDeleteStay(stay)}>
+                          <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => setDeleteStay(stay)}>
                             <Trash2 className="h-3.5 w-3.5 mr-2" /> Delete
                           </DropdownMenuItem>
                         </DropdownMenuContent>
@@ -177,7 +198,7 @@ export function GuestStaysClient({ guests, familyMembers }: GuestStaysClientProp
                       </div>
                     )}
                     <div className="mt-1 flex items-center gap-1 text-[10px] text-gray-500 leading-tight">
-                      <span className={cn("px-1.5 py-0.5 rounded-full font-medium", t.badge)}>{t.label}</span>
+                      <Pill label={t.label} accent={t.accent} />
                       <span>{n}n</span>
                       <span className="text-gray-300">•</span>
                       <span>{shortDate(stay.from_date)} {"->"} {shortDate(stay.to_date)}</span>
@@ -198,7 +219,7 @@ export function GuestStaysClient({ guests, familyMembers }: GuestStaysClientProp
                         key={`mobile-${year}`}
                         onClick={() => setSelectedYear(year)}
                         className={cn(
-                          "px-3 py-1 rounded-lg text-sm font-medium transition-colors cursor-pointer",
+                          "px-3 py-1 rounded-lg text-sm font-medium transition-colors",
                           activeYear === year
                             ? "bg-rose-500 text-white"
                             : "text-gray-400 hover:text-gray-700 hover:bg-gray-100"
@@ -210,7 +231,7 @@ export function GuestStaysClient({ guests, familyMembers }: GuestStaysClientProp
                   </div>
                 )}
                 <div className="flex items-center gap-4 px-4 py-2 bg-gray-50 border-b border-gray-100">
-                  <div className="w-3 flex-shrink-0" />
+                  <div className="w-28 flex-shrink-0 text-xs font-medium text-gray-400 uppercase tracking-wide">Status</div>
                   <div className="w-40 flex-shrink-0 text-xs font-medium text-gray-400 uppercase tracking-wide">Guest</div>
                   <div className="w-24 flex-shrink-0 text-xs font-medium text-gray-400 uppercase tracking-wide">Type</div>
                   <div className="w-48 flex-shrink-0 text-xs font-medium text-gray-400 uppercase tracking-wide">Dates</div>
@@ -228,20 +249,22 @@ export function GuestStaysClient({ guests, familyMembers }: GuestStaysClientProp
                         key={`table-mobile-${stay.id}`}
                         title={stay.notes || undefined}
                         aria-label={stay.notes ? `Notes: ${stay.notes}` : undefined}
-                        className={cn(
-                          "flex items-center gap-4 px-4 py-3.5 hover:bg-gray-50 group transition-colors",
-                          statusRow[stay.status]
-                        )}
+                        onClick={() => { setEditingStay(stay); setIsDialogOpen(true) }}
+                        className="flex items-center gap-4 px-4 py-3.5 hover:bg-gray-50 group transition-colors cursor-pointer"
                       >
-                        <div className="w-3 flex-shrink-0 flex items-center justify-center">
-                          <div className={cn("w-2 h-2 rounded-full", statusDot[stay.status])} />
+                        <div className="w-28 flex-shrink-0">
+                          <Pill
+                            label={statusConfig[stay.status].label}
+                            dot={statusConfig[stay.status].dot}
+                            accent={statusConfig[stay.status].accent}
+                          />
                         </div>
                         <div className="w-40 flex-shrink-0 min-w-0">
                           <p className="text-sm font-semibold text-gray-800 truncate">{stay.guest_name}</p>
                           {stay.room && <p className="text-xs text-gray-400 truncate">{stay.room}</p>}
                         </div>
                         <div className="w-24 flex-shrink-0">
-                          <span className={cn("text-xs px-2 py-0.5 rounded-full font-medium", t.badge)}>{t.label}</span>
+                          <Pill label={t.label} accent={t.accent} />
                         </div>
                         <div className="w-48 flex-shrink-0 text-sm text-gray-600">
                           {shortDate(stay.from_date)} {"->"} {shortDate(stay.to_date)}
@@ -254,18 +277,18 @@ export function GuestStaysClient({ guests, familyMembers }: GuestStaysClientProp
                         <div className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-7 w-7 cursor-pointer text-gray-400 hover:text-gray-700">
+                              <Button variant="subtle" size="icon-xs">
                                 <MoreHorizontal className="h-4 w-4" />
                               </Button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem className="cursor-pointer" onClick={() => { setEditingStay(stay); setIsDialogOpen(true) }}>
+                            <DropdownMenuContent align="end" onClick={e => e.stopPropagation()}>
+                              <DropdownMenuItem onClick={() => { setEditingStay(stay); setIsDialogOpen(true) }}>
                                 <Pencil className="h-3.5 w-3.5 mr-2" /> Edit
                               </DropdownMenuItem>
-                              <DropdownMenuItem className="cursor-pointer" onClick={() => handleDuplicate(stay)}>
+                              <DropdownMenuItem onClick={() => handleDuplicate(stay)}>
                                 <Copy className="h-3.5 w-3.5 mr-2" /> Duplicate
                               </DropdownMenuItem>
-                              <DropdownMenuItem className="cursor-pointer text-destructive focus:text-destructive" onClick={() => setDeleteStay(stay)}>
+                              <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => setDeleteStay(stay)}>
                                 <Trash2 className="h-3.5 w-3.5 mr-2" /> Delete
                               </DropdownMenuItem>
                             </DropdownMenuContent>
@@ -287,7 +310,7 @@ export function GuestStaysClient({ guests, familyMembers }: GuestStaysClientProp
                   key={year}
                   onClick={() => setSelectedYear(year)}
                   className={cn(
-                    "px-3 py-1 rounded-lg text-sm font-medium transition-colors cursor-pointer",
+                    "px-3 py-1 rounded-lg text-sm font-medium transition-colors",
                     activeYear === year
                       ? "bg-rose-500 text-white"
                       : "text-gray-400 hover:text-gray-700 hover:bg-gray-100"
@@ -301,7 +324,7 @@ export function GuestStaysClient({ guests, familyMembers }: GuestStaysClientProp
 
           {/* Column headers */}
           <div className="flex items-center gap-4 px-4 py-2 bg-gray-50 border-b border-gray-100">
-            <div className="w-3 flex-shrink-0" />
+            <div className="w-28 flex-shrink-0 text-xs font-medium text-gray-400 uppercase tracking-wide">Status</div>
             <div className="w-40 flex-shrink-0 text-xs font-medium text-gray-400 uppercase tracking-wide">Guest</div>
             <div className="w-24 flex-shrink-0 text-xs font-medium text-gray-400 uppercase tracking-wide">Type</div>
             <div className="w-48 flex-shrink-0 text-xs font-medium text-gray-400 uppercase tracking-wide">Dates</div>
@@ -321,14 +344,16 @@ export function GuestStaysClient({ guests, familyMembers }: GuestStaysClientProp
                   key={stay.id}
                   title={stay.notes || undefined}
                   aria-label={stay.notes ? `Notes: ${stay.notes}` : undefined}
-                  className={cn(
-                    "flex items-center gap-4 px-4 py-3.5 hover:bg-gray-50 group transition-colors",
-                    statusRow[stay.status]
-                  )}
+                  onClick={() => { setEditingStay(stay); setIsDialogOpen(true) }}
+                  className="flex items-center gap-4 px-4 py-3.5 hover:bg-gray-50 group transition-colors cursor-pointer"
                 >
-                  {/* Status dot */}
-                  <div className="w-3 flex-shrink-0 flex items-center justify-center">
-                    <div className={cn("w-2 h-2 rounded-full", statusDot[stay.status])} />
+                  {/* Status */}
+                  <div className="w-28 flex-shrink-0">
+                    <Pill
+                      label={statusConfig[stay.status].label}
+                      dot={statusConfig[stay.status].dot}
+                      accent={statusConfig[stay.status].accent}
+                    />
                   </div>
 
                   {/* Guest name + room */}
@@ -339,7 +364,7 @@ export function GuestStaysClient({ guests, familyMembers }: GuestStaysClientProp
 
                   {/* Type */}
                   <div className="w-24 flex-shrink-0">
-                    <span className={cn("text-xs px-2 py-0.5 rounded-full font-medium", t.badge)}>{t.label}</span>
+                    <Pill label={t.label} accent={t.accent} />
                   </div>
 
                   {/* Dates */}
@@ -361,19 +386,19 @@ export function GuestStaysClient({ guests, familyMembers }: GuestStaysClientProp
                   {/* Actions */}
                   <div className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
                     <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 cursor-pointer text-gray-400 hover:text-gray-700">
+                      <DropdownMenuTrigger asChild onClick={e => e.stopPropagation()}>
+                        <Button variant="subtle" size="icon-xs">
                           <MoreHorizontal className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem className="cursor-pointer" onClick={() => { setEditingStay(stay); setIsDialogOpen(true) }}>
+                      <DropdownMenuContent align="end" onClick={e => e.stopPropagation()}>
+                        <DropdownMenuItem onClick={() => { setEditingStay(stay); setIsDialogOpen(true) }}>
                           <Pencil className="h-3.5 w-3.5 mr-2" /> Edit
                         </DropdownMenuItem>
-                        <DropdownMenuItem className="cursor-pointer" onClick={() => handleDuplicate(stay)}>
+                        <DropdownMenuItem onClick={() => handleDuplicate(stay)}>
                           <Copy className="h-3.5 w-3.5 mr-2" /> Duplicate
                         </DropdownMenuItem>
-                        <DropdownMenuItem className="cursor-pointer text-destructive focus:text-destructive" onClick={() => setDeleteStay(stay)}>
+                        <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => setDeleteStay(stay)}>
                           <Trash2 className="h-3.5 w-3.5 mr-2" /> Delete
                         </DropdownMenuItem>
                       </DropdownMenuContent>
@@ -401,6 +426,6 @@ export function GuestStaysClient({ guests, familyMembers }: GuestStaysClientProp
         onConfirm={() => deleteStay?.id && handleDelete(deleteStay.id)}
         itemName={deleteStay?.guest_name}
       />
-    </div>
+    </PageShell>
   )
 }

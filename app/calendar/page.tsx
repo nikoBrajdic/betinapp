@@ -1,4 +1,5 @@
 import { getEvents } from "@/lib/actions/events"
+import { getFamilyMembers } from "@/lib/actions/guest-stays"
 import { CalendarClient } from "./calendar-client"
 
 interface Event {
@@ -11,7 +12,7 @@ interface Event {
 }
 
 export default async function CalendarPage() {
-  const events = await getEvents()
+  const [events, familyMembers] = await Promise.all([getEvents(), getFamilyMembers()])
 
-  return <CalendarClient events={events} />
+  return <CalendarClient events={events} familyMembers={familyMembers} />
 }

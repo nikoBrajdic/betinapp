@@ -8,7 +8,13 @@ export type ImageItem = { url: string; caption: string }
 export type Block =
   | { id: string; type: "heading"; text: string }
   | { id: string; type: "paragraph"; text: string; bold: boolean }
-  | { id: string; type: "image"; images: ImageItem[] }
+  /**
+   * One image per block. Consecutive image blocks lay out as a row that wraps
+   * every three; `breakBefore` forces this image to start a fresh row instead.
+   * `images` stays an array for backwards compatibility with stored entries —
+   * `normalizeBlocks` splits any legacy multi-image block on load.
+   */
+  | { id: string; type: "image"; images: ImageItem[]; breakBefore?: boolean }
 
 export interface DiaryEntry {
   id: string

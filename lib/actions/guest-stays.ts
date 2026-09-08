@@ -3,10 +3,18 @@
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 
-function computeStatus(checkIn: string, checkOut: string): string {
+/**
+ * Status is a function of today's date, so it is derived on read rather than
+ * trusted from storage — a row written in June would otherwise still claim to
+ * be "upcoming" in September.
+ *
+ * `checkOut` is exclusive (the last night is the day before), so a stay whose
+ * checkout is today has already ended.
+ */
+function computeStatus(checkIn: string, checkOut: string): "upcoming" | "current" | "past" {
   const today = new Date().toISOString().split("T")[0]
   if (checkIn > today) return "upcoming"
-  if (checkOut >= today) return "current"
+  if (checkOut > today) return "current"
   return "past"
 }
 
@@ -56,7 +64,11 @@ export async function getGuestStays() {
     .select("*")
     .order("from_date", { ascending: true })
   if (error) throw error
-  return data
+  // The stored `status` is only as fresh as the last write — recompute it.
+  return (data ?? []).map(stay => ({
+    ...stay,
+    status: computeStatus(stay.from_date, stay.to_date),
+  }))
 }
 
 export async function createGuestStay(formData: {

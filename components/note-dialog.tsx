@@ -317,7 +317,7 @@ export function NoteDialog({
               <button
                 onClick={() => setType("text")}
                 className={cn(
-                  "flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium transition-all cursor-pointer",
+                  "flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium transition-all",
                   type === "text"
                     ? "border-blue-500 bg-blue-50 text-blue-700"
                     : "border-gray-200 text-gray-500 hover:border-gray-300"
@@ -328,7 +328,7 @@ export function NoteDialog({
               <button
                 onClick={() => setType("table")}
                 className={cn(
-                  "flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium transition-all cursor-pointer",
+                  "flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium transition-all",
                   type === "table"
                     ? "border-blue-500 bg-blue-50 text-blue-700"
                     : "border-gray-200 text-gray-500 hover:border-gray-300"
@@ -354,10 +354,10 @@ export function NoteDialog({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} className="cursor-pointer">
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={!canSave} className="cursor-pointer">
+          <Button onClick={handleSave} disabled={!canSave}>
             {mode === "create" ? "Create" : "Save"}
           </Button>
         </DialogFooter>

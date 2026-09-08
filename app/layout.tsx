@@ -17,11 +17,23 @@ export const metadata: Metadata = {
   title: "Betinapp",
   description: "Shared household management dashboard",
   manifest: "/manifest.webmanifest",
-  themeColor: "#1a1464",
   appleWebApp: {
     capable: true,
-    statusBarStyle: "default",
+    // Translucent lets the navy gradient run under the status bar; the shell
+    // pads itself out of the safe area below.
+    statusBarStyle: "black-translucent",
     title: "Betinapp",
+  },
+  icons: {
+    icon: "/icon.svg",
+    // iOS home screens need an opaque PNG — it cannot use the SVG.
+    apple: "/apple-touch-icon.png",
+  },
+  other: {
+    // Next 16 only emits `mobile-web-app-capable`, which iOS Safari ignores.
+    // Without this exact meta, "Add to Home Screen" opens in a Safari tab
+    // with the URL bar and toolbar instead of standalone.
+    "apple-mobile-web-app-capable": "yes",
   },
 }
 
@@ -29,6 +41,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
+  themeColor: "#1a1464",
 }
 
 export default async function RootLayout({
@@ -46,13 +59,13 @@ export default async function RootLayout({
         <LanguageProvider>
         {user ? (
           <div
-            className="flex h-dvh w-screen overflow-hidden p-2 md:p-4 gap-2 md:gap-4 flex-col md:flex-row"
+            className="app-shell flex h-dvh w-screen overflow-hidden gap-2 md:gap-4 flex-col md:flex-row"
             style={{ background: "linear-gradient(135deg, #1a1464 0%, #2563eb 100%)" }}
           >
             <Sidebar user={user} />
 
             {/* Right column */}
-            <div className="mobile-content-shift flex-1 flex flex-col gap-2 md:gap-3 min-w-0 min-h-0">
+            <div className="flex-1 flex flex-col gap-2 md:gap-3 min-w-0 min-h-0">
               <TopBar />
 
               {/* Content row: white inset + optional events panel */}

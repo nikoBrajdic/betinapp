@@ -13,6 +13,9 @@ import {
   Pencil, Copy, GripVertical, Grip,
 } from "lucide-react"
 import { TaskGroupDialog } from "@/components/task-group-dialog"
+import { PageShell } from "@/components/ui/page-shell"
+import { EmptyState } from "@/components/ui/empty-state"
+import { Pill } from "@/components/ui/pill"
 import { cn } from "@/lib/utils"
 import {
   createTaskWithItems, updateTaskGroup, deleteTaskGroup,
@@ -89,7 +92,7 @@ function AddItemRow({ groupId, onAdded }: { groupId: string; onAdded: () => void
   if (!adding) return (
     <button
       onClick={startAdding}
-      className="flex items-center gap-1.5 w-full text-sm text-gray-400 hover:text-gray-600 py-1 cursor-pointer transition-colors"
+      className="flex items-center gap-1.5 w-full text-sm text-gray-400 hover:text-gray-600 py-1 transition-colors"
     >
       <Plus className="h-3.5 w-3.5" /> Add item
     </button>
@@ -113,7 +116,7 @@ function AddItemRow({ groupId, onAdded }: { groupId: string; onAdded: () => void
         <button
           onMouseDown={event => event.preventDefault()}
           onClick={() => submit()}
-          className="text-xs font-semibold text-gray-500 hover:text-gray-900 cursor-pointer transition-colors flex-shrink-0"
+          className="text-xs font-semibold text-gray-500 hover:text-gray-900 transition-colors flex-shrink-0"
         >
           Add
         </button>
@@ -181,7 +184,7 @@ function TaskList({
           <Checkbox
             checked={item.completed}
             onCheckedChange={() => onToggle(item.id)}
-            className="cursor-pointer flex-shrink-0"
+            className="flex-shrink-0"
           />
 
           {/* Inline editable text */}
@@ -219,7 +222,7 @@ function TaskList({
           {/* Delete only */}
           <Button
             variant="ghost" size="icon"
-            className="h-5 w-5 cursor-pointer text-destructive hover:text-destructive opacity-0 group-hover/item:opacity-100 transition-opacity flex-shrink-0"
+            className="h-5 w-5 text-destructive hover:text-destructive opacity-0 group-hover/item:opacity-100 transition-opacity flex-shrink-0"
             onClick={() => onDelete(item.id)}
           >
             <Trash2 className="h-3 w-3" />
@@ -233,6 +236,7 @@ function TaskList({
 // ── Main component ────────────────────────────────────────────────────────────
 export function TasksClient({ taskGroups }: TasksClientProps) {
   const [isGroupDialogOpen, setIsGroupDialogOpen] = useState(false)
+  const [taskFilter, setTaskFilter] = useState<"all" | "open" | "done">("all")
   const [editingGroup, setEditingGroup] = useState<TaskGroup | null>(null)
   const [orderedGroups, setOrderedGroups] = useState(taskGroups)
   const orderedGroupsRef = useRef(taskGroups)
@@ -244,6 +248,12 @@ export function TasksClient({ taskGroups }: TasksClientProps) {
   )
   const router = useRouter()
   useRealtimeRefresh(["tasks", "task_groups"])
+
+  // Totals across every group, for the filter chips.
+  const allTasks = orderedGroups.flatMap(group => localOrder[group.id] ?? group.tasks ?? [])
+  const totalTasks = allTasks.length
+  const totalDone = allTasks.filter(task => task.completed).length
+  const totalOpen = totalTasks - totalDone
 
   // Keep localOrder in sync when props update
   useEffect(() => {
@@ -327,22 +337,44 @@ export function TasksClient({ taskGroups }: TasksClientProps) {
   }
 
   return (
-    <div className="p-8">
+    <PageShell>
       {taskGroups.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-24 gap-4">
-          <p className="text-gray-400 text-base">No tasks yet</p>
-          <button onClick={() => setIsGroupDialogOpen(true)} className="flex items-center gap-2 px-6 py-2.5 bg-violet-500 hover:bg-violet-600 text-white text-sm font-medium rounded-xl cursor-pointer transition-colors">
-            <Plus className="h-4 w-4" /> New Task
-          </button>
-        </div>
+        <EmptyState
+          message="No tasks yet"
+          action={<><Plus /> New Task</>}
+          onAction={() => setIsGroupDialogOpen(true)}
+          accent="tasks"
+        />
       ) : (
+        <>
+        {/* Open / done filter */}
+        <div className="flex flex-wrap items-center gap-1.5 mb-4">
+          {([
+            { key: "all"  as const, label: "All",  count: totalTasks },
+            { key: "open" as const, label: "Open", count: totalOpen },
+            { key: "done" as const, label: "Done", count: totalDone },
+          ]).map(option => (
+            <Pill
+              key={option.key}
+              label={option.label}
+              meta={option.count}
+              state={taskFilter === option.key ? "on" : "off"}
+              accent="tasks"
+              onClick={() => setTaskFilter(option.key)}
+            />
+          ))}
+        </div>
+
         <div className="columns-1 md:columns-2 lg:columns-3 gap-5">
           {orderedGroups.map((group, index) => {
             const items = localOrder[group.id] ?? group.tasks ?? []
             const done = items.filter(t => t.completed).length
             const pending = items.filter(t => !t.completed)
             const completed = items.filter(t => t.completed)
-            const sorted = [...pending, ...completed]
+            const sorted =
+              taskFilter === "open" ? pending
+              : taskFilter === "done" ? completed
+              : [...pending, ...completed]
             const bg = colorBg[group.color] ?? colorBg.blue
             const dot = colorDot[group.color] ?? colorDot.blue
 
@@ -375,30 +407,33 @@ export function TasksClient({ taskGroups }: TasksClientProps) {
                   <div className="flex items-center gap-2 min-w-0">
                     <div className={cn("w-2.5 h-2.5 rounded-full flex-shrink-0", dot)} />
                     <h3 className="font-semibold text-gray-800 truncate">{group.title}</h3>
+                    {items.length > 0 && (
+                      <Pill label={`${done} / ${items.length}`} state="count" className="flex-shrink-0" />
+                    )}
                   </div>
 
                   {/* 3-dots menu */}
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 cursor-pointer text-gray-400 hover:text-gray-700">
+                      <Button variant="subtle" size="icon-xs">
                         <MoreHorizontal className="h-4 w-4" />
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-40">
                       <DropdownMenuItem
-                        className="cursor-pointer"
+                       
                         onClick={() => { setEditingGroup(group); setIsGroupDialogOpen(true) }}
                       >
                         <Pencil className="h-3.5 w-3.5 mr-2" /> Edit
                       </DropdownMenuItem>
                       <DropdownMenuItem
-                        className="cursor-pointer"
+                       
                         onClick={() => handleDuplicate(group.id)}
                       >
                         <Copy className="h-3.5 w-3.5 mr-2" /> Duplicate
                       </DropdownMenuItem>
                       <DropdownMenuItem
-                        className="cursor-pointer text-destructive focus:text-destructive"
+                        className="text-destructive focus:text-destructive"
                         onClick={() => handleDeleteTask(group.id)}
                       >
                         <Trash2 className="h-3.5 w-3.5 mr-2" /> Delete
@@ -430,6 +465,7 @@ export function TasksClient({ taskGroups }: TasksClientProps) {
             )
           })}
         </div>
+        </>
       )}
 
       <TaskGroupDialog
@@ -443,6 +479,6 @@ export function TasksClient({ taskGroups }: TasksClientProps) {
         initialColor={editingGroup?.color}
         mode={editingGroup ? "edit" : "create"}
       />
-    </div>
+    </PageShell>
   )
 }

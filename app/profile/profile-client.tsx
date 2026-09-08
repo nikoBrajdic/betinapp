@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
+import { PageShell } from "@/components/ui/page-shell"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -101,7 +102,7 @@ export function ProfileClient({ user, profile, bills, guestStays, events }: Prof
   const role = profile?.role === "superadmin" ? "Super Admin" : "Admin"
 
   return (
-    <div className="p-8">
+    <PageShell>
       <div className="flex items-center justify-between mb-8">
         <div>
           <p className="text-muted-foreground">Manage your profile and view outstanding debts</p>
@@ -304,6 +305,6 @@ export function ProfileClient({ user, profile, bills, guestStays, events }: Prof
           </div>
         </TabsContent>
       </Tabs>
-    </div>
+    </PageShell>
   )
 }

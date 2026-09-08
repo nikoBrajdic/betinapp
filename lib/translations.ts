@@ -45,6 +45,10 @@ const en: Dict = {
 
   // Diary — editor
   "diary.allEntries": "All entries",
+  "diary.slashHint": "Type / for headings, text and images",
+  "diary.dragToReorder": "Drag to reorder",
+  "diary.startRow": "Start a new row here",
+  "diary.joinRow": "Join the row above",
   "diary.done": "Done",
   "diary.saving": "Saving…",
   "diary.saved": "Saved",
@@ -111,6 +115,10 @@ const hr: Dict = {
 
   // Diary — editor
   "diary.allEntries": "Svi unosi",
+  "diary.slashHint": "Upiši / za naslove, tekst i slike",
+  "diary.dragToReorder": "Povuci za promjenu redoslijeda",
+  "diary.startRow": "Započni novi red",
+  "diary.joinRow": "Spoji s redom iznad",
   "diary.done": "Gotovo",
   "diary.saving": "Spremanje…",
   "diary.saved": "Spremljeno",

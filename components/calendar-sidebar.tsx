@@ -214,7 +214,7 @@ export function CalendarSidebar({
                     </div>
                     <div className="space-y-2">
                       {eventsForDate.map((event) => (
-                        <Card key={event.id} className="p-3 cursor-pointer hover:bg-muted/50" onClick={() => openViewModal(event)}>
+                        <Card key={event.id} className="p-3 hover:bg-muted/50" onClick={() => openViewModal(event)}>
                           <div className="flex items-start justify-between">
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 mb-1">

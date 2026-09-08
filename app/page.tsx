@@ -1,4 +1,5 @@
 import { DashboardCard } from "@/components/dashboard-card"
+import { PageShell } from "@/components/ui/page-shell"
 import { FileText, CheckSquare, Calendar, Zap, Home, BookOpen } from "lucide-react"
 import { getNotes } from "@/lib/actions/notes"
 import { getTaskGroups } from "@/lib/actions/tasks"
@@ -26,6 +27,7 @@ export default async function DashboardPage() {
   const noteCount = notes.length
   const tableNotes = notes.filter((n: any) => n.type === "table").length
   const textNotes = noteCount - tableNotes
+  const notesMetric = (textNotes + tableNotes) === 0 ? undefined : String(textNotes + tableNotes)
   const notesSummary = noteCount === 0
     ? "No notes yet"
     : [textNotes > 0 && `${textNotes} note${textNotes !== 1 ? "s" : ""}`, tableNotes > 0 && `${tableNotes} table${tableNotes !== 1 ? "s" : ""}`].filter(Boolean).join(" · ")
@@ -35,17 +37,19 @@ export default async function DashboardPage() {
   const totalTasks = allTasks.length
   const completedTasks = allTasks.filter((t: any) => t.completed).length
   const pendingTasks = totalTasks - completedTasks
+  const tasksMetric = totalTasks === 0 ? undefined : String(pendingTasks)
   const tasksSummary = totalTasks === 0
     ? "No tasks yet"
     : pendingTasks === 0
-    ? `All ${totalTasks} tasks done ✓`
-    : `${pendingTasks} pending · ${completedTasks}/${totalTasks} done`
+    ? `all ${totalTasks} done`
+    : `open · ${completedTasks}/${totalTasks} done`
 
   // Calendar
   const nextEvent = events.find((e: any) => e.start_date >= today)
   const calendarSummary = nextEvent
     ? `Next: ${nextEvent.title}${nextEvent.time ? ` at ${nextEvent.time}` : ""}`
     : "No upcoming events"
+  const calendarMetric = undefined
 
   // Utilities and bills
   const unpaidBills = bills.filter((b: any) => !b.paid)
@@ -64,34 +68,42 @@ export default async function DashboardPage() {
     : readingsLogged === readingUtilities.length
     ? `${now.toLocaleDateString("en-US", { month: "long" })} readings logged`
     : `${readingUtilities.length - readingsLogged} reading${readingUtilities.length - readingsLogged !== 1 ? "s" : ""} due`
-  const billsSummary = unpaidBills.length === 0 ? "all bills paid" : `${unpaidBills.length} unpaid · €${unpaidTotal.toFixed(0)} due`
-  const utilitySummary = `${readingsSummary} · ${billsSummary}`
+  const utilityMetric = unpaidBills.length === 0 ? undefined : `€${unpaidTotal.toFixed(0)}`
+  const utilitySummary = unpaidBills.length === 0
+    ? `All bills paid · ${readingsSummary.toLowerCase()}`
+    : `across ${unpaidBills.length} unpaid`
 
   // Stays
   const currentStays = guestStays.filter((s: any) => s.status === "current")
   const upcomingStays = guestStays.filter((s: any) => s.status === "upcoming")
   const currentStayNames = currentStays.map((s: any) => s.guest_name).join(", ")
-  const staysSummary = currentStays.length > 0
-    ? `${currentStayNames} ${currentStays.length === 1 ? "is" : "are"} here now`
+  const staysMetric = currentStays.length > 0
+    ? String(currentStays.length)
     : upcomingStays.length > 0
-    ? `${upcomingStays.length} upcoming stay${upcomingStays.length !== 1 ? "s" : ""}`
+    ? String(upcomingStays.length)
+    : undefined
+  const staysSummary = currentStays.length > 0
+    ? `here now · ${currentStayNames}`
+    : upcomingStays.length > 0
+    ? "upcoming"
     : "No upcoming stays"
 
   // Diary
+  const diaryMetric = diaryEntries.length === 0 ? undefined : String(diaryEntries.length)
   const diarySummary = diaryEntries.length === 0
     ? "No entries yet"
-    : `${diaryEntries.length} entr${diaryEntries.length !== 1 ? "ies" : "y"} · Latest: ${diaryEntries[0].title}`
+    : `entr${diaryEntries.length !== 1 ? "ies" : "y"} · latest ${diaryEntries[0].title}`
 
   return (
-    <div className="p-6">
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-        <DashboardCard title="Notes"    icon={FileText}   href="/notes"        summary={notesSummary}   color="indigo" />
-        <DashboardCard title="Tasks"    icon={CheckSquare}href="/tasks"        summary={tasksSummary}   color="violet" />
-        <DashboardCard title="Calendar" icon={Calendar}   href="/calendar"     summary={calendarSummary}color="cyan"   />
-        <DashboardCard title="Utilities"icon={Zap}        href="/utilities"    summary={utilitySummary} color="emerald"/>
-        <DashboardCard title="Stays"    icon={Home}       href="/guest-stays"  summary={staysSummary}   color="rose"   />
-        <DashboardCard title="Diary"    icon={BookOpen}   href="/diary"        summary={diarySummary}   color="orange" />
+    <PageShell>
+      <div className="grid grid-cols-2 gap-2.5 md:grid-cols-3 md:gap-4 lg:grid-cols-4">
+        <DashboardCard title="Notes"     icon={FileText}    href="/notes"       metric={notesMetric}    detail={notesSummary}    color="indigo"  />
+        <DashboardCard title="Tasks"     icon={CheckSquare} href="/tasks"       metric={tasksMetric}    detail={tasksSummary}    color="violet"  />
+        <DashboardCard title="Calendar"  icon={Calendar}    href="/calendar"    metric={calendarMetric} detail={calendarSummary} color="cyan"    />
+        <DashboardCard title="Utilities" icon={Zap}         href="/utilities"   metric={utilityMetric}  detail={utilitySummary}  color="emerald" />
+        <DashboardCard title="Stays"     icon={Home}        href="/guest-stays" metric={staysMetric}    detail={staysSummary}    color="rose"    />
+        <DashboardCard title="Diary"     icon={BookOpen}    href="/diary"       metric={diaryMetric}    detail={diarySummary}    color="orange"  />
       </div>
-    </div>
+    </PageShell>
   )
 }

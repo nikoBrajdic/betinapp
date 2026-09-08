@@ -3,9 +3,9 @@
 import { useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { Pill } from "@/components/ui/pill"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
 import { Edit, User } from "lucide-react"
@@ -84,9 +84,10 @@ export function AdminsTable({ admins, currentUserRole }: AdminsTableProps) {
                   <TableCell className="font-medium">{admin.full_name || "—"}</TableCell>
                   <TableCell>{admin.email}</TableCell>
                   <TableCell>
-                    <Badge variant={admin.role === "superadmin" ? "default" : "secondary"}>
-                      {admin.role === "superadmin" ? "Super Admin" : "Admin"}
-                    </Badge>
+                    <Pill
+                      label={admin.role === "superadmin" ? "Superadmin" : "Admin"}
+                      accent={admin.role === "superadmin" ? "brand" : "neutral"}
+                    />
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {formatDistanceToNow(new Date(admin.created_at), { addSuffix: true })}

@@ -19,13 +19,13 @@ export function ConfirmDeleteDialog({ open, onOpenChange, onConfirm, itemName }:
         </DialogHeader>
         <p className="text-sm text-gray-500">This action cannot be undone.</p>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} className="cursor-pointer">
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
           <Button
             variant="destructive"
             onClick={() => { onConfirm(); onOpenChange(false) }}
-            className="cursor-pointer"
+           
           >
             Delete
           </Button>

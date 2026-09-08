@@ -3,9 +3,10 @@
 import { usePathname } from "next/navigation"
 import { useState, useEffect } from "react"
 import { cn } from "@/lib/utils"
+import { Pill } from "@/components/ui/pill"
 import { CalendarIcon, Clock } from "lucide-react"
 
-interface Event {
+interface CalendarEvent {
   id: string
   title: string
   description: string
@@ -16,7 +17,14 @@ interface Event {
 }
 
 interface EventsPanelProps {
-  events: Event[]
+  events: CalendarEvent[]
+}
+
+const categoryAccent: Record<string, "brand" | "diary" | "readings" | "neutral"> = {
+  family: "brand",
+  maintenance: "diary",
+  appointment: "readings",
+  other: "neutral",
 }
 
 const categoryColor: Record<string, string> = {
@@ -64,9 +72,9 @@ export function EventsPanel({ events }: EventsPanelProps) {
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
 
   useEffect(() => {
-    const handler = (e: Event) => setSelectedDate((e as CustomEvent).detail)
-    window.addEventListener("calendar:date", handler as EventListener)
-    return () => window.removeEventListener("calendar:date", handler as EventListener)
+    const handler = (e: Event) => setSelectedDate((e as CustomEvent<string | null>).detail)
+    window.addEventListener("calendar:date", handler)
+    return () => window.removeEventListener("calendar:date", handler)
   }, [])
 
   if (!pathname.startsWith("/calendar")) return null
@@ -74,7 +82,7 @@ export function EventsPanel({ events }: EventsPanelProps) {
   const today = new Date()
   const todayStr = today.toISOString().split("T")[0]
 
-  let eventsToShow: Event[]
+  let eventsToShow: CalendarEvent[]
 
   if (selectedDate) {
     // Show events for the selected date
@@ -99,7 +107,7 @@ export function EventsPanel({ events }: EventsPanelProps) {
     if (!acc[key]) acc[key] = []
     acc[key].push(e)
     return acc
-  }, {} as Record<string, Event[]>)
+  }, {} as Record<string, CalendarEvent[]>)
 
   const dates = Object.keys(grouped).sort()
 
@@ -153,9 +161,11 @@ export function EventsPanel({ events }: EventsPanelProps) {
                             Until {new Date(event.end_date + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                           </p>
                         ) : <span />}
-                        <span className={cn("text-[10px] px-1.5 py-0.5 rounded-full font-medium", categoryColor[event.category])}>
-                          {event.category}
-                        </span>
+                        <Pill
+                          label={event.category}
+                          accent={categoryAccent[event.category] ?? "neutral"}
+                          className="capitalize"
+                        />
                       </div>
                     </div>
                   ))}

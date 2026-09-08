@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
+import { PageShell } from "@/components/ui/page-shell"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Plus, Package, Search, Edit, Trash2 } from "lucide-react"
@@ -98,7 +99,7 @@ export function InventoryClient({ items }: InventoryClientProps) {
   const totalItems = items.reduce((sum, item) => sum + item.quantity, 0)
 
   return (
-    <div className="p-8">
+    <PageShell>
       <div className="flex items-center justify-between mb-8">
         <div>
           <p className="text-muted-foreground">Track household items and supplies</p>
@@ -246,6 +247,6 @@ export function InventoryClient({ items }: InventoryClientProps) {
         initialNotes={editingItem?.notes}
         mode={editingItem ? "edit" : "create"}
       />
-    </div>
+    </PageShell>
   )
 }

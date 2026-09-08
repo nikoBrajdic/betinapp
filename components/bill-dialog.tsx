@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus, X } from "lucide-react"
 import { CURRENCY_SYMBOL } from "@/lib/currency"
 import { cn } from "@/lib/utils"
+import { Segmented, SegmentedItem } from "@/components/ui/segmented"
 
 const BILL_NAMES = ["Voda", "Struja", "Internet", "Ježinac", "HRT", "Komunalna naknada"]
 
@@ -287,7 +288,7 @@ export function BillDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[420px]">
+      <DialogContent size="md">
         <DialogHeader>
           <DialogTitle>{mode === "create" ? "Add Bill" : "Edit Bill"}</DialogTitle>
           <DialogDescription className="sr-only">
@@ -324,21 +325,10 @@ export function BillDialog({
           <div className="space-y-2">
             <Label>Period</Label>
             {/* Month vs range toggle */}
-            <div className="flex gap-2 p-1 bg-gray-100 rounded-xl w-fit">
-              {(["month", "range"] as PeriodMode[]).map(m => (
-                <button
-                  key={m}
-                  type="button"
-                  onClick={() => setPeriodMode(m)}
-                  className={cn(
-                    "px-4 py-1.5 rounded-lg text-sm font-medium transition-all cursor-pointer",
-                    periodMode === m ? "bg-blue-500 text-white shadow-sm" : "text-gray-500 hover:text-gray-700"
-                  )}
-                >
-                  {m === "month" ? "Month" : "Range"}
-                </button>
-              ))}
-            </div>
+            <Segmented value={periodMode} onValueChange={value => setPeriodMode(value as PeriodMode)} accent="bills">
+              <SegmentedItem value="month">Month</SegmentedItem>
+              <SegmentedItem value="range">Range</SegmentedItem>
+            </Segmented>
 
             {periodMode === "month" ? (
               <Input
@@ -368,7 +358,7 @@ export function BillDialog({
               <button
                 type="button"
                 onClick={() => setSettled(false)}
-                className={`inline-flex items-center px-3 py-1 rounded-full text-sm border cursor-pointer transition-all ${
+                className={`inline-flex items-center px-3 py-1 rounded-full text-sm border transition-all ${
                   !settled
                     ? "bg-blue-500 text-white border-blue-500"
                     : "bg-white text-gray-400 border-gray-200 hover:border-blue-300 hover:text-blue-500"
@@ -379,7 +369,7 @@ export function BillDialog({
               <button
                 type="button"
                 onClick={() => setSettled(true)}
-                className={`inline-flex items-center px-3 py-1 rounded-full text-sm border cursor-pointer transition-all ${
+                className={`inline-flex items-center px-3 py-1 rounded-full text-sm border transition-all ${
                   settled
                     ? "bg-green-500 text-white border-green-500"
                     : "bg-white text-gray-400 border-gray-200 hover:border-green-300 hover:text-green-600"
@@ -397,7 +387,7 @@ export function BillDialog({
                   key={option}
                   type="button"
                   onClick={() => setPaidBy(option)}
-                  className={`inline-flex items-center px-3 py-1 rounded-full text-sm border cursor-pointer transition-all ${
+                  className={`inline-flex items-center px-3 py-1 rounded-full text-sm border transition-all ${
                     paidBy === option
                       ? "bg-blue-500 text-white border-blue-500"
                       : "bg-white text-gray-400 border-gray-200 hover:border-blue-300 hover:text-blue-500"
@@ -424,7 +414,7 @@ export function BillDialog({
                 <button
                   type="button"
                   onClick={() => setAddingPayer(true)}
-                  className="inline-flex items-center justify-center h-8 w-8 rounded-full border border-gray-200 text-gray-400 hover:border-blue-300 hover:text-blue-500 cursor-pointer transition-all"
+                  className="inline-flex items-center justify-center h-8 w-8 rounded-full border border-gray-200 text-gray-400 hover:border-blue-300 hover:text-blue-500 transition-all"
                   title="Add payer"
                 >
                   <Plus className="h-4 w-4" />
@@ -457,7 +447,7 @@ export function BillDialog({
                   <button
                     type="button"
                     onClick={addCustomPayer}
-                    className="px-2 py-1 text-xs rounded-md border border-gray-200 text-gray-600 hover:border-blue-300 hover:text-blue-600 cursor-pointer"
+                    className="px-2 py-1 text-xs rounded-md border border-gray-200 text-gray-600 hover:border-blue-300 hover:text-blue-600"
                   >
                     Add
                   </button>
@@ -478,7 +468,7 @@ export function BillDialog({
                         key={option}
                         type="button"
                         onClick={() => toggleSplitter(option)}
-                        className={`inline-flex items-center px-3 py-1 rounded-full text-sm border cursor-pointer transition-all ${
+                        className={`inline-flex items-center px-3 py-1 rounded-full text-sm border transition-all ${
                           selected
                             ? "bg-blue-500 text-white border-blue-500"
                             : "bg-white text-gray-400 border-gray-200 hover:border-blue-300 hover:text-blue-500"
@@ -507,7 +497,7 @@ export function BillDialog({
                 <button
                   type="button"
                   onClick={() => setAddingSplitter(true)}
-                  className="inline-flex items-center justify-center h-8 w-8 rounded-full border border-gray-200 text-gray-400 hover:border-blue-300 hover:text-blue-500 cursor-pointer transition-all"
+                  className="inline-flex items-center justify-center h-8 w-8 rounded-full border border-gray-200 text-gray-400 hover:border-blue-300 hover:text-blue-500 transition-all"
                   title="Add splitter"
                 >
                   <Plus className="h-4 w-4" />
@@ -540,7 +530,7 @@ export function BillDialog({
                   <button
                     type="button"
                     onClick={addCustomSplitter}
-                    className="px-2 py-1 text-xs rounded-md border border-gray-200 text-gray-600 hover:border-blue-300 hover:text-blue-600 cursor-pointer"
+                    className="px-2 py-1 text-xs rounded-md border border-gray-200 text-gray-600 hover:border-blue-300 hover:text-blue-600"
                   >
                     Add
                   </button>
@@ -554,7 +544,7 @@ export function BillDialog({
               <button
                 type="button"
                 onClick={() => setSplitPreset("default")}
-                className={`inline-flex items-center px-3 py-1 rounded-full text-sm border cursor-pointer transition-all ${
+                className={`inline-flex items-center px-3 py-1 rounded-full text-sm border transition-all ${
                   splitPreset === "default"
                     ? "bg-blue-500 text-white border-blue-500"
                     : "bg-white text-gray-400 border-gray-200 hover:border-blue-300 hover:text-blue-500"
@@ -565,7 +555,7 @@ export function BillDialog({
               <button
                 type="button"
                 onClick={() => setSplitPreset("equal")}
-                className={`inline-flex items-center px-3 py-1 rounded-full text-sm border cursor-pointer transition-all ${
+                className={`inline-flex items-center px-3 py-1 rounded-full text-sm border transition-all ${
                   splitPreset === "equal"
                     ? "bg-blue-500 text-white border-blue-500"
                     : "bg-white text-gray-400 border-gray-200 hover:border-blue-300 hover:text-blue-500"
@@ -576,7 +566,7 @@ export function BillDialog({
               <button
                 type="button"
                 onClick={() => setSplitPreset("weighted")}
-                className={`inline-flex items-center px-3 py-1 rounded-full text-sm border cursor-pointer transition-all ${
+                className={`inline-flex items-center px-3 py-1 rounded-full text-sm border transition-all ${
                   splitPreset === "weighted"
                     ? "bg-blue-500 text-white border-blue-500"
                     : "bg-white text-gray-400 border-gray-200 hover:border-blue-300 hover:text-blue-500"

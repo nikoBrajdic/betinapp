@@ -2,11 +2,15 @@
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
+import { Segmented, SegmentedItem } from "@/components/ui/segmented"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import { EventDialog } from "@/components/event-dialog"
+import { GuestStayDialog } from "@/components/guest-stay-dialog"
 import { cn } from "@/lib/utils"
+import { PageShell } from "@/components/ui/page-shell"
 import { getLocalDateString } from "@/lib/utils/date"
 import { createEvent, deleteEvent } from "@/lib/actions/events"
+import { createGuestStay } from "@/lib/actions/guest-stays"
 import { trackSave } from "@/lib/save-events"
 import { useRealtimeRefresh } from "@/hooks/use-realtime-refresh"
 import { useRouter } from "next/navigation"
@@ -25,6 +29,7 @@ interface Event {
 
 interface CalendarClientProps {
   events: Event[]
+  familyMembers: { name: string; email: string }[]
 }
 
 function cleanTitle(title: string): string {
@@ -46,18 +51,32 @@ const categoryColor: Record<string, string> = {
 
 const monthNames = ["January","February","March","April","May","June","July","August","September","October","November","December"]
 
-export function CalendarClient({ events }: CalendarClientProps) {
+export function CalendarClient({ events, familyMembers }: CalendarClientProps) {
   const [currentDate, setCurrentDate] = useState(new Date())
   const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [addMode, setAddMode] = useState<"stay" | "event">("stay")
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
   const router = useRouter()
-  useRealtimeRefresh(["events"])
+  useRealtimeRefresh(["events", "guest_stays"])
 
   useEffect(() => {
-    const handler = () => setIsDialogOpen(true)
+    const handler = () => { setAddMode("stay"); setIsDialogOpen(true) }
     window.addEventListener("topbar:new", handler)
     return () => window.removeEventListener("topbar:new", handler)
   }, [])
+
+  // One tab strip, shared by both dialogs — switching swaps which is open.
+  const addTabs = (
+    <Segmented
+      value={addMode}
+      onValueChange={value => setAddMode(value as "stay" | "event")}
+      accent={addMode === "stay" ? "stays" : "brand"}
+      className="mt-2"
+    >
+      <SegmentedItem value="stay">Guest stay</SegmentedItem>
+      <SegmentedItem value="event">Event</SegmentedItem>
+    </Segmented>
+  )
 
   useEffect(() => {
     window.dispatchEvent(new CustomEvent("calendar:date", { detail: selectedDate ? getLocalDateString(selectedDate) : null }))
@@ -117,17 +136,17 @@ export function CalendarClient({ events }: CalendarClientProps) {
   const todayStr = getLocalDateString(new Date())
 
   return (
-    <div className="p-3 md:p-5 h-full flex flex-col min-h-0">
+    <PageShell fill>
       {/* Month nav */}
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-base font-semibold text-gray-800">
           {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
         </h2>
         <div className="flex gap-1">
-          <Button variant="ghost" size="icon" className="h-7 w-7 cursor-pointer" onClick={() => navigate("prev")}>
+          <Button variant="subtle" size="icon-xs" onClick={() => navigate("prev")}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="icon" className="h-7 w-7 cursor-pointer" onClick={() => navigate("next")}>
+          <Button variant="subtle" size="icon-xs" onClick={() => navigate("next")}>
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
@@ -153,7 +172,7 @@ export function CalendarClient({ events }: CalendarClientProps) {
               key={i}
               onClick={() => setSelectedDate(isSelected ? null : date)}
               className={cn(
-                "min-h-0 h-full p-1 md:p-1.5 border-t border-gray-100 cursor-pointer transition-colors overflow-hidden",
+                "min-h-0 h-full p-1 md:p-1.5 border-t border-gray-100 transition-colors overflow-hidden",
                 !current && "bg-gray-50/50",
                 isSelected && "bg-blue-50",
                 current && !isSelected && "hover:bg-gray-50"
@@ -191,14 +210,30 @@ export function CalendarClient({ events }: CalendarClientProps) {
         })}
       </div>
 
+      <GuestStayDialog
+        open={isDialogOpen && addMode === "stay"}
+        onOpenChange={open => { if (!open) { setIsDialogOpen(false); setSelectedDate(null) } }}
+        stay={null}
+        familyMembers={familyMembers}
+        title="Add to the calendar"
+        headerTabs={addTabs}
+        onSave={async data => {
+          // A stay creates its own linked calendar event server-side.
+          await trackSave(createGuestStay(data))
+          setIsDialogOpen(false)
+          router.refresh()
+        }}
+      />
+
       <EventDialog
-        open={isDialogOpen}
+        open={isDialogOpen && addMode === "event"}
         onOpenChange={open => { if (!open) { setIsDialogOpen(false); setSelectedDate(null) } }}
         onSave={handleAddEvent}
         initialDate={selectedDate}
         initialId=""
         mode="create"
+        headerTabs={addTabs}
       />
-    </div>
+    </PageShell>
   )
 }

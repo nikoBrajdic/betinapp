@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import {
-  AlertCircle,
   CheckCircle2,
   ChevronDown,
   ChevronUp,
@@ -28,6 +27,10 @@ import { UtilityDialog } from "@/components/utility-dialog"
 import { deleteBill, createBill, updateBill } from "@/lib/actions/bills"
 import { createDefaultReadingUtilities, createUtilityReading, deleteUtilityReading, updateUtilityReading } from "@/lib/actions/utilities"
 import { trackSave } from "@/lib/save-events"
+import { PageShell } from "@/components/ui/page-shell"
+import { EmptyState } from "@/components/ui/empty-state"
+import { Segmented, SegmentedItem } from "@/components/ui/segmented"
+import { Pill, PersonPill } from "@/components/ui/pill"
 import { useRealtimeRefresh } from "@/hooks/use-realtime-refresh"
 import { cn } from "@/lib/utils"
 import { formatMoney } from "@/lib/currency"
@@ -167,7 +170,11 @@ function billPeriodLabel(startDate: Date, endDate: Date, includeYear: boolean) {
 
 function personNightsForPeriod(stays: Stay[], startDate?: string, endDate?: string) {
   if (!startDate || !endDate) {
-    return { total: null as number | null, people: "Need previous reading" }
+    return {
+      total: null as number | null,
+      entries: [] as { name: string; nights: number }[],
+      people: "Need previous reading",
+    }
   }
 
   const start = dayIndex(startDate)
@@ -188,10 +195,19 @@ function personNightsForPeriod(stays: Stay[], startDate?: string, endDate?: stri
 
   return {
     total: entries.reduce((sum, entry) => sum + entry.nights, 0),
+    entries,
     people: entries.length === 0
       ? "No stays recorded"
       : entries.map(entry => `${entry.name} ${entry.nights}`).join(", "),
   }
+}
+
+/** Chip detail for a bill split: day count (default preset only) plus the share. */
+function billChipMeta(bill: Bill, days: number, share: number | null) {
+  const parts: string[] = []
+  if (bill.split_preset === "default") parts.push(`${days}d`)
+  if (share !== null) parts.push(formatMoney(share))
+  return parts.join(" · ")
 }
 
 function monthTone(monthIndex: number) {
@@ -293,6 +309,7 @@ function selectedSplitGuests(
 export function UtilitiesClient({ utilities, readings, bills, stays }: UtilitiesClientProps) {
   const [activeTab, setActiveTab] = useState("readings")
   const [mobileReadingsView, setMobileReadingsView] = useState<"cards" | "table">("cards")
+  const [meterFilter, setMeterFilter] = useState<string | null>(null)
   const [mobileBillsView, setMobileBillsView] = useState<"cards" | "table">("cards")
   const [editingReading, setEditingReading] = useState<ReadingRow | null>(null)
   const [isReadingDialogOpen, setIsReadingDialogOpen] = useState(false)
@@ -531,6 +548,16 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
       })
       .sort((a, b) => b.date.localeCompare(a.date))
   }, [readings, readingUtilities, utilities])
+
+  // Readings interleave every meter down one list; these drive the filter chips.
+  const meterNames = useMemo(
+    () => Array.from(new Set(readingRows.map(row => row.name))).sort((a, b) => a.localeCompare(b)),
+    [readingRows],
+  )
+  const visibleReadingRows = useMemo(
+    () => (meterFilter ? readingRows.filter(row => row.name === meterFilter) : readingRows),
+    [readingRows, meterFilter],
+  )
 
   const renderReadingValue = (row: ReadingRow) => {
     if (row.parts && row.parts.length > 0) {
@@ -776,13 +803,13 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
   }
 
   return (
-    <div className="p-6">
+    <PageShell>
       <Card className={cn("shadow-none border-2 border-blue-100 mb-5 px-5", settleUpCollapsed ? "py-4 gap-0" : "py-5 gap-2")}>
         <div className="flex items-center justify-between gap-4 min-h-6">
           <button
             type="button"
             onClick={() => setSettleUpCollapsed(collapsed => !collapsed)}
-            className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-500 cursor-pointer"
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-500"
           >
             <span>Settle up</span>
             <span className="font-semibold text-blue-600">{formatMoney(totalSettlements)}</span>
@@ -790,7 +817,7 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
           <button
             type="button"
             onClick={() => setSettleUpCollapsed(collapsed => !collapsed)}
-            className="inline-flex items-center justify-center h-6 w-6 rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors cursor-pointer"
+            className="inline-flex items-center justify-center h-6 w-6 rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
             title={settleUpCollapsed ? "Expand settle up" : "Collapse settle up"}
           >
             {settleUpCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
@@ -803,7 +830,7 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
               type="button"
               onClick={() => setOwedView("by")}
               className={cn(
-                "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs border cursor-pointer transition-all",
+                "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs border transition-all",
                 owedView === "by"
                   ? "bg-blue-500 text-white border-blue-500"
                   : "bg-white text-gray-400 border-gray-200 hover:border-blue-300 hover:text-blue-500",
@@ -815,7 +842,7 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
               type="button"
               onClick={() => setOwedView("to")}
               className={cn(
-                "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs border cursor-pointer transition-all",
+                "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs border transition-all",
                 owedView === "to"
                   ? "bg-blue-500 text-white border-blue-500"
                   : "bg-white text-gray-400 border-gray-200 hover:border-blue-300 hover:text-blue-500",
@@ -853,85 +880,74 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="gap-4">
         <div className="flex items-center justify-between gap-3">
-          <div className="flex gap-2 p-1 bg-gray-100 rounded-xl w-fit">
-            {([
-              { value: "readings", label: "Readings", active: "bg-emerald-500 text-white shadow-sm" },
-              { value: "bills", label: "Bills", active: "bg-blue-500 text-white shadow-sm" },
-            ] as const).map(tab => (
-              <button
-                key={tab.value}
-                onClick={() => setActiveTab(tab.value)}
-                className={cn(
-                  "px-4 py-1.5 rounded-lg text-sm font-medium transition-all cursor-pointer",
-                  activeTab === tab.value ? tab.active : "text-gray-500 hover:text-gray-700"
-                )}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
+          <Segmented
+            value={activeTab}
+            onValueChange={setActiveTab}
+            accent={activeTab === "readings" ? "readings" : "bills"}
+          >
+            <SegmentedItem value="readings">Readings</SegmentedItem>
+            <SegmentedItem value="bills">Bills</SegmentedItem>
+          </Segmented>
           {activeTab === "readings" && readingUtilities.length > 0 && (
-            <Button onClick={() => setIsReadingDialogOpen(true)} className="cursor-pointer bg-emerald-500 hover:bg-emerald-600">
-              <Plus className="h-4 w-4 mr-2" /> New Reading
+            <Button accent="readings" onClick={() => setIsReadingDialogOpen(true)}>
+              <Plus /> New Reading
             </Button>
           )}
           {activeTab === "bills" && bills.length > 0 && (
-            <Button onClick={() => { setEditingBill(null); setBillDialogOpen(true) }} className="cursor-pointer bg-blue-500 hover:bg-blue-600">
-              <Plus className="h-4 w-4 mr-2" /> New Bill
+            <Button accent="bills" onClick={() => { setEditingBill(null); setBillDialogOpen(true) }}>
+              <Plus /> New Bill
             </Button>
           )}
         </div>
 
         <TabsContent value="readings">
           {utilities.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-24 gap-4">
-              <p className="text-gray-400 text-base">No utilities yet</p>
-              <button
-                onClick={handleSetupReadings}
-                className="flex items-center gap-2 px-6 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-medium rounded-xl cursor-pointer transition-colors"
-              >
-                <Plus className="h-4 w-4" /> Set Up Readings
-              </button>
-            </div>
+            <EmptyState
+              message="No utilities yet"
+              action={<><Plus /> Set Up Readings</>}
+              onAction={handleSetupReadings}
+              accent="readings"
+            />
           ) : readingUtilities.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-24 gap-4">
-              <p className="text-gray-400 text-base">No readings yet</p>
-              <button
-                onClick={handleSetupReadings}
-                className="flex items-center gap-2 px-6 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-medium rounded-xl cursor-pointer transition-colors"
-              >
-                <Plus className="h-4 w-4" /> Set Up Readings
-              </button>
-            </div>
+            <EmptyState
+              message="No readings yet"
+              action={<><Plus /> Set Up Readings</>}
+              onAction={handleSetupReadings}
+              accent="readings"
+            />
           ) : (
             <>
-              <div className="md:hidden mb-2">
-                <div className="flex gap-2 p-1 bg-gray-100 rounded-xl w-fit">
-                  <button
-                    type="button"
-                    onClick={() => setMobileReadingsView("cards")}
-                    className={cn(
-                      "px-3 py-1 rounded-lg text-sm font-medium transition-all cursor-pointer",
-                      mobileReadingsView === "cards" ? "bg-emerald-500 text-white shadow-sm" : "text-gray-500 hover:text-gray-700",
-                    )}
-                  >
-                    Cards
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setMobileReadingsView("table")}
-                    className={cn(
-                      "px-3 py-1 rounded-lg text-sm font-medium transition-all cursor-pointer",
-                      mobileReadingsView === "table" ? "bg-emerald-500 text-white shadow-sm" : "text-gray-500 hover:text-gray-700",
-                    )}
-                  >
-                    Table
-                  </button>
+              {/* Meter filter — readings interleave Struja and Voda otherwise. */}
+              {meterNames.length > 1 && (
+                <div className="flex flex-wrap items-center gap-1.5 mb-3">
+                  <Pill
+                    label="All meters"
+                    state={meterFilter === null ? "on" : "off"}
+                    accent="readings"
+                    onClick={() => setMeterFilter(null)}
+                  />
+                  {meterNames.map(name => (
+                    <Pill
+                      key={name}
+                      label={name}
+                      meta={readingRows.filter(row => row.name === name).length}
+                      state={meterFilter === name ? "on" : "off"}
+                      accent="readings"
+                      onClick={() => setMeterFilter(current => (current === name ? null : name))}
+                    />
+                  ))}
                 </div>
+              )}
+
+              <div className="md:hidden mb-2">
+                <Segmented value={mobileReadingsView} onValueChange={v => setMobileReadingsView(v as "cards" | "table")} accent="readings">
+                  <SegmentedItem value="cards">Cards</SegmentedItem>
+                  <SegmentedItem value="table">Table</SegmentedItem>
+                </Segmented>
               </div>
               {mobileReadingsView === "cards" && (
                 <div className="md:hidden space-y-2">
-                  {readingRows.map(row => {
+                  {visibleReadingRows.map(row => {
                     const Icon = utilityIcon(row.name)
                     const nightSummary = personNightsForPeriod(stays, row.previousDate, row.currentDate)
                     return (
@@ -946,20 +962,20 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
                           </div>
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-7 w-7 cursor-pointer text-gray-400 hover:text-gray-700">
+                              <Button variant="subtle" size="icon-xs">
                                 <MoreHorizontal className="h-4 w-4" />
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                               <DropdownMenuItem
-                                className="cursor-pointer"
+                               
                                 onClick={() => setEditingReading(row)}
                                 disabled={!row.utility || row.readingIds.length === 0}
                               >
                                 <Edit className="h-3.5 w-3.5 mr-2" /> Edit
                               </DropdownMenuItem>
                               <DropdownMenuItem
-                                className="cursor-pointer text-destructive focus:text-destructive"
+                                className="text-destructive focus:text-destructive"
                                 onClick={() => setDeleteReading(row)}
                                 disabled={row.readingIds.length === 0}
                               >
@@ -1004,7 +1020,7 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
                       <div className="w-7 flex-shrink-0" />
                     </div>
                     <div className="divide-y divide-gray-100">
-                      {readingRows.map(row => {
+                      {visibleReadingRows.map(row => {
                         const Icon = utilityIcon(row.name)
                         const nightSummary = personNightsForPeriod(stays, row.previousDate, row.currentDate)
                         return (
@@ -1022,24 +1038,37 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
                               <span className="font-semibold text-gray-900">{nightSummary.total === null ? "-" : nightSummary.total}</span>
                               {nightSummary.total !== null && <span className="text-gray-400 ml-1">n</span>}
                             </div>
-                            <div className="flex-1 text-sm text-gray-600 min-w-0">{nightSummary.people}</div>
+                            <div className="flex-1 flex flex-wrap items-center gap-1.5 min-w-0">
+                              {nightSummary.entries.length === 0 ? (
+                                <span className="text-sm text-gray-400">{nightSummary.people}</span>
+                              ) : (
+                                nightSummary.entries.map(entry => (
+                                  <PersonPill
+                                    key={entry.name}
+                                    name={entry.name}
+                                    meta={`${entry.nights}n`}
+                                    accent="readings"
+                                  />
+                                ))
+                              )}
+                            </div>
                             <div className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" size="icon" className="h-7 w-7 cursor-pointer text-gray-400 hover:text-gray-700">
+                                  <Button variant="subtle" size="icon-xs">
                                     <MoreHorizontal className="h-4 w-4" />
                                   </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">
                                   <DropdownMenuItem
-                                    className="cursor-pointer"
+                                   
                                     onClick={() => setEditingReading(row)}
                                     disabled={!row.utility || row.readingIds.length === 0}
                                   >
                                     <Edit className="h-3.5 w-3.5 mr-2" /> Edit
                                   </DropdownMenuItem>
                                   <DropdownMenuItem
-                                    className="cursor-pointer text-destructive focus:text-destructive"
+                                    className="text-destructive focus:text-destructive"
                                     onClick={() => setDeleteReading(row)}
                                     disabled={row.readingIds.length === 0}
                                   >
@@ -1067,7 +1096,7 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
                   <div className="w-7 flex-shrink-0" />
                 </div>
                 <div className="divide-y divide-gray-100">
-                  {readingRows.map(row => {
+                  {visibleReadingRows.map(row => {
                     const Icon = utilityIcon(row.name)
                     const nightSummary = personNightsForPeriod(stays, row.previousDate, row.currentDate)
 
@@ -1102,33 +1131,40 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
                           {nightSummary.total !== null && <span className="text-gray-400 ml-1">n</span>}
                         </div>
 
-                        {/* People */}
-                        <div className="flex-1 text-sm text-gray-600 min-w-0">
-                          {nightSummary.people}
+                        {/* People — same chips the bills split uses */}
+                        <div className="flex-1 flex flex-wrap items-center gap-1.5 min-w-0">
+                          {nightSummary.entries.length === 0 ? (
+                            <span className="text-sm text-gray-400">{nightSummary.people}</span>
+                          ) : (
+                            nightSummary.entries.map(entry => (
+                              <PersonPill
+                                key={entry.name}
+                                name={entry.name}
+                                meta={`${entry.nights}n`}
+                                accent="readings"
+                              />
+                            ))
+                          )}
                         </div>
 
                         {/* Actions */}
                         <div className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7 cursor-pointer text-gray-400 hover:text-gray-700"
-                              >
+                              <Button variant="subtle" size="icon-xs">
                                 <MoreHorizontal className="h-4 w-4" />
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                               <DropdownMenuItem
-                                className="cursor-pointer"
+                               
                                 onClick={() => setEditingReading(row)}
                                 disabled={!row.utility || row.readingIds.length === 0}
                               >
                                 <Edit className="h-3.5 w-3.5 mr-2" /> Edit
                               </DropdownMenuItem>
                               <DropdownMenuItem
-                                className="cursor-pointer text-destructive focus:text-destructive"
+                                className="text-destructive focus:text-destructive"
                                 onClick={() => setDeleteReading(row)}
                                 disabled={row.readingIds.length === 0}
                               >
@@ -1148,37 +1184,19 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
 
         <TabsContent value="bills" className="mt-0">
           {bills.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-24 gap-4">
-              <p className="text-gray-400 text-base">No bills yet</p>
-              <button onClick={() => setBillDialogOpen(true)} className="flex items-center gap-2 px-6 py-2.5 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-xl cursor-pointer transition-colors">
-                <Plus className="h-4 w-4" /> New Bill
-              </button>
-            </div>
+            <EmptyState
+              message="No bills yet"
+              action={<><Plus /> New Bill</>}
+              onAction={() => setBillDialogOpen(true)}
+              accent="bills"
+            />
           ) : (
             <>
               <div className="md:hidden mb-2">
-                <div className="flex gap-2 p-1 bg-gray-100 rounded-xl w-fit">
-                  <button
-                    type="button"
-                    onClick={() => setMobileBillsView("cards")}
-                    className={cn(
-                      "px-3 py-1 rounded-lg text-sm font-medium transition-all cursor-pointer",
-                      mobileBillsView === "cards" ? "bg-blue-500 text-white shadow-sm" : "text-gray-500 hover:text-gray-700",
-                    )}
-                  >
-                    Cards
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setMobileBillsView("table")}
-                    className={cn(
-                      "px-3 py-1 rounded-lg text-sm font-medium transition-all cursor-pointer",
-                      mobileBillsView === "table" ? "bg-blue-500 text-white shadow-sm" : "text-gray-500 hover:text-gray-700",
-                    )}
-                  >
-                    Table
-                  </button>
-                </div>
+                <Segmented value={mobileBillsView} onValueChange={v => setMobileBillsView(v as "cards" | "table")} accent="bills">
+                  <SegmentedItem value="cards">Cards</SegmentedItem>
+                  <SegmentedItem value="table">Table</SegmentedItem>
+                </Segmented>
               </div>
               <Card className="shadow-none border-2 overflow-hidden">
               {/* Year tabs */}
@@ -1189,10 +1207,10 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
                       key={year}
                       onClick={() => setSelectedBillYear(year)}
                       className={cn(
-                        "px-3 py-1 rounded-lg text-sm font-medium transition-colors cursor-pointer",
+                        "inline-flex items-center justify-center h-8 px-3 rounded-lg text-sm font-medium transition-colors",
                         activeBillYear === year
-                          ? "bg-blue-500 text-white"
-                          : "text-gray-400 hover:text-gray-700 hover:bg-gray-100"
+                          ? "bg-blue-500 text-white shadow-sm"
+                          : "text-gray-500 hover:text-gray-800 hover:bg-gray-100"
                       )}
                     >
                       {year}
@@ -1203,7 +1221,7 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
                   <button
                     onClick={() => setBillFiltersOpen(open => !open)}
                     className={cn(
-                      "absolute right-0 inline-flex items-center justify-center h-7 w-7 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-all duration-200 ease-out cursor-pointer",
+                      "absolute right-0 inline-flex items-center justify-center h-7 w-7 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-all duration-200 ease-out",
                       hasActiveBillFilters ? "-translate-x-8" : "translate-x-0",
                     )}
                     title="Toggle filters"
@@ -1213,7 +1231,7 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
                   <button
                     onClick={clearBillFilters}
                     className={cn(
-                      "absolute right-0 inline-flex items-center justify-center h-7 w-7 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-all duration-200 ease-out cursor-pointer",
+                      "absolute right-0 inline-flex items-center justify-center h-7 w-7 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-all duration-200 ease-out",
                       hasActiveBillFilters ? "opacity-100 scale-100" : "opacity-0 scale-75 pointer-events-none",
                     )}
                     title="Clear filters"
@@ -1258,18 +1276,13 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
                         {billTypeOptions.map(type => {
                           const selected = billTypeFilter.includes(type)
                           return (
-                            <button
+                            <Pill
                               key={type}
+                              label={type}
+                              state={selected ? "on" : "off"}
+                              accent="bills"
                               onClick={() => toggleBillType(type)}
-                              className={cn(
-                                "inline-flex items-center px-2 py-0.5 rounded-full text-xs border cursor-pointer transition-all",
-                                selected
-                                  ? "bg-blue-500 text-white border-blue-500"
-                                  : "bg-white text-gray-400 border-gray-200 hover:border-blue-300 hover:text-blue-500"
-                              )}
-                            >
-                              {type}
-                            </button>
+                            />
                           )
                         })}
                       </div>
@@ -1277,28 +1290,18 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
                     <div className="hidden md:block h-8 w-px bg-gray-200 mx-auto" />
                     <div className="space-y-1.5">
                       <div className="flex flex-wrap items-center gap-1.5">
-                        <button
+                        <Pill
+                          label="Awaiting settle"
+                          state={billStatusFilter.includes("paid") ? "on" : "off"}
+                          accent="bills"
                           onClick={() => toggleBillStatus("paid")}
-                          className={cn(
-                            "inline-flex items-center px-2 py-0.5 rounded-full text-xs border cursor-pointer transition-all",
-                            billStatusFilter.includes("paid")
-                              ? "bg-blue-500 text-white border-blue-500"
-                              : "bg-white text-gray-400 border-gray-200 hover:border-blue-300 hover:text-blue-500"
-                          )}
-                        >
-                          Paid
-                        </button>
-                        <button
+                        />
+                        <Pill
+                          label="Settled"
+                          state={billStatusFilter.includes("settled") ? "on" : "off"}
+                          accent="readings"
                           onClick={() => toggleBillStatus("settled")}
-                          className={cn(
-                            "inline-flex items-center px-2 py-0.5 rounded-full text-xs border cursor-pointer transition-all",
-                            billStatusFilter.includes("settled")
-                              ? "bg-green-500 text-white border-green-500"
-                              : "bg-white text-gray-400 border-gray-200 hover:border-green-300 hover:text-green-600"
-                          )}
-                        >
-                          Settled
-                        </button>
+                        />
                       </div>
                     </div>
                     <div className="hidden md:block h-8 w-px bg-gray-200 mx-auto" />
@@ -1440,13 +1443,6 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
                         isVisible ? "max-h-32 py-3.5 opacity-100 hover:bg-gray-50" : "max-h-0 py-0 opacity-0 pointer-events-none",
                       )}
                     >
-                      {/* Status icon */}
-                      <div className="flex-shrink-0">
-                        {bill.paid
-                          ? <CheckCircle2 className="h-4 w-4 text-green-500" />
-                          : <AlertCircle className="h-4 w-4 text-amber-500" />
-                        }
-                      </div>
 
                       {/* Name + period */}
                       <div className="w-36 flex-shrink-0">
@@ -1459,54 +1455,60 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
                       {/* People — Mama always + toggleable guests with day counts */}
                       <div className="flex-1 flex flex-wrap items-center gap-1.5 min-w-0">
                         {/* Payer — always present, not toggleable */}
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-blue-100 text-blue-700 border border-blue-200 font-medium">
-                          {payer}{bill.split_preset === "default" ? ` · ${daysInPeriod}d` : ""}{payerIncluded && hasSplit && ` · ${formatMoney(payerShare)}`}
-                        </span>
+                        <PersonPill
+                          name={payer}
+                          meta={billChipMeta(bill, daysInPeriod, payerIncluded && hasSplit ? payerShare : null)}
+                          accent="bills"
+                        />
                         {guestChipNames.map(guestName => {
                           const included = selectedGuestNames.has(guestName)
-                          const guestDays = guestDaysByName.get(guestName) ?? 0
                           return (
-                            <button
+                            <PersonPill
                               key={`${bill.id}-${guestName}`}
+                              name={guestName}
+                              meta={billChipMeta(
+                                bill,
+                                guestDaysByName.get(guestName) ?? 0,
+                                included ? shareFor(guestName) : null,
+                              )}
+                              state={included ? "on" : "off"}
+                              accent="bills"
                               onClick={() => toggleStayInBill(bill, guestName, defaultSelectedNames)}
                               title={included ? "Click to exclude from split" : "Click to include in split"}
-                              className={cn(
-                                "inline-flex items-center px-2 py-0.5 rounded-full text-xs border cursor-pointer transition-all",
-                                included
-                                  ? "bg-blue-500 text-white border-blue-500"
-                                  : "bg-white text-gray-400 border-gray-200 hover:border-blue-300 hover:text-blue-500"
-                              )}
-                            >
-                              {guestName}{bill.split_preset === "default" ? ` · ${guestDays}d` : ""}{included && ` · ${formatMoney(shareFor(guestName))}`}
-                            </button>
+                            />
                           )
                         })}
                       </div>
 
-                      {/* Total amount + status (per-person split shown on the chips) */}
+                      {/* Status — one marker that names the state */}
+                      <div className="flex-shrink-0">
+                        <Pill
+                          label={bill.paid ? "Settled" : "Awaiting settle"}
+                          accent={bill.paid ? "readings" : "diary"}
+                        />
+                      </div>
+
+                      {/* Total amount (per-person split shown on the chips) */}
                       <div className="flex-shrink-0 text-right">
                         <p className="text-base font-bold text-gray-900">{formatMoney(bill.amount)}</p>
-                        <p className={cn("text-xs", bill.paid ? "text-green-600" : "text-blue-600")}>
-                          {bill.paid ? "Settled" : "Paid"}
-                        </p>
                       </div>
 
                       {/* Actions */}
                       <div className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 cursor-pointer text-gray-400 hover:text-gray-700">
+                            <Button variant="subtle" size="icon-xs">
                               <MoreHorizontal className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem className="cursor-pointer" onClick={() => handleToggleBill(bill)}>
+                            <DropdownMenuItem onClick={() => handleToggleBill(bill)}>
                               <CheckCircle2 className="h-3.5 w-3.5 mr-2" /> {bill.paid ? "Mark Paid" : "Mark Settled"}
                             </DropdownMenuItem>
-                            <DropdownMenuItem className="cursor-pointer" onClick={() => { setEditingBill(bill); setBillDialogOpen(true) }}>
+                            <DropdownMenuItem onClick={() => { setEditingBill(bill); setBillDialogOpen(true) }}>
                               <Edit className="h-3.5 w-3.5 mr-2" /> Edit
                             </DropdownMenuItem>
-                            <DropdownMenuItem className="cursor-pointer text-destructive focus:text-destructive" onClick={() => setDeleteBill_(bill)}>
+                            <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => setDeleteBill_(bill)}>
                               <Trash2 className="h-3.5 w-3.5 mr-2" /> Delete
                             </DropdownMenuItem>
                           </DropdownMenuContent>
@@ -1555,60 +1557,58 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
-                            <div className="flex items-center gap-2">
-                              {bill.paid
-                                ? <CheckCircle2 className="h-4 w-4 text-green-500" />
-                                : <AlertCircle className="h-4 w-4 text-amber-500" />
-                              }
-                              <p className="text-sm font-semibold text-gray-800">{bill.name}</p>
-                            </div>
-                            <span className={cn("inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border mt-1", monthStyle.bg, monthStyle.text, monthStyle.border)}>
+                            <p className="text-sm font-semibold text-gray-800">{bill.name}</p>
+                            <span className={cn("inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border mt-1 whitespace-nowrap", monthStyle.bg, monthStyle.text, monthStyle.border)}>
                               {period}
                             </span>
                           </div>
-                          <div className="text-right">
+                          <div className="text-right flex flex-col items-end gap-1">
                             <p className="text-base font-bold text-gray-900">{formatMoney(bill.amount)}</p>
-                            <p className={cn("text-xs", bill.paid ? "text-green-600" : "text-blue-600")}>{bill.paid ? "Settled" : "Paid"}</p>
+                            <Pill
+                              label={bill.paid ? "Settled" : "Awaiting settle"}
+                              accent={bill.paid ? "readings" : "diary"}
+                            />
                           </div>
                         </div>
                         <div className="mt-2 flex flex-wrap gap-1.5">
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-blue-100 text-blue-700 border border-blue-200 font-medium">
-                            {payer}{bill.split_preset === "default" ? ` · ${daysInPeriod}d` : ""}{payerIncluded && hasSplit && ` · ${formatMoney(payerShare)}`}
-                          </span>
+                          <PersonPill
+                            name={payer}
+                            meta={billChipMeta(bill, daysInPeriod, payerIncluded && hasSplit ? payerShare : null)}
+                            accent="bills"
+                          />
                           {guestChipNames.map(guestName => {
                             const included = selectedGuestNames.has(guestName)
-                            const guestDays = guestDaysByName.get(guestName) ?? 0
                             return (
-                              <button
+                              <PersonPill
                                 key={`${bill.id}-${guestName}-card`}
-                                onClick={() => toggleStayInBill(bill, guestName, defaultSelectedNames)}
-                                className={cn(
-                                  "inline-flex items-center px-2 py-0.5 rounded-full text-xs border cursor-pointer transition-all",
-                                  included
-                                    ? "bg-blue-500 text-white border-blue-500"
-                                    : "bg-white text-gray-400 border-gray-200 hover:border-blue-300 hover:text-blue-500",
+                                name={guestName}
+                                meta={billChipMeta(
+                                  bill,
+                                  guestDaysByName.get(guestName) ?? 0,
+                                  included ? shareFor(guestName) : null,
                                 )}
-                              >
-                                {guestName}{bill.split_preset === "default" ? ` · ${guestDays}d` : ""}{included && ` · ${formatMoney(shareFor(guestName))}`}
-                              </button>
+                                state={included ? "on" : "off"}
+                                accent="bills"
+                                onClick={() => toggleStayInBill(bill, guestName, defaultSelectedNames)}
+                              />
                             )
                           })}
                         </div>
                         <div className="mt-2 flex justify-end">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-7 w-7 cursor-pointer text-gray-400 hover:text-gray-700">
+                              <Button variant="subtle" size="icon-xs">
                                 <MoreHorizontal className="h-4 w-4" />
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem className="cursor-pointer" onClick={() => handleToggleBill(bill)}>
+                              <DropdownMenuItem onClick={() => handleToggleBill(bill)}>
                                 <CheckCircle2 className="h-3.5 w-3.5 mr-2" /> {bill.paid ? "Mark Paid" : "Mark Settled"}
                               </DropdownMenuItem>
-                              <DropdownMenuItem className="cursor-pointer" onClick={() => { setEditingBill(bill); setBillDialogOpen(true) }}>
+                              <DropdownMenuItem onClick={() => { setEditingBill(bill); setBillDialogOpen(true) }}>
                                 <Edit className="h-3.5 w-3.5 mr-2" /> Edit
                               </DropdownMenuItem>
-                              <DropdownMenuItem className="cursor-pointer text-destructive focus:text-destructive" onClick={() => setDeleteBill_(bill)}>
+                              <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => setDeleteBill_(bill)}>
                                 <Trash2 className="h-3.5 w-3.5 mr-2" /> Delete
                               </DropdownMenuItem>
                             </DropdownMenuContent>
@@ -1684,6 +1684,6 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
         onConfirm={handleDeleteReading}
         itemName={deleteReading ? `${deleteReading.name} ${shortDate(deleteReading.date)}` : undefined}
       />
-    </div>
+    </PageShell>
   )
 }

@@ -126,15 +126,27 @@
   }
 }
 
-@media (max-width: 767px) {
-  .mobile-content-shift {
-    transition: transform 300ms ease-out;
-    will-change: transform;
-  }
+/* Standalone PWA: the browser chrome is gone, so the shell has to keep itself
+   clear of the notch and the home indicator. */
+.app-shell {
+  padding-top: max(0.5rem, env(safe-area-inset-top));
+  padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+  padding-left: max(0.5rem, env(safe-area-inset-left));
+  padding-right: max(0.5rem, env(safe-area-inset-right));
+}
 
-  body.mobile-sidebar-open .mobile-content-shift {
-    transform: translateX(100vw);
+@media (min-width: 768px) {
+  .app-shell {
+    padding-top: max(1rem, env(safe-area-inset-top));
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+    padding-left: max(1rem, env(safe-area-inset-left));
+    padding-right: max(1rem, env(safe-area-inset-right));
   }
+}
+
+/* The mobile nav is a drawer: it slides over the page, it does not push it. */
+body.mobile-sidebar-open {
+  overflow: hidden;
 }
 
 /* Electron frameless window: keep top-right actions clear of caption controls */

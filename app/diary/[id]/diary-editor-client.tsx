@@ -3,15 +3,29 @@
 import { useState, useEffect, useRef, useCallback, DragEvent } from "react"
 import { useRouter } from "next/navigation"
 import {
-  ChevronLeft, Bold, Heading2, Type, ImageIcon,
-  Trash2, Loader2, GripVertical, Plus, X, Pencil,
+  Bold, Heading2, Type, ImageIcon,
+  Trash2, Loader2, GripVertical, CornerDownLeft,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { updateDiaryEntry, type DiaryEntry, type Block, type ImageItem } from "@/lib/actions/diary"
 import { trackSave } from "@/lib/save-events"
 import { createClient } from "@/lib/supabase/client"
 import { ImageLightbox } from "@/components/image-lightbox"
+import {
+  isImageBlock,
+  layoutBlocks,
+  makeImageBlocks,
+  normalizeBlocks,
+  rowImageHeight,
+} from "@/lib/image-rows"
 import { useT, useLanguage } from "@/lib/language"
+import { EditorHeader } from "@/components/editor-header"
+import {
+  SlashMenu,
+  filterSlashCommands,
+  slashCommands,
+  type SlashCommand,
+} from "@/components/editor-slash-menu"
 
 // ── Utilities ─────────────────────────────────────────────────────────────────
 
@@ -82,143 +96,131 @@ function AutoTextarea({
 }
 
 // ── Image block ───────────────────────────────────────────────────────────────
-function ImageBlock({
-  block, entryId, onChange, onDelete, onOpenLightbox, globalOffset,
+// ── One image, rendered as a cell inside a row ────────────────────────────────
+function ImageCell({
+  block, row, position, entryId, onChange, onDelete, onToggleBreak,
+  onOpenLightbox, lightboxIndex, onDragStart, onDragEnd, onDragOverCell, isDragOver,
 }: {
   block: Extract<Block, { type: "image" }>
+  /** How many images share this row — drives the rendered height. */
+  row: number
+  /** Index within the row; the first cell owns the row-break control. */
+  position: number
   entryId: string
   onChange: (b: Block) => void
   onDelete: () => void
+  onToggleBreak: () => void
   onOpenLightbox: (index: number) => void
-  globalOffset: number
+  lightboxIndex: number
+  onDragStart: () => void
+  onDragEnd: () => void
+  onDragOverCell: () => void
+  isDragOver: boolean
 }) {
   const t = useT()
   const [uploading, setUploading] = useState(false)
-  const [dragOver, setDragOver] = useState(false)
-  const fileRef = useRef<HTMLInputElement>(null)
+  const imgRef = useRef<HTMLImageElement>(null)
+  const image = block.images[0]
 
-  const addImages = async (files: FileList | File[]) => {
-    const arr = Array.from(files).filter(f => f.type.startsWith("image/"))
-    const slots = 3 - block.images.length
-    if (slots <= 0 || arr.length === 0) return
-    setUploading(true)
-    try {
-      const urls = await Promise.all(arr.slice(0, slots).map(f => uploadImage(f, entryId)))
-      const newImages: ImageItem[] = urls.map(url => ({ url, caption: "" }))
-      onChange({ ...block, images: [...block.images, ...newImages] })
-    } catch (e) { console.error("Upload failed:", e) }
-    setUploading(false)
-  }
-
-  const handleDrop = (e: DragEvent) => {
-    e.preventDefault(); setDragOver(false)
-    if (e.dataTransfer.files.length) addImages(e.dataTransfer.files)
-  }
-
-  const removeImage = (i: number) => {
-    const next = block.images.filter((_, idx) => idx !== i)
-    if (next.length === 0) onDelete()
-    else onChange({ ...block, images: next })
-  }
-
-  const replaceImage = async (i: number, file?: File) => {
+  const replace = async (file?: File) => {
     if (!file || !file.type.startsWith("image/")) return
     setUploading(true)
     try {
       const url = await uploadImage(file, entryId)
-      onChange({
-        ...block,
-        images: block.images.map((img, idx) => idx === i ? { ...img, url } : img),
-      })
-    } catch (e) { console.error("Replace image failed:", e) }
+      onChange({ ...block, images: [{ ...image, url }] })
+    } catch (error) { console.error("Replace image failed:", error) }
     setUploading(false)
   }
 
-  const updateCaption = (i: number, caption: string) => {
-    onChange({ ...block, images: block.images.map((img, idx) => idx === i ? { ...img, caption } : img) })
-  }
-
-  const colClass = block.images.length === 1 ? "" : block.images.length === 2 ? "grid grid-cols-2 gap-2" : "grid grid-cols-3 gap-2"
-
   return (
-    <div className="py-2">
-      {block.images.length > 0 && (
-        <div className="mb-2" style={{ maxWidth: 500 }}>
-          <div className={colClass}>
-            {block.images.map((img, i) => (
-              <div key={i} className="group/img relative">
-                <img
-                  src={img.url} alt=""
-                  onClick={() => onOpenLightbox(globalOffset + i)}
-                  className="rounded-lg object-cover w-full cursor-zoom-in"
-                  style={{
-                    maxWidth: block.images.length === 1 ? 500 : "100%",
-                    height: block.images.length === 1 ? 380 : block.images.length === 2 ? 320 : 240,
-                    objectFit: "cover"
-                  }}
-                />
-                <div
-                  className="absolute right-2 top-2 flex items-center gap-1 rounded-full bg-white/90 p-1 shadow-sm opacity-0 group-hover/img:opacity-100 transition-opacity"
-                  onClick={e => e.stopPropagation()}
-                >
-                  <button
-                    onClick={() => document.getElementById(`img-replace-${block.id}-${i}`)?.click()}
-                    className="flex h-7 w-7 items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 hover:text-amber-600 cursor-pointer transition-colors"
-                    title={`${t("diary.replaceImage")}${block.images.length > 1 ? ` ${i + 1}/${block.images.length}` : ""}`}
-                  >
-                    <ImageIcon className="h-4 w-4" />
-                  </button>
-                  <button
-                    onClick={() => removeImage(i)}
-                    className="flex h-7 w-7 items-center justify-center rounded-full text-gray-400 hover:bg-red-50 hover:text-red-600 cursor-pointer transition-colors"
-                    title={`${t("diary.deleteImage")}${block.images.length > 1 ? ` ${i + 1}/${block.images.length}` : ""}`}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
-                <input
-                  id={`img-replace-${block.id}-${i}`}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={e => {
-                    replaceImage(i, e.target.files?.[0])
-                    e.target.value = ""
-                  }}
-                />
-              </div>
-            ))}
-          </div>
-        </div>
+    <div
+      className={cn(
+        "group/img relative rounded-lg transition-shadow",
+        isDragOver && "ring-2 ring-amber-400 ring-offset-2",
       )}
+      onDragOver={e => { e.preventDefault(); onDragOverCell() }}
+    >
+      <img
+        ref={imgRef}
+        src={image?.url}
+        alt={image?.caption || ""}
+        onClick={() => onOpenLightbox(lightboxIndex)}
+        className="rounded-lg object-cover w-full cursor-zoom-in"
+        style={{ height: rowImageHeight(row), objectFit: "cover" }}
+      />
 
-      {/* Upload zone — only shown when block has no images yet */}
-      {block.images.length === 0 && (
-        <div
-          onDragOver={e => { e.preventDefault(); setDragOver(true) }}
-          onDragLeave={() => setDragOver(false)}
-          onDrop={handleDrop}
-          onClick={() => fileRef.current?.click()}
-          className={cn(
-            "flex items-center justify-center gap-2 rounded-xl border-2 border-dashed text-sm transition-colors cursor-pointer py-2.5",
-            dragOver ? "border-amber-400 bg-amber-50 text-amber-600" : "border-gray-200 text-gray-400 hover:border-amber-300 hover:text-amber-500",
-          )}
-          style={{ maxWidth: 500 }}
+      {/* Drag handle — dragging reorders, clicking anywhere else opens the
+          lightbox, so the two gestures never compete. */}
+      <button
+        type="button"
+        draggable
+        onDragStart={e => {
+          e.dataTransfer.effectAllowed = "move"
+          // Drag the picture, not the little handle.
+          if (imgRef.current) e.dataTransfer.setDragImage(imgRef.current, 40, 40)
+          onDragStart()
+        }}
+        onDragEnd={onDragEnd}
+        onClick={e => e.stopPropagation()}
+        title={t("diary.dragToReorder")}
+        className="absolute left-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-white/90 text-gray-400 shadow-sm opacity-0 transition-opacity group-hover/img:opacity-100 hover:text-gray-700 cursor-grab active:cursor-grabbing"
+      >
+        <GripVertical className="h-4 w-4" />
+      </button>
+
+      <div
+        className="absolute right-2 top-2 flex items-center gap-1 rounded-full bg-white/90 p-1 shadow-sm opacity-0 group-hover/img:opacity-100 transition-opacity"
+        onClick={e => e.stopPropagation()}
+      >
+        {position === 0 ? (
+          <button
+            onClick={onToggleBreak}
+            className={cn(
+              "flex h-7 w-7 items-center justify-center rounded-full transition-colors",
+              block.breakBefore
+                ? "text-amber-600 bg-amber-50"
+                : "text-gray-400 hover:bg-gray-100 hover:text-amber-600",
+            )}
+            title={block.breakBefore ? t("diary.joinRow") : t("diary.startRow")}
+          >
+            <CornerDownLeft className="h-4 w-4" />
+          </button>
+        ) : (
+          <button
+            onClick={onToggleBreak}
+            className="flex h-7 w-7 items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 hover:text-amber-600 transition-colors"
+            title={t("diary.startRow")}
+          >
+            <CornerDownLeft className="h-4 w-4" />
+          </button>
+        )}
+        <button
+          onClick={() => document.getElementById(`img-replace-${block.id}`)?.click()}
+          className="flex h-7 w-7 items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 hover:text-amber-600 transition-colors"
+          title={t("diary.replaceImage")}
         >
-          {uploading
-            ? <><Loader2 className="h-4 w-4 animate-spin" /> {t("diary.uploading")}</>
-            : <><ImageIcon className="h-4 w-4" /> {t("diary.dropOrClick")}</>
-          }
-        </div>
-      )}
-      {uploading && block.images.length > 0 && (
-        <div className="flex items-center gap-2 text-sm text-amber-500 mt-1">
-          <Loader2 className="h-4 w-4 animate-spin" /> {t("diary.uploading")}
-        </div>
-      )}
-      <input ref={fileRef} id={`img-add-${block.id}`} type="file" accept="image/*" multiple className="hidden"
-        onChange={e => e.target.files && addImages(e.target.files)} />
+          {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImageIcon className="h-4 w-4" />}
+        </button>
+        <button
+          onClick={onDelete}
+          className="flex h-7 w-7 items-center justify-center rounded-full text-gray-400 hover:bg-red-50 hover:text-red-600 transition-colors"
+          title={t("diary.deleteImage")}
+        >
+          <Trash2 className="h-4 w-4" />
+        </button>
+      </div>
 
+      {image?.caption && (
+        <p className="mt-1 text-xs text-gray-400 line-clamp-2">{image.caption}</p>
+      )}
+
+      <input
+        id={`img-replace-${block.id}`}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={e => { replace(e.target.files?.[0]); e.target.value = "" }}
+      />
     </div>
   )
 }
@@ -226,18 +228,66 @@ function ImageBlock({
 // ── Single block row ──────────────────────────────────────────────────────────
 function BlockRow({
   block, focused, focusPosition, onFocus, onChange, onDelete, onEnter, onBackspaceStart, onBackspaceEmpty,
-  onDragStart, onDragEnter, onDragEnd, isDragOver, entryId, onAddImageAfter, onOpenLightbox, globalOffset,
+  onDragStart, onDragEnter, onDragEnd, isDragOver, onAddImageAfter,
+  onSlashCommand,
 }: {
-  block: Block; focused: boolean; focusPosition?: number | null; onFocus: () => void
+  block: Exclude<Block, { type: "image" }>
+  focused: boolean; focusPosition?: number | null; onFocus: () => void
   onChange: (b: Block) => void; onDelete: () => void
   onEnter: (before: string, after: string) => void; onBackspaceStart: () => void; onBackspaceEmpty: () => void
   onDragStart: () => void; onDragEnter: () => void; onDragEnd: () => void
-  isDragOver: boolean; entryId: string; onAddImageAfter: () => void
-  onOpenLightbox: (index: number) => void; globalOffset: number
+  isDragOver: boolean; onAddImageAfter: () => void
+  onSlashCommand: (blockId: string, command: SlashCommand) => void
 }) {
   const t = useT()
+
+  // `/` at the start of a text block opens the command palette; the query is
+  // whatever follows it, and a space cancels (so "/ " is just typing).
+  const text: string = (block as any).text ?? ""
+  const slashQuery =
+    (block.type === "paragraph" || block.type === "heading") &&
+    text.startsWith("/") &&
+    !text.slice(1).includes(" ")
+      ? text.slice(1)
+      : null
+
+  const allCommands = slashCommands({
+    text: t("diary.text"),
+    heading: t("diary.heading"),
+    image: t("diary.image"),
+  })
+  const matches = slashQuery === null ? [] : filterSlashCommands(allCommands, slashQuery)
+  const menuOpen = focused && matches.length > 0
+  const [activeIndex, setActiveIndex] = useState(0)
+
+  useEffect(() => {
+    setActiveIndex(0)
+  }, [slashQuery])
+
   const handleKey = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    const text = (block as any).text ?? ""
+    if (menuOpen) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault()
+        setActiveIndex(i => (i + 1) % matches.length)
+        return
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault()
+        setActiveIndex(i => (i - 1 + matches.length) % matches.length)
+        return
+      }
+      if (e.key === "Enter" || e.key === "Tab") {
+        e.preventDefault()
+        onSlashCommand(block.id, matches[activeIndex])
+        return
+      }
+      if (e.key === "Escape") {
+        e.preventDefault()
+        onChange({ ...block, text: "" } as Block)
+        return
+      }
+    }
+
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault()
       const start = e.currentTarget.selectionStart ?? text.length
@@ -275,7 +325,7 @@ function BlockRow({
       </div>
 
       {/* Content */}
-      <div className="flex-1 min-w-0">
+      <div className="relative flex-1 min-w-0">
         {block.type === "heading" && (
           <AutoTextarea
             value={block.text} onChange={text => onChange({ ...block, text })}
@@ -294,23 +344,26 @@ function BlockRow({
             className={cn("text-base text-gray-700 py-0.5", block.bold && "font-semibold")}
           />
         )}
-        {block.type === "image" && (
-          <ImageBlock block={block} entryId={entryId}
-            onChange={onChange} onDelete={onDelete}
-            onOpenLightbox={onOpenLightbox} globalOffset={globalOffset} />
+        {menuOpen && (
+          <SlashMenu
+            commands={matches}
+            activeIndex={activeIndex}
+            onHover={setActiveIndex}
+            onSelect={command => onSlashCommand(block.id, command)}
+          />
         )}
       </div>
 
       {/* Block actions */}
       <div className="flex-shrink-0 flex gap-1 opacity-0 group-hover/block:opacity-100 transition-opacity mt-0.5">
-        {block.type !== "image" && (<>
+        <>
           <button
             onClick={() => onChange(
               block.type === "heading"
                 ? { ...block, type: "paragraph", bold: false } as Block
                 : { ...block, type: "heading" } as Block
             )}
-            className="p-1.5 rounded-lg text-gray-400 hover:text-gray-800 hover:bg-gray-200 cursor-pointer transition-colors"
+            className="p-1.5 rounded-lg text-gray-400 hover:text-gray-800 hover:bg-gray-200 transition-colors"
             title={block.type === "heading" ? t("diary.toText") : t("diary.toHeading")}
           >
             {block.type === "heading" ? <Type className="h-4 w-4" /> : <Heading2 className="h-4 w-4" />}
@@ -319,7 +372,7 @@ function BlockRow({
             <button
               onClick={() => onChange({ ...block, bold: !block.bold } as Block)}
               className={cn(
-                "p-1.5 rounded-lg cursor-pointer transition-colors",
+                "p-1.5 rounded-lg transition-colors",
                 block.bold
                   ? "text-gray-900 bg-gray-200"
                   : "text-gray-400 hover:text-gray-800 hover:bg-gray-200"
@@ -329,44 +382,21 @@ function BlockRow({
               <Bold className="h-4 w-4" />
             </button>
           )}
-        </>)}
-        {block.type !== "image" ? (
-          <button
-            onClick={onAddImageAfter}
-            className="p-1.5 rounded-lg text-gray-400 hover:text-amber-600 hover:bg-amber-50 cursor-pointer transition-colors"
-            title={t("diary.addImageBelow")}
-          >
-            <ImageIcon className="h-4 w-4" />
-          </button>
-        ) : (
-          <button
-            onClick={block.images.length >= 3
-              ? onAddImageAfter
-              : () => (document.getElementById(`img-add-${block.id}`) as HTMLElement)?.click()
-            }
-            className="rounded-lg p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 cursor-pointer transition-colors"
-            title={block.images.length >= 3 ? t("diary.addImageRowBelow") : t("diary.addPhotoToRow")}
-          >
-            <ImageIcon className="h-4 w-4" />
-          </button>
-        )}
-        {block.type !== "image" ? (
-          <button
-            onClick={onDelete}
-            className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 cursor-pointer transition-colors"
-            title={t("diary.deleteBlock")}
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
-        ) : (
-          <button
-            onClick={onDelete}
-            className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 cursor-pointer transition-colors"
-            title={t("diary.deleteImageBlock")}
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
-        )}
+        </>
+        <button
+          onClick={onAddImageAfter}
+          className="p-1.5 rounded-lg text-gray-400 hover:text-amber-600 hover:bg-amber-50 transition-colors"
+          title={t("diary.addImageBelow")}
+        >
+          <ImageIcon className="h-4 w-4" />
+        </button>
+        <button
+          onClick={onDelete}
+          className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+          title={t("diary.deleteBlock")}
+        >
+          <Trash2 className="h-4 w-4" />
+        </button>
       </div>
     </div>
   )
@@ -378,16 +408,7 @@ export function DiaryEditorClient({ entry }: { entry: DiaryEntry }) {
   const { lang } = useLanguage()
   const timeLocale = lang === "hr" ? "hr-HR" : "en-US"
   const [title, setTitle] = useState(entry.title)
-  const [blocks, setBlocks] = useState<Block[]>(
-    // Migrate old single-image blocks to new format
-    (entry.content ?? []).map(b => {
-      if (b.type === "image" && !(b as any).images) {
-        return { ...b, images: [{ url: (b as any).url ?? "", caption: (b as any).caption ?? "" }] } as Block
-      }
-      return b
-    })
-  )
-  const [isEditing, setIsEditing] = useState(false)
+  const [blocks, setBlocks] = useState<Block[]>(() => normalizeBlocks(entry.content ?? []))
   const [focusedId, setFocusedId] = useState<string | null>(null)
   const [focusPosition, setFocusPosition] = useState<number | null>(null)
   const [saving, setSaving] = useState(false)
@@ -395,12 +416,23 @@ export function DiaryEditorClient({ entry }: { entry: DiaryEntry }) {
   const [globalDragOver, setGlobalDragOver] = useState(false)
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
 
-  // Flat list of all image URLs across all blocks for lightbox navigation
-  const allImageUrls = blocks.flatMap(b => b.type === "image" ? b.images.map(img => img.url) : [])
+  // Flat list of every image, in document order, for lightbox navigation.
+  const imageBlocks = blocks.filter(isImageBlock)
+  const allImageUrls = imageBlocks.map(b => b.images[0]?.url ?? "")
+  const imageIndexById = new Map(imageBlocks.map((b, i) => [b.id, i]))
   const dragIdx = useRef<number | null>(null)
   const dragOverIdx = useRef<number | null>(null)
   const [dragOverBlock, setDragOverBlock] = useState<number | null>(null)
   const saveTimer = useRef<NodeJS.Timeout | null>(null)
+  // Uploads are async, so handlers read the latest blocks from a ref rather
+  // than a stale closure.
+  const blocksRef = useRef(blocks)
+  useEffect(() => { blocksRef.current = blocks }, [blocks])
+  const imageInputRef = useRef<HTMLInputElement>(null)
+  const pendingInsertAfter = useRef<string | undefined>(undefined)
+  const [uploadingImages, setUploadingImages] = useState(false)
+  const imageDragId = useRef<string | null>(null)
+  const [imageDropId, setImageDropId] = useState<string | null>(null)
   const router = useRouter()
 
   const scheduleSave = useCallback((t: string, b: Block[]) => {
@@ -416,10 +448,9 @@ export function DiaryEditorClient({ entry }: { entry: DiaryEntry }) {
   const setBlocksAndSave = (next: Block[]) => { setBlocks(next); scheduleSave(title, next) }
   const setTitleAndSave = (t: string) => { setTitle(t); scheduleSave(t, blocks) }
 
-  const addBlock = (type: "heading" | "paragraph" | "image", afterId?: string) => {
+  const addBlock = (type: "heading" | "paragraph", afterId?: string) => {
     const newBlock: Block =
-      type === "image" ? { id: genId(), type: "image", images: [] }
-      : type === "heading" ? { id: genId(), type: "heading", text: "" }
+      type === "heading" ? { id: genId(), type: "heading", text: "" }
       : { id: genId(), type: "paragraph", text: "", bold: false }
     let next: Block[]
     if (afterId) {
@@ -431,6 +462,94 @@ export function DiaryEditorClient({ entry }: { entry: DiaryEntry }) {
     setBlocksAndSave(next)
     setFocusedId(newBlock.id)
     setFocusPosition(0)
+  }
+
+  /** Turn the "/query" block into the chosen block type. */
+  const applySlashCommand = (blockId: string, command: SlashCommand) => {
+    const idx = blocks.findIndex(b => b.id === blockId)
+    if (idx === -1) return
+    const current = blocks[idx]
+
+    // Clear the "/query" either way; an image block only exists once a file
+    // has actually been chosen.
+    const cleared: Block = { id: current.id, type: "paragraph", text: "", bold: false }
+    const replacement: Block =
+      command.id === "heading" ? { id: current.id, type: "heading", text: "" } : cleared
+
+    setBlocksAndSave([...blocks.slice(0, idx), replacement, ...blocks.slice(idx + 1)])
+
+    if (command.id === "image") {
+      pickImages(current.id)
+      setFocusedId(null)
+      return
+    }
+    setFocusedId(replacement.id)
+    setFocusPosition(0)
+  }
+
+  /**
+   * Add images at `afterId` (or the end). They become one block each, so the
+   * layout flows them into the trailing row and wraps at three on its own.
+   */
+  const insertImages = (urls: string[], afterId?: string) => {
+    const current = blocksRef.current
+    const additions = makeImageBlocks(urls)
+    const at = afterId ? current.findIndex(b => b.id === afterId) : -1
+    const next = at === -1
+      ? [...current, ...additions]
+      : [...current.slice(0, at + 1), ...additions, ...current.slice(at + 1)]
+    setBlocksAndSave(next)
+  }
+
+  /** Open the picker; where the result lands is remembered in pendingInsertAfter. */
+  const pickImages = (afterId?: string) => {
+    pendingInsertAfter.current = afterId
+    imageInputRef.current?.click()
+  }
+
+  const handleImagesChosen = async (fileList: FileList | null) => {
+    const files = Array.from(fileList ?? []).filter(f => f.type.startsWith("image/"))
+    if (imageInputRef.current) imageInputRef.current.value = ""
+    if (!files.length) return
+    setUploadingImages(true)
+    try {
+      const urls = await Promise.all(files.map(f => uploadImage(f, entry.id)))
+      insertImages(urls, pendingInsertAfter.current)
+    } catch (error) { console.error(error) }
+    setUploadingImages(false)
+    pendingInsertAfter.current = undefined
+  }
+
+  /** Move one image block to sit before another. */
+  const moveImageBlock = (fromId: string, toId: string) => {
+    if (fromId === toId) return
+    const current = blocksRef.current
+    const from = current.findIndex(b => b.id === fromId)
+    const to = current.findIndex(b => b.id === toId)
+    if (from === -1 || to === -1) return
+    const next = [...current]
+    const [moved] = next.splice(from, 1)
+    next.splice(to, 0, moved)
+    setBlocksAndSave(next)
+  }
+
+  const toggleRowBreak = (id: string) => {
+    setBlocksAndSave(
+      blocksRef.current.map(b =>
+        b.id === id && isImageBlock(b) ? { ...b, breakBefore: !b.breakBefore } : b,
+      ),
+    )
+  }
+
+  /** Clicking the empty space under the document appends a paragraph. */
+  const appendParagraph = () => {
+    const last = blocks[blocks.length - 1]
+    if (last && (last.type === "paragraph" || last.type === "heading") && !(last as any).text) {
+      setFocusedId(last.id)
+      setFocusPosition(0)
+      return
+    }
+    addBlock("paragraph", last?.id)
   }
 
   const deleteBlock = (id: string) => {
@@ -493,18 +612,13 @@ export function DiaryEditorClient({ entry }: { entry: DiaryEntry }) {
     e.preventDefault(); setGlobalDragOver(false)
     const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith("image/"))
     if (!files.length) return
-    const newBlock: Block = { id: genId(), type: "image", images: [] }
-    const newBlocks = [...blocks, newBlock]
-    setBlocks(newBlocks)
-    setFocusedId(newBlock.id)
-    // Upload and update
+    setUploadingImages(true)
     try {
-      const urls = await Promise.all(files.slice(0, 3).map(f => uploadImage(f, entry.id)))
-      const withImages = newBlocks.map(b =>
-        b.id === newBlock.id ? { ...b, images: urls.map(url => ({ url, caption: "" })) } as Block : b
-      )
-      setBlocksAndSave(withImages)
-    } catch (e) { console.error(e) }
+      // No cap: every dropped file becomes a block and the rows wrap themselves.
+      const urls = await Promise.all(files.map(f => uploadImage(f, entry.id)))
+      insertImages(urls)
+    } catch (error) { console.error(error) }
+    setUploadingImages(false)
   }
 
   // Block drag-to-reorder
@@ -520,81 +634,29 @@ export function DiaryEditorClient({ entry }: { entry: DiaryEntry }) {
     dragIdx.current = null; dragOverIdx.current = null; setDragOverBlock(null)
   }
 
-  // ── Read-only view ────────────────────────────────────────────────────────
-  if (!isEditing) {
-    const viewAllImages = blocks.flatMap(b => b.type === "image" ? b.images.map((img: any) => img.url) : [])
-    let viewImageOffset = 0
-
-    return (
-      <div className="max-w-3xl mx-auto px-8 py-6 pb-24 min-h-full">
-        <div className="mb-6">
-          <button onClick={() => router.push("/diary")}
-            className="flex items-center gap-1 text-sm text-gray-400 hover:text-gray-700 cursor-pointer transition-colors mb-4">
-            <ChevronLeft className="h-4 w-4" /> {t("diary.allEntries")}
-          </button>
-          <div className="flex items-center justify-between">
-            <h1 className="text-4xl font-bold text-gray-900 tracking-tight">{title}</h1>
-            <button
-              onClick={() => setIsEditing(true)}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-sm font-medium text-gray-600 hover:text-gray-900 cursor-pointer transition-colors flex-shrink-0 ml-4"
-            >
-              <Pencil className="h-3.5 w-3.5" /> {t("common.edit")}
-            </button>
-          </div>
-        </div>
-
-        <div className="space-y-3">
-          {blocks.map(block => {
-            if (block.type === "heading") return (
-              <h2 key={block.id} className="text-xl font-semibold text-gray-800 pt-2">{block.text}</h2>
-            )
-            if (block.type === "paragraph") return (
-              <p key={block.id} className={block.bold ? "text-base font-semibold text-gray-800" : "text-base text-gray-700 leading-relaxed"}>
-                {block.text}
-              </p>
-            )
-            if (block.type === "image") {
-              const imgs = block.images ?? []
-              if (imgs.length === 0) return null
-              const colClass = imgs.length === 1 ? "" : imgs.length === 2 ? "grid grid-cols-2 gap-2" : "grid grid-cols-3 gap-2"
-              const offset = viewImageOffset
-              viewImageOffset += imgs.length
-              return (
-                <div key={block.id} className={colClass} style={{ maxWidth: 500 }}>
-                  {imgs.map((img: any, i: number) => (
-                    <img key={i} src={img.url} alt=""
-                      className="rounded-lg object-cover w-full cursor-zoom-in"
-                      style={{ height: imgs.length === 1 ? 380 : imgs.length === 2 ? 320 : 240 }}
-                      onClick={() => setLightboxIndex(offset + i)}
-                    />
-                  ))}
-                </div>
-              )
-            }
-            return null
-          })}
-        </div>
-
-        {lightboxIndex !== null && (
-          <ImageLightbox
-            urls={viewAllImages}
-            index={lightboxIndex}
-            onClose={() => setLightboxIndex(null)}
-            onNavigate={setLightboxIndex}
-          />
-        )}
-      </div>
-    )
-  }
-
-  // ── Edit view ─────────────────────────────────────────────────────────────
+  // ── Editor ────────────────────────────────────────────────────────────────
   return (
     <div
-      className="max-w-3xl mx-auto px-8 py-6 pb-24 min-h-full"
+      className="px-4 md:px-6 pb-24 min-h-full"
       onDragOver={e => { e.preventDefault(); if (Array.from(e.dataTransfer.items).some(i => i.type.startsWith("image/"))) setGlobalDragOver(true) }}
       onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setGlobalDragOver(false) }}
       onDrop={handleGlobalDrop}
     >
+      <input
+        ref={imageInputRef}
+        type="file"
+        accept="image/*"
+        multiple
+        className="hidden"
+        onChange={e => handleImagesChosen(e.target.files)}
+      />
+
+      {uploadingImages && (
+        <div className="fixed bottom-4 left-1/2 z-40 -translate-x-1/2 flex items-center gap-2 rounded-full bg-gray-900/90 px-4 py-2 text-sm text-white shadow-lg">
+          <Loader2 className="h-4 w-4 animate-spin" /> {t("diary.uploading")}
+        </div>
+      )}
+
       {/* Global drop overlay */}
       {globalDragOver && (
         <div className="fixed inset-0 z-50 bg-amber-50/80 border-4 border-dashed border-amber-400 flex items-center justify-center pointer-events-none">
@@ -602,43 +664,83 @@ export function DiaryEditorClient({ entry }: { entry: DiaryEntry }) {
         </div>
       )}
 
-      {/* Nav */}
-      <div className="mb-6">
-        <button onClick={() => router.push("/diary")}
-          className="flex items-center gap-1 text-sm text-gray-400 hover:text-gray-700 cursor-pointer transition-colors mb-4">
-          <ChevronLeft className="h-4 w-4" /> All entries
-        </button>
-        <div className="flex items-center justify-between">
-          {/* Title */}
-          <AutoTextarea
-            value={title} onChange={setTitleAndSave}
-            onKeyDown={e => {
-              if (e.key === "Enter") { e.preventDefault()
-                if (blocks.length === 0) addBlock("paragraph")
-                else { setFocusedId(blocks[0].id); setFocusPosition(0) }
-              }
-            }}
-            placeholder={t("diary.titlePlaceholder")}
-            className="text-4xl font-bold text-gray-900 tracking-tight flex-1"
-          />
-          <div className="flex items-center gap-2 flex-shrink-0 ml-4">
-            <span className="text-xs text-gray-400">
-              {saving ? t("diary.saving") : savedAt ? `${t("diary.saved")} ${savedAt.toLocaleTimeString(timeLocale, { hour: "2-digit", minute: "2-digit" })}` : ""}
-            </span>
-            <button
-              onClick={() => setIsEditing(false)}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gray-800 hover:bg-gray-900 text-sm font-medium text-white cursor-pointer transition-colors"
-            >
-              {t("diary.done")}
-            </button>
-          </div>
-        </div>
-      </div>
+      <EditorHeader
+        backHref="/diary"
+        backLabel={t("diary.allEntries")}
+        title={title}
+        accent="diary"
+        status={
+          saving
+            ? t("diary.saving")
+            : savedAt
+            ? `${t("diary.saved")} ${savedAt.toLocaleTimeString(timeLocale, { hour: "2-digit", minute: "2-digit" })}`
+            : ""
+        }
+      />
 
-      {/* Blocks */}
+      <div className="max-w-3xl mx-auto pt-6">
+        {/* Title */}
+        <AutoTextarea
+          value={title} onChange={setTitleAndSave}
+          onKeyDown={e => {
+            if (e.key === "Enter") { e.preventDefault()
+              if (blocks.length === 0) addBlock("paragraph")
+              else { setFocusedId(blocks[0].id); setFocusPosition(0) }
+            }
+          }}
+          placeholder={t("diary.titlePlaceholder")}
+          className="text-4xl font-bold text-gray-900 tracking-tight mb-6"
+        />
+
+      {/* Blocks — runs of images collapse into rows that wrap at three. */}
       <div className="space-y-0.5">
-        {blocks.map((block, idx) => {
-          const globalOffset = blocks.slice(0, idx).reduce((sum, b) => sum + (b.type === "image" ? b.images.length : 0), 0)
+        {layoutBlocks(blocks).map(item => {
+          if (item.kind === "row") {
+            return (
+              <div
+                key={item.blocks[0].id}
+                className="py-2"
+                style={{ maxWidth: 500 }}
+              >
+                <div
+                  className={cn(
+                    "grid gap-2",
+                    item.blocks.length === 1 ? "grid-cols-1"
+                    : item.blocks.length === 2 ? "grid-cols-2"
+                    : "grid-cols-3",
+                  )}
+                >
+                  {item.blocks.map((imageBlock, position) => (
+                    <ImageCell
+                      key={imageBlock.id}
+                      block={imageBlock}
+                      row={item.blocks.length}
+                      position={position}
+                      entryId={entry.id}
+                      onChange={updated => updateBlock(imageBlock.id, updated)}
+                      onDelete={() => deleteBlock(imageBlock.id)}
+                      onToggleBreak={() => toggleRowBreak(imageBlock.id)}
+                      onOpenLightbox={setLightboxIndex}
+                      lightboxIndex={imageIndexById.get(imageBlock.id) ?? 0}
+                      onDragStart={() => { imageDragId.current = imageBlock.id }}
+                      onDragEnd={() => {
+                        if (imageDragId.current && imageDropId) {
+                          moveImageBlock(imageDragId.current, imageDropId)
+                        }
+                        imageDragId.current = null
+                        setImageDropId(null)
+                      }}
+                      onDragOverCell={() => setImageDropId(imageBlock.id)}
+                      isDragOver={imageDropId === imageBlock.id && imageDragId.current !== imageBlock.id}
+                    />
+                  ))}
+                </div>
+              </div>
+            )
+          }
+
+          const block = item.block
+          const idx = blocks.findIndex(b => b.id === block.id)
           return (
             <BlockRow
               key={block.id}
@@ -655,10 +757,8 @@ export function DiaryEditorClient({ entry }: { entry: DiaryEntry }) {
               onDragEnter={() => handleBlockDragEnter(idx)}
               onDragEnd={handleBlockDragEnd}
               isDragOver={dragOverBlock === idx && dragIdx.current !== idx}
-              entryId={entry.id}
-              onAddImageAfter={() => addBlock("image", block.id)}
-              onOpenLightbox={setLightboxIndex}
-              globalOffset={globalOffset}
+              onAddImageAfter={() => pickImages(block.id)}
+              onSlashCommand={applySlashCommand}
             />
           )
         })}
@@ -673,21 +773,20 @@ export function DiaryEditorClient({ entry }: { entry: DiaryEntry }) {
         />
       )}
 
-      {/* Add block toolbar */}
-      <div className="flex items-center gap-2 mt-6 pl-5">
-        <span className="text-xs text-gray-300 mr-1">{t("diary.add")}</span>
-        {([
-          { type: "paragraph" as const, icon: <Type className="h-3.5 w-3.5" />, label: t("diary.text") },
-          { type: "heading" as const, icon: <Heading2 className="h-3.5 w-3.5" />, label: t("diary.heading") },
-          { type: "image" as const, icon: <ImageIcon className="h-3.5 w-3.5" />, label: t("diary.image") },
-        ]).map(({ type, icon, label }) => (
-          <button key={type}
-            onClick={() => addBlock(type, blocks[blocks.length - 1]?.id)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-gray-400 hover:text-gray-700 hover:bg-gray-100 cursor-pointer transition-colors border border-gray-200"
-          >
-            {icon} {label}
-          </button>
-        ))}
+      {/* Click anywhere below the last block to keep writing. */}
+      <div
+        onClick={appendParagraph}
+        className="min-h-40 pl-5 pt-3 cursor-text"
+      >
+        {blocks.length === 0 && (
+          <p className="text-base text-gray-300">{t("diary.writeSomething")}</p>
+        )}
+      </div>
+
+      {/* Keyboard hint — the discoverability the old toolbar provided. */}
+      <p className="pl-5 text-xs text-gray-300">
+        {t("diary.slashHint")}
+      </p>
       </div>
     </div>
   )

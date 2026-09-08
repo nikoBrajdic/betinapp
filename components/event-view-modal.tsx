@@ -24,7 +24,16 @@ interface EventViewModalProps {
   event: Event | null
   onEdit: (event: Event) => void
   onDelete: (id: string) => void
-  onEditSave: (id: string, title: string, description: string, startDate: Date, endDate: Date | null, time: string, category: Event["category"]) => void
+  onEditSave: (
+    id: string,
+    title: string,
+    description: string,
+    startDate: Date | string | null,
+    endDate: Date | string | null,
+    time: string,
+    category: Event["category"],
+    created_at?: string,
+  ) => void
 }
 
 export function EventViewModal({ open, onOpenChange, event, onEdit, onDelete, onEditSave }: EventViewModalProps) {

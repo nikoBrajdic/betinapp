@@ -51,7 +51,7 @@ function Cell({ value, onChange, isHeader, onTab }: CellProps) {
         "border border-gray-200 px-3 py-1.5 min-w-[100px] max-w-[220px] text-sm",
         isHeader && "bg-gray-50 font-semibold text-gray-700",
         !isHeader && "text-gray-600",
-        !editing && "cursor-pointer hover:bg-blue-50/50"
+        !editing && "hover:bg-blue-50/50"
       )}
       onClick={() => !editing && setEditing(true)}
     >
@@ -137,7 +137,7 @@ export function TableNoteEditor({ value, onChange }: TableNoteEditorProps) {
                   {value.columns.length > 1 && (
                     <button
                       onClick={() => removeColumn(ci)}
-                      className="opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-red-500 transition-opacity cursor-pointer flex-shrink-0"
+                      className="opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-red-500 transition-opacity flex-shrink-0"
                     >
                       <Trash2 className="h-3 w-3" />
                     </button>
@@ -148,7 +148,7 @@ export function TableNoteEditor({ value, onChange }: TableNoteEditorProps) {
             <th className="border border-gray-200 bg-gray-50 w-8">
               <button
                 onClick={addColumn}
-                className="w-full h-full flex items-center justify-center p-2 text-gray-400 hover:text-blue-500 hover:bg-blue-50 transition-colors cursor-pointer"
+                className="w-full h-full flex items-center justify-center p-2 text-gray-400 hover:text-blue-500 hover:bg-blue-50 transition-colors"
                 title="Add column"
               >
                 <Plus className="h-3.5 w-3.5" />
@@ -166,7 +166,7 @@ export function TableNoteEditor({ value, onChange }: TableNoteEditorProps) {
                 {value.rows.length > 1 && (
                   <button
                     onClick={() => removeRow(ri)}
-                    className="opacity-0 group-hover/row:opacity-100 w-full h-full flex items-center justify-center p-2 text-gray-400 hover:text-red-500 transition-opacity cursor-pointer"
+                    className="opacity-0 group-hover/row:opacity-100 w-full h-full flex items-center justify-center p-2 text-gray-400 hover:text-red-500 transition-opacity"
                     title="Remove row"
                   >
                     <Trash2 className="h-3 w-3" />
@@ -179,7 +179,7 @@ export function TableNoteEditor({ value, onChange }: TableNoteEditorProps) {
             <td colSpan={value.columns.length + 1} className="border border-gray-200">
               <button
                 onClick={addRow}
-                className="w-full flex items-center gap-1.5 px-3 py-1.5 text-xs text-gray-400 hover:text-blue-500 hover:bg-blue-50 transition-colors cursor-pointer"
+                className="w-full flex items-center gap-1.5 px-3 py-1.5 text-xs text-gray-400 hover:text-blue-500 hover:bg-blue-50 transition-colors"
               >
                 <Plus className="h-3 w-3" /> Add row
               </button>

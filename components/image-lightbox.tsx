@@ -39,7 +39,7 @@ export function ImageLightbox({ urls, index, onClose, onNavigate }: ImageLightbo
 
       <button
         onClick={onClose}
-        className="absolute top-4 right-4 text-white/70 hover:text-white bg-black/30 hover:bg-black/50 rounded-full p-2 transition-colors cursor-pointer"
+        className="absolute top-4 right-4 text-white/70 hover:text-white bg-black/30 hover:bg-black/50 rounded-full p-2 transition-colors"
       >
         <X className="h-5 w-5" />
       </button>
@@ -47,7 +47,7 @@ export function ImageLightbox({ urls, index, onClose, onNavigate }: ImageLightbo
       {urls.length > 1 && (
         <button
           onClick={e => { e.stopPropagation(); prev() }}
-          className="absolute left-4 top-1/2 -translate-y-1/2 text-white/70 hover:text-white bg-black/30 hover:bg-black/50 rounded-full p-3 transition-colors cursor-pointer"
+          className="absolute left-4 top-1/2 -translate-y-1/2 text-white/70 hover:text-white bg-black/30 hover:bg-black/50 rounded-full p-3 transition-colors"
         >
           <ChevronLeft className="h-6 w-6" />
         </button>
@@ -56,7 +56,7 @@ export function ImageLightbox({ urls, index, onClose, onNavigate }: ImageLightbo
       {urls.length > 1 && (
         <button
           onClick={e => { e.stopPropagation(); next() }}
-          className="absolute right-4 top-1/2 -translate-y-1/2 text-white/70 hover:text-white bg-black/30 hover:bg-black/50 rounded-full p-3 transition-colors cursor-pointer"
+          className="absolute right-4 top-1/2 -translate-y-1/2 text-white/70 hover:text-white bg-black/30 hover:bg-black/50 rounded-full p-3 transition-colors"
         >
           <ChevronRight className="h-6 w-6" />
         </button>

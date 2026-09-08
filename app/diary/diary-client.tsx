@@ -9,6 +9,9 @@ import { Label } from "@/components/ui/label"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { ConfirmDeleteDialog } from "@/components/confirm-delete-dialog"
+import { PageShell } from "@/components/ui/page-shell"
+import { EmptyState } from "@/components/ui/empty-state"
+import { Pill } from "@/components/ui/pill"
 import { BookOpen, Plus, Trash2, Image as ImageIcon, MoreHorizontal } from "lucide-react"
 import { createDiaryEntry, deleteDiaryEntry, type DiaryEntry } from "@/lib/actions/diary"
 import { trackSave } from "@/lib/save-events"
@@ -84,14 +87,14 @@ export function DiaryClient({ entries }: DiaryClientProps) {
   const deleteEntry = entries.find(e => e.id === deleteId)
 
   return (
-    <div className="p-8">
+    <PageShell>
       {entries.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-24 gap-4">
-          <p className="text-gray-400 text-base">{t("diary.noEntries")}</p>
-          <button onClick={() => setDialogOpen(true)} className="flex items-center gap-2 px-6 py-2.5 bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium rounded-xl cursor-pointer transition-colors">
-            <Plus className="h-4 w-4" /> {t("diary.newEntry")}
-          </button>
-        </div>
+        <EmptyState
+          message={t("diary.noEntries")}
+          action={<><Plus /> {t("diary.newEntry")}</>}
+          onAction={() => setDialogOpen(true)}
+          accent="diary"
+        />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {entries.map(entry => {
@@ -102,7 +105,7 @@ export function DiaryClient({ entries }: DiaryClientProps) {
               <Card
                 key={entry.id}
                 onClick={() => router.push(`/diary/${entry.id}`)}
-                className="p-5 cursor-pointer transition-all group border-2 hover:border-amber-200 overflow-hidden shadow-none hover:shadow-md hover:-translate-y-0.5"
+                className="p-5 transition-all group border-2 hover:border-amber-200 overflow-hidden shadow-none hover:shadow-md hover:-translate-y-0.5"
               >
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center gap-2 min-w-0">
@@ -112,13 +115,13 @@ export function DiaryClient({ entries }: DiaryClientProps) {
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild onClick={e => e.stopPropagation()}>
                       <Button variant="ghost" size="icon"
-                        className="h-7 w-7 opacity-0 group-hover:opacity-100 cursor-pointer text-gray-400 hover:text-gray-700 flex-shrink-0">
+                        className="h-7 w-7 opacity-0 group-hover:opacity-100 text-gray-400 hover:text-gray-700 flex-shrink-0">
                         <MoreHorizontal className="h-4 w-4" />
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem
-                        className="cursor-pointer text-destructive focus:text-destructive"
+                        className="text-destructive focus:text-destructive"
                         onClick={e => { e.stopPropagation(); setDeleteId(entry.id) }}
                       >
                         <Trash2 className="h-3.5 w-3.5 mr-2" /> {t("common.delete")}
@@ -138,10 +141,14 @@ export function DiaryClient({ entries }: DiaryClientProps) {
                   <p className="text-sm text-gray-400 line-clamp-2 mb-3">{getPreview(entry, t("diary.emptyEntry"))}</p>
                 )}
 
-                <div className="flex items-center gap-3 text-xs text-gray-400">
-                  <span>{new Date(entry.updated_at).toLocaleDateString(dateLocale, { month: "short", day: "numeric" })}</span>
-                  {totalImages > 0 && <span className="flex items-center gap-1"><ImageIcon className="h-3 w-3" /> {totalImages}</span>}
-                  {blockCount > 0 && <span>{blockCount} {blockWord(blockCount, lang)}</span>}
+                <div className="flex flex-wrap items-center gap-1.5 text-xs text-gray-400">
+                  <span className="mr-1">{new Date(entry.updated_at).toLocaleDateString(dateLocale, { month: "short", day: "numeric" })}</span>
+                  {blockCount > 0 && (
+                    <Pill label={`${blockCount} ${blockWord(blockCount, lang)}`} state="count" />
+                  )}
+                  {totalImages > 0 && (
+                    <Pill label={totalImages} state="count" icon={<ImageIcon />} />
+                  )}
                 </div>
               </Card>
             )
@@ -151,7 +158,7 @@ export function DiaryClient({ entries }: DiaryClientProps) {
 
       {/* New entry dialog */}
       <Dialog open={dialogOpen} onOpenChange={open => { if (!open) { setDialogOpen(false); setNewTitle("") } }}>
-        <DialogContent className="sm:max-w-[360px]">
+        <DialogContent size="sm">
           <DialogHeader><DialogTitle>{t("diary.newEntryTitle")}</DialogTitle></DialogHeader>
           <div className="py-2 space-y-1.5">
             <Label htmlFor="diary-title">{t("diary.titleLabel")}</Label>
@@ -160,8 +167,8 @@ export function DiaryClient({ entries }: DiaryClientProps) {
               onKeyDown={e => e.key === "Enter" && handleCreate()} autoFocus />
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)} className="cursor-pointer">{t("common.cancel")}</Button>
-            <Button onClick={handleCreate} disabled={!newTitle.trim() || creating} className="cursor-pointer">
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>{t("common.cancel")}</Button>
+            <Button accent="diary" onClick={handleCreate} disabled={!newTitle.trim() || creating}>
               {creating ? t("diary.creating") : t("diary.create")}
             </Button>
           </DialogFooter>
@@ -174,6 +181,6 @@ export function DiaryClient({ entries }: DiaryClientProps) {
         onConfirm={handleDelete}
         itemName={deleteEntry?.title}
       />
-    </div>
+    </PageShell>
   )
 }

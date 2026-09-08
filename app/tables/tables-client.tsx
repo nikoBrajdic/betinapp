@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
+import { PageShell } from "@/components/ui/page-shell"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Plus, Search, Edit, Trash2, Users } from "lucide-react"
@@ -96,7 +97,7 @@ export function TablesClient({ tables }: TablesClientProps) {
   }
 
   return (
-    <div className="p-8">
+    <PageShell>
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
@@ -231,6 +232,6 @@ export function TablesClient({ tables }: TablesClientProps) {
         table={editingTable}
         onSave={handleSaveTable}
       />
-    </div>
+    </PageShell>
   )
 }

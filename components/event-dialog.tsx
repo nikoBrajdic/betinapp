@@ -1,5 +1,6 @@
 "use client"
 
+import type * as React from "react"
 import { useState, useEffect } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
@@ -31,6 +32,8 @@ interface EventDialogProps {
   initialId?: string
   initialCreatedAt?: string
   mode: "create" | "edit"
+  /** Rendered under the title — the calendar puts its stay/event tabs here. */
+  headerTabs?: React.ReactNode
 }
 
 export function EventDialog({ 
@@ -46,7 +49,8 @@ export function EventDialog({
   initialCategory = "other",
   initialId = "",
   initialCreatedAt,
-  mode
+  mode,
+  headerTabs,
 }: EventDialogProps) {
   const [title, setTitle] = useState(initialTitle)
   const [description, setDescription] = useState(initialDescription)
@@ -86,7 +90,8 @@ export function EventDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px] bg-card border-border">
         <DialogHeader>
-          <DialogTitle>{mode === "create" ? "Create New Event" : "Edit Event"}</DialogTitle>
+          <DialogTitle>{mode === "create" ? "Add to the calendar" : "Edit Event"}</DialogTitle>
+          {headerTabs}
         </DialogHeader>
         <div className="space-y-4 py-4">
           <div className="space-y-2">

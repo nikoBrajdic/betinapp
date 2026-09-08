@@ -97,7 +97,7 @@ export function TaskGroupDialog({
                   key={c.value}
                   onClick={() => setColor(c.value)}
                   className={cn(
-                    "w-7 h-7 rounded-full transition-all cursor-pointer",
+                    "w-7 h-7 rounded-full transition-all",
                     c.className,
                     color === c.value ? "ring-2 ring-offset-2 ring-gray-400 scale-110" : "opacity-60 hover:opacity-100"
                   )}
@@ -117,7 +117,7 @@ export function TaskGroupDialog({
                     <li key={i} className="flex items-center gap-2 text-sm text-gray-700 bg-gray-50 rounded-lg px-3 py-1.5">
                       <span className="w-1.5 h-1.5 rounded-full bg-gray-400 flex-shrink-0" />
                       <span className="flex-1">{item}</span>
-                      <button onClick={() => removeItem(i)} className="text-gray-400 hover:text-red-500 cursor-pointer">
+                      <button onClick={() => removeItem(i)} className="text-gray-400 hover:text-red-500">
                         <X className="h-3.5 w-3.5" />
                       </button>
                     </li>
@@ -133,7 +133,7 @@ export function TaskGroupDialog({
                   onChange={e => setItemInput(e.target.value)}
                   onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addItem() } }}
                 />
-                <Button type="button" variant="outline" size="icon" onClick={addItem} className="cursor-pointer flex-shrink-0">
+                <Button type="button" variant="outline" size="icon" onClick={addItem} className="flex-shrink-0">
                   <Plus className="h-4 w-4" />
                 </Button>
               </div>
@@ -142,8 +142,8 @@ export function TaskGroupDialog({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} className="cursor-pointer">Cancel</Button>
-          <Button onClick={handleSave} disabled={!title.trim()} className="cursor-pointer">
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button onClick={handleSave} disabled={!title.trim()}>
             {mode === "create" ? "Create Task" : "Save"}
           </Button>
         </DialogFooter>

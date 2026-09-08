@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
+import { Pill } from "@/components/ui/pill"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
@@ -116,9 +116,10 @@ export function AllowlistTable({ allowlist }: AllowlistTableProps) {
                   <TableRow key={item.id}>
                     <TableCell className="font-medium">{item.email}</TableCell>
                     <TableCell>
-                      <Badge variant={item.role === "superadmin" ? "default" : "secondary"}>
-                        {item.role === "superadmin" ? "Super Admin" : "Admin"}
-                      </Badge>
+                      <Pill
+                        label={item.role === "superadmin" ? "Superadmin" : "Admin"}
+                        accent={item.role === "superadmin" ? "brand" : "neutral"}
+                      />
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {formatDistanceToNow(new Date(item.created_at), { addSuffix: true })}
