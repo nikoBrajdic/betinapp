@@ -2,12 +2,26 @@
 
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
+import { headers } from "next/headers"
 import { redirect } from "next/navigation"
 
 export async function signInWithGoogle() {
   const supabase = await createClient()
+
+  // Send people back to the host they actually signed in from. A fixed
+  // NEXT_PUBLIC_SITE_URL means every preview deployment bounces you to
+  // production the moment you log in, which makes previews unusable.
+  //
+  // This is not an open redirect: Supabase only honours a redirectTo that
+  // matches its own allow-list, and falls back to its Site URL otherwise.
+  const requestHeaders = await headers()
+  const host = requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host")
+  const proto = requestHeaders.get("x-forwarded-proto") ?? "https"
+  const requestOrigin = host ? `${proto}://${host}` : null
+
   const siteUrl =
     process.env.NEXT_PUBLIC_SITE_URL_DEV ||
+    requestOrigin ||
     process.env.NEXT_PUBLIC_SITE_URL ||
     "http://localhost:3000"
 

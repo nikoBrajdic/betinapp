@@ -34,6 +34,23 @@ gh run list --limit 5
 gh run watch          # follow the one in progress
 ```
 
+### Two things previews need, once
+
+1. **Vercel Deployment Protection** — by default preview URLs sit behind
+   Vercel's SSO wall (they redirect to `vercel.com/sso-api`), so only someone
+   logged into the Vercel account can open them. Project Settings →
+   Deployment Protection → set *Vercel Authentication* to **Only Production**.
+   Previews are still useless to a stranger: the app itself requires Google
+   sign-in and an allowlisted email.
+
+2. **A wildcard in Supabase** — preview hosts change on every deploy, so add
+   `https://betinapp-*-mateabrajdics-projects.vercel.app/auth/callback`
+   to Authentication → URL Configuration → Redirect URLs. Without it Supabase
+   rejects the preview's `redirectTo` and drops you on production instead.
+
+`signInWithGoogle` uses the host the request came from, so no env var needs
+changing per environment.
+
 ### Check it first — push a branch
 
 Any branch that is not `main` deploys a **preview**: a private URL with your
