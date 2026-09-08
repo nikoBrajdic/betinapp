@@ -4,10 +4,47 @@ import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 import {
   SEASON_TEMPLATE,
+  SEASON_UNITS,
   type SeasonClosing,
   type SeasonTask,
   type SeasonUnit,
 } from "@/lib/season"
+
+/**
+ * Make sure the four lists exist for a year, seeding each from its template.
+ *
+ * The checklist is a fixed yearly ritual — opening the page to an empty screen
+ * and a button per unit was pointless ceremony. Safe to call on every load: the
+ * unique (year, unit) constraint means a second caller just no-ops.
+ */
+export async function ensureSeasonLists(year: number) {
+  const supabase = await createClient()
+
+  const { data: existing } = await supabase
+    .from("season_closings")
+    .select("unit")
+    .eq("year", year)
+
+  const have = new Set((existing ?? []).map(row => row.unit))
+  const missing = SEASON_UNITS.map(u => u.key).filter(unit => !have.has(unit))
+  if (!missing.length) return
+
+  for (const unit of missing) {
+    const { data: closing, error } = await supabase
+      .from("season_closings")
+      .insert({ year, unit })
+      .select()
+      .single()
+    if (error || !closing) continue // raced with another request; fine
+
+    const template = SEASON_TEMPLATE[unit] ?? []
+    if (!template.length) continue
+
+    await supabase.from("season_tasks").insert(
+      template.map((item, index) => ({ ...item, closing_id: closing.id, sort_order: index })),
+    )
+  }
+}
 
 export async function getSeasonClosings(year: number): Promise<SeasonClosing[]> {
   const supabase = await createClient()
