@@ -71,7 +71,9 @@ export async function startSeasonClosing(year: number, unit: SeasonUnit) {
     .limit(1)
     .maybeSingle()
 
-  let seed = SEASON_TEMPLATE.map((item, index) => ({ ...item, sort_order: index }))
+  // Each unit has its own starter list — closing the house is nothing like
+  // closing the šok soba.
+  let seed = (SEASON_TEMPLATE[unit] ?? []).map((item, index) => ({ ...item, sort_order: index }))
 
   if (previous) {
     const { data: previousTasks } = await supabase

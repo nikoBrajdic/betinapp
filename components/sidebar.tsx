@@ -32,7 +32,7 @@ const navigation = [
   { name: "Utilities", tKey: "nav.utilities", href: "/utilities", icon: Zap },
   { name: "Stays", tKey: "nav.stays", href: "/guest-stays", icon: Home },
   { name: "Diary", tKey: "nav.diary", href: "/diary", icon: BookOpen },
-  { name: "Season", tKey: "nav.season", href: "/season", icon: Snowflake },
+  { name: "End of Season", tKey: "nav.season", href: "/season", icon: Snowflake },
 ]
 
 interface SidebarProps {

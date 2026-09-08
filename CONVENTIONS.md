@@ -255,8 +255,9 @@ related.
 - **Season closings clone forward.** One list per unit per year
   (`apartman`, `kuca`, `garsonjera`, `sok_soba`). Starting a year copies the
   previous year's items for that unit, unchecked, so edits accumulate instead
-  of being retyped; the template in `lib/season.ts` is only used for a unit's
-  very first list.
+  of being retyped. `SEASON_TEMPLATE` in `lib/season.ts` is keyed by unit —
+  closing the house is nothing like closing the šok soba — and is only used
+  for a unit's very first list.
 - **`"use server"` modules may only export async functions.** Constants, types
   and templates live in a plain module next to the actions
   (`lib/season.ts` beside `lib/actions/season.ts`). Exporting an array from an
