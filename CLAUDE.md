@@ -1,18 +1,53 @@
 # Betinapp — LLM Context
 
-Household management dashboard for a family vacation property in **Betina, Croatia** (apartment "BE 2"). Built and maintained by Matea. All content is English UI, Croatian receipts.
+Household management dashboard for a family vacation property in **Betina, Croatia** (apartment "BE 2"). Built and maintained by Matea. English UI (being translated to Croatian), Croatian receipts.
+
+## Read these first
+
+| Doc | When |
+|---|---|
+| [CONVENTIONS.md](CONVENTIONS.md) | **Before any UI change.** Design tokens, components, contrast rules, editor and data conventions. |
+| [PUBLISHING.md](PUBLISHING.md) | Deploying, env vars, OAuth redirects, migrations. |
+
+**Standing instruction — keep CONVENTIONS.md current.** It is part of the change,
+not documentation written afterwards. Whenever you change a design token, a
+shared component's API, a colour pairing, an animation, the editor model, a
+stored-vs-derived data decision, or a working preference, update
+CONVENTIONS.md in the *same* change and say that you did. Delete rules that
+stopped being true. If a new convention gets decided in conversation, write it
+down before moving on. `CONVENTIONS.md §0` lists the exact triggers. The same
+applies to PUBLISHING.md when the deploy process or auth config changes.
+
+**Standing instruction — always state the safe way to ship.** Matea will not
+remember the branch/preview flow, so do not wait to be asked. Whenever work is
+finished, or a deploy/push/publish comes up, say this plainly:
+
+> Work on a branch and push it — you get a preview URL to check. Merge to
+> `main` only when it looks right, because `main` publishes immediately.
+>
+> ```bash
+> git checkout -b <name> && git push -u origin <name>
+> ```
+
+Never push to `main` or run `npx vercel --prod` unless explicitly told to.
 
 ---
 
 ## Deploy
 
-**Git push does NOT trigger Vercel.** The Vercel project (`mateabrajdics-projects/betinapp`) is not connected to the GitHub repo (`nikoBrajdic/betinapp`). Always deploy with:
+**Pushing to `main` deploys to production.** `.github/workflows/vercel-deploy.yml` runs `vercel deploy --prod` on every push to `main` — there is no staging step and no approval gate, so treat `git push` as publishing. Work on a branch if a change isn't ready to go live.
+
+Manual deploy (also production, and it uploads your working tree, committed or not):
 
 ```bash
 npx vercel --prod
 ```
 
-Live URL: **https://betinapp.vercel.app**
+Note: the Vercel project has no Git integration in Vercel's own dashboard — the GitHub Action bridges them with a stored token. So the Vercel UI won't show branch previews.
+
+Live URL: **https://betinapp.vercel.app** (`betin-app.vercel.app` is an alias of the same deployment).
+
+Full workflow, including env vars and the OAuth redirect settings: [PUBLISHING.md](PUBLISHING.md).
 
 ---
 
@@ -73,7 +108,7 @@ All IDs are `uuid`, auth uses `auth.users`.
 | `profiles` | `id, role` | role ∈ admin/superadmin |
 | `allowlist` | `email, role` | Controls who can sign up |
 
-Migrations live in `scripts/` — always run them in numeric order. The latest is `026_seed_betina_bills.sql`.
+Migrations live in `scripts/` — always run them in numeric order, by hand, in the Supabase SQL editor. The latest is `031_create_note_documents.sql`.
 
 ---
 
@@ -103,46 +138,13 @@ Migrations live in `scripts/` — always run them in numeric order. The latest i
 
 ## Design Conventions
 
-### Tables (bills and readings tabs)
-Do **not** use the shadcn `<Table>` component. Use the custom flex-row pattern:
+Moved to **[CONVENTIONS.md](CONVENTIONS.md)** so there is one source of truth:
+design tokens and section accents, the shared components (`PageShell`,
+`Segmented`, `Pill`, `EmptyState`, `FileTypePill`, `EditorHeader`), the custom
+flex-row table pattern, contrast rules, animation, mobile/PWA behaviour, and
+the editor and data conventions.
 
-```tsx
-<Card className="shadow-none border-2 overflow-hidden">
-  {/* Header bar */}
-  <div className="flex items-center gap-4 px-4 py-2 bg-gray-50 border-b border-gray-100">
-    <div className="w-XX flex-shrink-0 text-xs font-medium text-gray-400 uppercase tracking-wide">Col</div>
-    <div className="flex-1 ...">Col</div>
-    <div className="w-7 flex-shrink-0" /> {/* action column spacer */}
-  </div>
-  {/* Rows */}
-  <div className="divide-y divide-gray-100">
-    {rows.map(row => (
-      <div className="flex items-center gap-4 px-4 py-3.5 hover:bg-gray-50 group transition-colors">
-        {/* ... cells ... */}
-        {/* Actions — hidden until hover */}
-        <div className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-          <DropdownMenu>...</DropdownMenu>
-        </div>
-      </div>
-    ))}
-  </div>
-</Card>
-```
-
-### Action buttons
-- Dropdown trigger: `h-7 w-7`, `variant="ghost"`, `text-gray-400 hover:text-gray-700`
-- Primary action buttons: colored (`bg-blue-500`, `bg-emerald-500`, `bg-rose-500`)
-- Destructive menu items: `text-destructive focus:text-destructive`
-
-### Status colors
-- `upcoming` → blue (`border-blue-100`)
-- `current` → green (`border-green-200 bg-green-50/30`)
-- `past` → gray (`border-gray-100 opacity-75`)
-- Unpaid bills → amber (`AlertCircle`)
-- Paid bills → green (`CheckCircle2`)
-
-### Year tabs (bills)
-Bills are filtered by year. Tabs rendered as `<button>` pills with `bg-blue-500 text-white` active state.
+Read it before changing any UI.
 
 ---
 
@@ -158,7 +160,7 @@ Bills are filtered by year. Tabs rendered as `<button>` pills with `bg-blue-500 
 
 ## Auth Flow
 - Google OAuth only. Users must have a valid invite code to sign up.
-- Middleware (`middleware.ts`) protects all routes except `/auth/*`.
+- Route protection lives in `proxy.ts` (there is no `middleware.ts`); it guards everything except `/auth/*`, the manifest, the service worker and static assets.
 - Roles: `superadmin` (full access + admin management) and `admin`.
 - Superadmin is set via `scripts/005_create_superadmin.sql`.
 
@@ -173,7 +175,7 @@ All amounts in **EUR**. `formatMoney(amount)` from `@/lib/currency` formats as `
 
 **Add a new bill type to the dropdown** → `components/bill-dialog.tsx`
 
-**Add a migration** → create `scripts/0NN_description.sql`, run in Supabase SQL editor
+**Add a migration** → create `scripts/0NN_description.sql`, run it in the Supabase SQL editor **before** deploying the code that needs it
 
 **Seed bills from PDF receipts** → extract with `python3 + pypdf`, insert into `public.bills`. See `scripts/026_seed_betina_bills.sql` for format.
 

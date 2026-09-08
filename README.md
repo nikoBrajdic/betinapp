@@ -153,7 +153,7 @@ Add these in GitHub -> Settings -> Secrets and variables -> Actions:
 - `VERCEL_ORG_ID`
 - `VERCEL_PROJECT_ID`
 
-Once these three secrets are set, deployments are ready to run automatically on pushes to `main`.
+These are already set, and the workflow has been deploying on every push to `main`. See [PUBLISHING.md](PUBLISHING.md) for the full picture, including the manual route and env vars.
 
 ## Security
 
