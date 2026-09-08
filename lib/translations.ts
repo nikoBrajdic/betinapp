@@ -13,6 +13,7 @@ const en: Dict = {
   "nav.utilities": "Utilities",
   "nav.stays": "Stays",
   "nav.diary": "Diary",
+  "nav.season": "Season",
   "nav.settings": "Settings",
 
   // Sidebar chrome
@@ -83,6 +84,7 @@ const hr: Dict = {
   "nav.utilities": "Režije",
   "nav.stays": "Boravci",
   "nav.diary": "Dnevnik",
+  "nav.season": "Sezona",
   "nav.settings": "Postavke",
 
   // Sidebar chrome

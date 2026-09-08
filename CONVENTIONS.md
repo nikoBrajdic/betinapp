@@ -252,6 +252,15 @@ related.
 - **Bill splitting**: Mama/Vesna is present for the full billing month and is
   excluded from the guest chips. Other guests contribute their night overlap.
   `share = (person_days / total_person_days) × amount`.
+- **Season closings clone forward.** One list per unit per year
+  (`apartman`, `kuca`, `garsonjera`, `sok_soba`). Starting a year copies the
+  previous year's items for that unit, unchecked, so edits accumulate instead
+  of being retyped; the template in `lib/season.ts` is only used for a unit's
+  very first list.
+- **`"use server"` modules may only export async functions.** Constants, types
+  and templates live in a plain module next to the actions
+  (`lib/season.ts` beside `lib/actions/season.ts`). Exporting an array from an
+  actions file fails the build at page-data collection, not at typecheck.
 - All money is EUR via `formatMoney` from `@/lib/currency`.
 - Wrap server actions in `trackSave()` to drive the save indicator.
 - `useRealtimeRefresh([...tables])` subscribes to Supabase realtime.
