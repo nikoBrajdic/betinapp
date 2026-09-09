@@ -242,6 +242,11 @@ related.
   `layoutBlocks` to render.
 - Dragging an image's grip reorders it; clicking the image opens the lightbox.
   Keep those two gestures separate.
+- **The primary action lives in the top bar**, on the blue frame, not inside
+  the white panel. A page whose action depends on internal state relabels it by
+  dispatching `topbar:action` with the label (Utilities does this for Readings
+  vs Bills); the button reports back with `topbar:new`, which the page listens
+  for. The override resets on navigation so a label cannot leak between pages.
 - **The dashboard mirrors the sidebar.** Every nav item except Dashboard and
   Settings has a card, using the same icon. Add a nav item, add a card.
 - **The End of season list is read-only until unlocked** (the padlock beside the

@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import { usePathname } from "next/navigation"
 import { Menu, Plus } from "lucide-react"
 
@@ -8,8 +9,8 @@ const pageConfig: Record<string, { title: string; subtitle?: string; action?: st
   "/notes":        { title: "Notes",        subtitle: "Notes and documents, newest first",                 action: "New Note" },
   "/tasks":        { title: "Tasks",        subtitle: "Household checklist — anyone can pitch in",        action: "New Task" },
   "/calendar":     { title: "Calendar",     subtitle: "Click on any date to view or add events",          action: "New" },
-  "/utilities":    { title: "Utilities",    subtitle: "Readings and household bills" },
-  "/bills":        { title: "Utilities",    subtitle: "Readings and household bills" },
+  "/utilities":    { title: "Utilities",    subtitle: "Readings and household bills",             action: "New Reading" },
+  "/bills":        { title: "Utilities",    subtitle: "Readings and household bills",             action: "New Reading" },
   "/guest-stays":  { title: "Stays",  subtitle: "Family and friends coming to visit",  action: "New Stay" },
   "/diary":        { title: "Diary",  subtitle: "Household updates and memories",       action: "New Entry" },
   "/season":       { title: "End of season", subtitle: "Closing up, one checklist per unit" },
@@ -18,6 +19,19 @@ const pageConfig: Record<string, { title: string; subtitle?: string; action?: st
 
 export function TopBar() {
   const pathname = usePathname()
+  // A page whose action depends on internal state (Utilities: Readings vs
+  // Bills) relabels the button by dispatching `topbar:action`.
+  const [actionOverride, setActionOverride] = useState<string | null>(null)
+
+  useEffect(() => {
+    const handler = (event: Event) =>
+      setActionOverride((event as CustomEvent<string | null>).detail ?? null)
+    window.addEventListener("topbar:action", handler)
+    return () => window.removeEventListener("topbar:action", handler)
+  }, [])
+
+  // A label set by one page must not leak into the next.
+  useEffect(() => { setActionOverride(null) }, [pathname])
 
   const config =
     pageConfig[pathname] ??
@@ -58,7 +72,7 @@ export function TopBar() {
           className="flex items-center gap-1.5 px-3 md:px-4 py-1.5 md:py-2 bg-white text-[#1a1464] text-xs md:text-sm font-semibold rounded-lg md:rounded-xl hover:bg-white/90 transition-colors shadow-sm"
         >
           <Plus className="h-4 w-4" />
-          {config.action}
+          {actionOverride ?? config.action}
         </button>
       )}
     </div>

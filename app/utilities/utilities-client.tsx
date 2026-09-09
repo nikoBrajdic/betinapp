@@ -308,6 +308,24 @@ function selectedSplitGuests(
 
 export function UtilitiesClient({ utilities, readings, bills, stays }: UtilitiesClientProps) {
   const [activeTab, setActiveTab] = useState("readings")
+
+  // The top-bar action belongs to whichever tab is open.
+  useEffect(() => {
+    window.dispatchEvent(
+      new CustomEvent("topbar:action", {
+        detail: activeTab === "readings" ? "New Reading" : "New Bill",
+      }),
+    )
+  }, [activeTab])
+
+  useEffect(() => {
+    const handler = () => {
+      if (activeTab === "readings") setIsReadingDialogOpen(true)
+      else { setEditingBill(null); setBillDialogOpen(true) }
+    }
+    window.addEventListener("topbar:new", handler)
+    return () => window.removeEventListener("topbar:new", handler)
+  }, [activeTab])
   const [mobileReadingsView, setMobileReadingsView] = useState<"cards" | "table">("cards")
   const [meterFilter, setMeterFilter] = useState<string | null>(null)
   const [mobileBillsView, setMobileBillsView] = useState<"cards" | "table">("cards")
@@ -888,16 +906,6 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
             <SegmentedItem value="readings">Readings</SegmentedItem>
             <SegmentedItem value="bills">Bills</SegmentedItem>
           </Segmented>
-          {activeTab === "readings" && readingUtilities.length > 0 && (
-            <Button accent="readings" onClick={() => setIsReadingDialogOpen(true)}>
-              <Plus /> New Reading
-            </Button>
-          )}
-          {activeTab === "bills" && bills.length > 0 && (
-            <Button accent="bills" onClick={() => { setEditingBill(null); setBillDialogOpen(true) }}>
-              <Plus /> New Bill
-            </Button>
-          )}
         </div>
 
         <TabsContent value="readings">
