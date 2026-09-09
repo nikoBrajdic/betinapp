@@ -234,7 +234,16 @@ export function SeasonClient({
 
       {/* Unit */}
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-        <Segmented value={unit} onValueChange={v => setUnit(v as SeasonUnit)} accent="season">
+        {/* Four units do not fit a phone. The strip scrolls on its own —
+            bleeding to the screen edge so it reads as scrollable — while the
+            page itself stays put. */}
+        <div className="w-full min-w-0 overflow-x-auto -mx-3 px-3 md:mx-0 md:px-0 md:w-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <Segmented
+          value={unit}
+          onValueChange={v => setUnit(v as SeasonUnit)}
+          accent="season"
+          className="flex-nowrap"
+        >
           {SEASON_UNITS.map(u => {
             const p = progressFor(u.key)
             return (
@@ -249,6 +258,7 @@ export function SeasonClient({
             )
           })}
         </Segmented>
+        </div>
 
         {closing && (
           <div className="flex items-center gap-4">
