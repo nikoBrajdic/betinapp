@@ -115,11 +115,12 @@ Migrations live in `scripts/` — always run them in numeric order, by hand, in 
 ## Business Logic
 
 ### Bill splitting (utilities-client.tsx)
-- **Mama/Vesna** is always present for the **full billing month** (`daysInMonth` days). She is excluded from the guest chip toggles (filter: `!name.includes("vesna")`).
+- **Mama/Vesna** is always present for the **full billing month** (`daysInMonth` days), whether or not a stay was recorded for her, and whether or not she is the payer. Her own stay rows are ignored (filter: `!name.includes("vesna")`) and she is added to the summaries with the full month instead — otherwise a bill someone else paid drops her from the split entirely.
 - **Other guests** contribute their actual night-overlap with the billing month. `to_date` is the exclusive checkout date (same convention as the rest of the app).
 - Split formula: `person_share = (person_days / total_person_days) * bill_amount`
 - **The chips are everyone whose stay overlapped the billing month** — derived from stays, never from stored selection. Someone with no nights that month never appears; someone with nights always does.
-- Chips are toggleable to exclude a person from the split. Deselecting greys the chip, it does not remove them from the row. Mama/Vesna is not toggleable.
+- Chips are toggleable to exclude a person from the split. Deselecting greys the chip, it does not remove them from the row.
+- **The payer's chip is always shown and always toggleable**, whether or not they stayed — whoever fronted the money can be counted in or left out. It renders a rung darker (`blue-700`) than a guest's so "who paid" reads apart from "who shared it". When included, the payer counts for the full billing month.
 - A bill whose `split_between` has never been set defaults to **everyone present**, not to nobody.
 - `due_date` is always the **1st of the billing month** (`YYYY-MM-01`).
 

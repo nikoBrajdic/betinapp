@@ -203,6 +203,9 @@ function personNightsForPeriod(stays: Stay[], startDate?: string, endDate?: stri
 }
 
 /** Chip detail for a bill split: day count (default preset only) plus the share. */
+/** The payer's chip when included — a rung darker than a guest's. */
+const PAYER_ON = "bg-blue-700 hover:bg-blue-800 border-transparent"
+
 function billChipMeta(bill: Bill, days: number, share: number | null) {
   const parts: string[] = []
   if (bill.split_preset === "default") parts.push(`${days}d`)
@@ -296,6 +299,9 @@ function computeBillShares(
  * fact, not a choice, so it never depends on what is selected. Deselecting
  * someone greys their chip; it does not make them disappear.
  */
+/** How Mama/Vesna is named on bills. */
+const MAMA = "Mama"
+
 function billGuests(payer: string, guestSummaries: GuestSummary[]) {
   return guestSummaries.filter(guest => guest.name !== payer && guest.days > 0)
 }
@@ -408,6 +414,8 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
 
   const summarizeGuestsForBillPeriod = (monthStart: string, monthEnd: string, monthNextStart: string): GuestSummary[] => {
     const guestDays = new Map<string, number>()
+    // Vesna's own stay rows are ignored — she is counted below as present for
+    // the whole month, which is the household rule.
     stays.forEach(stay => {
       if (stay.guest_name.toLowerCase().includes("vesna")) return
       if (!(stay.from_date <= monthEnd && stay.to_date >= monthStart)) return
@@ -417,9 +425,13 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
       if (days <= 0) return
       guestDays.set(stay.guest_name, (guestDays.get(stay.guest_name) ?? 0) + days)
     })
-    return Array.from(guestDays.entries())
-      .map(([name, days]) => ({ name, days }))
-      .sort((a, b) => a.name.localeCompare(b.name))
+    // Mama is present for the entire billing month by definition. She has to be
+    // in the summaries even when she is not the payer, or a bill someone else
+    // paid (Niko's Internet) silently drops her from the split.
+    const summaries = Array.from(guestDays.entries()).map(([name, days]) => ({ name, days }))
+    summaries.push({ name: MAMA, days: dayIndex(monthNextStart) - dayIndex(monthStart) })
+
+    return summaries.sort((a, b) => a.name.localeCompare(b.name))
   }
 
   const toggleStayInBill = async (
@@ -1481,7 +1493,13 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
                         <PersonPill
                           name={payer}
                           meta={billChipMeta(bill, daysInPeriod, payerIncluded && hasSplit ? payerShare : null)}
+                          state={payerIncluded ? "on" : "off"}
                           accent="bills"
+                          className={payerIncluded ? PAYER_ON : undefined}
+                          onClick={() => toggleStayInBill(bill, payer, defaultSelectedNames)}
+                          title={payerIncluded
+                            ? `${payer} paid — click to leave them out of the split`
+                            : `${payer} paid — click to include them in the split`}
                         />
                         {guestChipNames.map(guestName => {
                           const included = selectedGuestNames.has(guestName)
@@ -1596,7 +1614,13 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
                           <PersonPill
                             name={payer}
                             meta={billChipMeta(bill, daysInPeriod, payerIncluded && hasSplit ? payerShare : null)}
+                            state={payerIncluded ? "on" : "off"}
                             accent="bills"
+                            className={payerIncluded ? PAYER_ON : undefined}
+                            onClick={() => toggleStayInBill(bill, payer, defaultSelectedNames)}
+                            title={payerIncluded
+                              ? `${payer} paid — click to leave them out of the split`
+                              : `${payer} paid — click to include them in the split`}
                           />
                           {guestChipNames.map(guestName => {
                             const included = selectedGuestNames.has(guestName)
