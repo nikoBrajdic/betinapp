@@ -12,5 +12,8 @@ drop policy if exists "Users can upload season photos" on storage.objects;
 drop policy if exists "Users can update season photos" on storage.objects;
 drop policy if exists "Users can delete season photos" on storage.objects;
 
-delete from storage.objects where bucket_id = 'season-photos';
-delete from storage.buckets where id = 'season-photos';
+-- The bucket itself is left alone. Supabase forbids deleting from
+-- storage.objects in SQL (`42501: Direct deletion from storage tables is not
+-- allowed`), and since the whole migration runs in one transaction, trying it
+-- rolls back the column drop above too. The bucket is empty — nothing was ever
+-- uploaded — so delete it from the Storage page in the dashboard, or leave it.
