@@ -30,7 +30,7 @@ export async function createEvent(formData: {
   })
 
   if (error) throw error
-  revalidatePath("/calendar")
+  revalidatePath("/guest-stays")
 }
 
 export async function updateEvent(
@@ -59,7 +59,7 @@ export async function updateEvent(
     .eq("id", id)
 
   if (error) throw error
-  revalidatePath("/calendar")
+  revalidatePath("/guest-stays")
 }
 
 export async function deleteEvent(id: string) {
@@ -67,5 +67,5 @@ export async function deleteEvent(id: string) {
   const { error } = await supabase.from("events").delete().eq("id", id)
 
   if (error) throw error
-  revalidatePath("/calendar")
+  revalidatePath("/guest-stays")
 }

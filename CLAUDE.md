@@ -70,8 +70,8 @@ Full workflow, including env vars and the OAuth redirect settings: [PUBLISHING.m
 ```
 app/
   utilities/          # Bills + meter readings (main financial view)
-  guest-stays/        # Guest stays cards
-  calendar/           # Events (guest stays auto-create calendar events)
+  guest-stays/        # Guest stays cards + the calendar tab (StaysShell)
+  calendar/           # Redirect only — the calendar is a tab inside guest-stays
   notes/              # Rich notes
   tasks/              # Kanban tasks
   diary/              # Photo diary

@@ -1,6 +1,6 @@
 "use client"
 
-import { usePathname } from "next/navigation"
+import { usePathname, useSearchParams } from "next/navigation"
 import { useState, useEffect } from "react"
 import { cn } from "@/lib/utils"
 import { Pill } from "@/components/ui/pill"
@@ -69,6 +69,7 @@ function formatDay(dateStr: string) {
 
 export function EventsPanel({ events }: EventsPanelProps) {
   const pathname = usePathname()
+  const searchParams = useSearchParams()
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
 
   useEffect(() => {
@@ -77,7 +78,11 @@ export function EventsPanel({ events }: EventsPanelProps) {
     return () => window.removeEventListener("calendar:date", handler)
   }, [])
 
-  if (!pathname.startsWith("/calendar")) return null
+  // The calendar is a tab inside Stays, so the route alone no longer says
+  // whether it is on screen — the query does.
+  const onCalendar =
+    pathname.startsWith("/guest-stays") && searchParams.get("view") === "calendar"
+  if (!onCalendar) return null
 
   const today = new Date()
   const todayStr = today.toISOString().split("T")[0]

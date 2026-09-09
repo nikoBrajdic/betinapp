@@ -114,7 +114,6 @@ export async function createGuestStay(formData: {
   }
 
   revalidatePath("/guest-stays")
-  revalidatePath("/calendar")
 }
 
 export async function updateGuestStay(
@@ -168,7 +167,6 @@ export async function updateGuestStay(
   }
 
   revalidatePath("/guest-stays")
-  revalidatePath("/calendar")
 }
 
 export async function deleteGuestStay(id: string) {
@@ -188,5 +186,4 @@ export async function deleteGuestStay(id: string) {
   }
 
   revalidatePath("/guest-stays")
-  revalidatePath("/calendar")
 }

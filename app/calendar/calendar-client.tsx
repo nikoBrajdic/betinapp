@@ -7,7 +7,6 @@ import { ChevronLeft, ChevronRight } from "lucide-react"
 import { EventDialog } from "@/components/event-dialog"
 import { GuestStayDialog } from "@/components/guest-stay-dialog"
 import { cn } from "@/lib/utils"
-import { PageShell } from "@/components/ui/page-shell"
 import { getLocalDateString } from "@/lib/utils/date"
 import { createEvent, deleteEvent } from "@/lib/actions/events"
 import { createGuestStay } from "@/lib/actions/guest-stays"
@@ -136,7 +135,7 @@ export function CalendarClient({ events, familyMembers }: CalendarClientProps) {
   const todayStr = getLocalDateString(new Date())
 
   return (
-    <PageShell fill>
+    <>
       {/* Month nav */}
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-base font-semibold text-gray-800">
@@ -234,6 +233,6 @@ export function CalendarClient({ events, familyMembers }: CalendarClientProps) {
         mode="create"
         headerTabs={addTabs}
       />
-    </PageShell>
+    </>
   )
 }

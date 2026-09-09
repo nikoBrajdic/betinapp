@@ -8,7 +8,6 @@ const pageConfig: Record<string, { title: string; subtitle?: string; action?: st
   "/":             { title: "Dashboard", subtitle: "Making life at the coast easier, since 2026" },
   "/notes":        { title: "Notes",        subtitle: "Notes and documents, newest first",                 action: "New Note" },
   "/tasks":        { title: "Tasks",        subtitle: "Household checklist — anyone can pitch in",        action: "New Task" },
-  "/calendar":     { title: "Calendar",     subtitle: "Click on any date to view or add events",          action: "New" },
   "/utilities":    { title: "Utilities",    subtitle: "Readings and household bills",             action: "New Reading" },
   "/bills":        { title: "Utilities",    subtitle: "Readings and household bills",             action: "New Reading" },
   "/guest-stays":  { title: "Stays",  subtitle: "Family and friends coming to visit",  action: "New Stay" },

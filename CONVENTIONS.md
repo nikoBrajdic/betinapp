@@ -275,7 +275,22 @@ related.
   vs Bills); the button reports back with `topbar:new`, which the page listens
   for. The override resets on navigation so a label cannot leak between pages.
 - **The dashboard mirrors the sidebar.** Every nav item except Dashboard and
-  Settings has a card, using the same icon. Add a nav item, add a card.
+  Settings has a card, using the same icon. Add a nav item, add a card. A card
+  may also deep-link to a *tab* that has no nav entry of its own — Calendar
+  does, pointing at `/guest-stays?view=calendar` — because the glanceable
+  number is still worth a card even when the view is not worth a sidebar row.
+- **Stays and Calendar are one section, two tabs.** A stay already creates a
+  linked event, so the calendar was largely a second rendering of data Stays
+  owns. `StaysShell` holds the tab strip and the `PageShell` — the calendar
+  grid needs `fill` and the list does not, and leaving one in each client
+  nested them and doubled the padding. Only the active tab is mounted, because
+  both register a `topbar:new` listener and two would race. The tab lives in
+  the URL (`?view=calendar`) so it can be linked to; `/calendar` is a redirect
+  kept for old bookmarks.
+- **Chrome that keys off the route must key off the tab too.** `EventsPanel`
+  checks `searchParams.get("view")`, not just the pathname, and server actions
+  touching events `revalidatePath("/guest-stays")` — the path the calendar
+  actually renders on now.
 - **The End of season list is read-only until unlocked** (the padlock beside the
   progress ring). Locked is the working state — you tick things while closing
   the house; unlocking is for reworking the list itself. Once unlocked, Enter

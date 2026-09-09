@@ -135,7 +135,7 @@ export default async function DashboardPage() {
       <div className="grid grid-cols-2 gap-2.5 md:grid-cols-3 md:gap-4 lg:grid-cols-4">
         <DashboardCard title="Notes"     icon={FileText}    href="/notes"       metric={notesMetric}    detail={notesSummary}    color="indigo"  />
         <DashboardCard title="Tasks"     icon={CheckSquare} href="/tasks"       metric={tasksMetric}    detail={tasksSummary}    color="violet"  />
-        <DashboardCard title="Calendar"  icon={Calendar}    href="/calendar"    metric={calendarMetric} detail={calendarSummary} color="cyan"    />
+        <DashboardCard title="Calendar"  icon={Calendar}    href="/guest-stays?view=calendar" metric={calendarMetric} detail={calendarSummary} color="cyan" />
         <DashboardCard title="Utilities" icon={Zap}         href="/utilities"   metric={utilityMetric}  detail={utilitySummary}  color="emerald" />
         <DashboardCard title="Stays"     icon={Home}        href="/guest-stays" metric={staysMetric}    detail={staysSummary}    color="rose"    />
         <DashboardCard title="Diary"     icon={BookOpen}    href="/diary"       metric={diaryMetric}    detail={diarySummary}    color="orange"  />

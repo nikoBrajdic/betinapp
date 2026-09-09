@@ -119,7 +119,6 @@ export const accentByRoute: { prefix: string; accent: Accent }[] = [
   { prefix: "/diary", accent: "diary" },
   { prefix: "/utilities", accent: "bills" },
   { prefix: "/bills", accent: "bills" },
-  { prefix: "/calendar", accent: "brand" },
   { prefix: "/season", accent: "season" },
 ]
 
