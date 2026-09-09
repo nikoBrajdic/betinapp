@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Camera, Check, Loader2, Lock, LockOpen, Plus, Trash2, X } from "lucide-react"
+import { Camera, Check, Loader2, Pencil, Plus, Trash2, X } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -178,18 +178,17 @@ export function SeasonClient({
         </Segmented>
 
         {closing && (
-          <div className="flex items-center gap-2">
-            <ProgressRing done={done} total={total} />
+          <div className="flex items-center gap-4">
             <Button
-              variant={editing ? "default" : "subtle"}
+              variant={editing ? "default" : "outline"}
               accent={editing ? "stays" : undefined}
-              size="icon-sm"
-              title={editing ? "Done editing — lock the list" : "Unlock the list to edit it"}
+              size="sm"
               aria-pressed={editing}
               onClick={() => { setEditing(v => !v); setFocusId(null) }}
             >
-              {editing ? <LockOpen /> : <Lock />}
+              {editing ? <><Check /> Done</> : <><Pencil /> Edit</>}
             </Button>
+            <ProgressRing done={done} total={total} />
             <Button
               variant={closing.closed_at ? "outline" : "default"}
               accent="stays"
