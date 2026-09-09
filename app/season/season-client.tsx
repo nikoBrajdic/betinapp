@@ -147,21 +147,21 @@ export function SeasonClient({
             key={y}
             label={y}
             state={y === year ? "on" : "off"}
-            accent="stays"
+            accent="season"
             onClick={() => router.push(`/season?year=${y}`)}
           />
         ))}
         <Pill
           label={`+ ${Math.max(...years) + 1}`}
           state="off"
-          accent="stays"
+          accent="season"
           onClick={() => router.push(`/season?year=${Math.max(...years) + 1}`)}
         />
       </div>
 
       {/* Unit */}
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-        <Segmented value={unit} onValueChange={v => setUnit(v as SeasonUnit)} accent="stays">
+        <Segmented value={unit} onValueChange={v => setUnit(v as SeasonUnit)} accent="season">
           {SEASON_UNITS.map(u => {
             const p = progressFor(u.key)
             return (
@@ -191,7 +191,7 @@ export function SeasonClient({
             <ProgressRing done={done} total={total} />
             <Button
               variant={closing.closed_at ? "outline" : "default"}
-              accent="stays"
+              accent="season"
               size="sm"
               disabled={!allDone && !closing.closed_at}
               title={!allDone && !closing.closed_at ? "Finish every step first" : undefined}
@@ -211,7 +211,7 @@ export function SeasonClient({
           message={`No ${SEASON_UNITS.find(u => u.key === unit)?.label} list for ${year} yet`}
           action={busy ? "Starting…" : <><Plus /> Start the list</>}
           onAction={handleStart}
-          accent="stays"
+          accent="season"
         />
       ) : (
         <div className="space-y-4">
@@ -257,8 +257,8 @@ export function SeasonClient({
                         className={cn(
                           "mt-0.5 flex size-5 flex-shrink-0 items-center justify-center rounded-md border-2 transition-colors",
                           task.done
-                            ? "border-rose-500 bg-rose-500 text-white"
-                            : "border-gray-300 hover:border-rose-400",
+                            ? "border-teal-600 bg-teal-600 text-white"
+                            : "border-gray-300 hover:border-teal-500",
                         )}
                       >
                         {task.done && <Check className="size-3.5" strokeWidth={3} />}
@@ -351,7 +351,7 @@ export function SeasonClient({
                         }}
                         className="h-8"
                       />
-                      <Button accent="stays" size="sm" onClick={() => handleAdd(area)} disabled={!newTitle.trim()}>
+                      <Button accent="season" size="sm" onClick={() => handleAdd(area)} disabled={!newTitle.trim()}>
                         Add
                       </Button>
                       <Button variant="subtle" size="icon-xs" onClick={() => { setAddingArea(null); setNewTitle("") }}>
@@ -462,7 +462,7 @@ function ProgressRing({ done, total }: { done: number; total: number }) {
         <circle cx="17" cy="17" r={r} fill="none" stroke="#e5e7eb" strokeWidth="4" />
         <circle
           cx="17" cy="17" r={r} fill="none"
-          stroke={pct === 1 ? "#10b981" : "#f43f5e"}
+          stroke={pct === 1 ? "#10b981" : "#0d9488"}
           strokeWidth="4"
           strokeLinecap="round"
           strokeDasharray={c}

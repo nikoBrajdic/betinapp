@@ -13,7 +13,7 @@ interface DashboardCardProps {
   /** Short qualifier under the metric. Kept to two lines. */
   detail: string
   className?: string
-  color?: "blue" | "violet" | "emerald" | "amber" | "rose" | "cyan" | "indigo" | "orange"
+  color?: keyof typeof colorMap
 }
 
 const colorMap = {
@@ -25,6 +25,7 @@ const colorMap = {
   cyan:    { bg: "bg-cyan-50",    icon: "bg-cyan-600",    text: "text-cyan-700",    border: "border-cyan-100",    hover: "hover:border-cyan-300" },
   indigo:  { bg: "bg-indigo-50",  icon: "bg-indigo-500",  text: "text-indigo-600",  border: "border-indigo-100",  hover: "hover:border-indigo-300" },
   orange:  { bg: "bg-orange-50",  icon: "bg-orange-600",  text: "text-orange-700",  border: "border-orange-100",  hover: "hover:border-orange-300" },
+  teal:    { bg: "bg-teal-50",    icon: "bg-teal-600",    text: "text-teal-700",    border: "border-teal-100",    hover: "hover:border-teal-300" },
 }
 
 export function DashboardCard({

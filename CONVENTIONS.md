@@ -75,6 +75,7 @@ Each section owns a colour. Components take `accent="notes"`, not a class.
 | `tasks` | violet | household checklist |
 | `stays` | rose | guest stays |
 | `diary` | amber | photo diary |
+| `season` | teal | end-of-season closing lists |
 | `neutral` | gray | anything unsectioned |
 
 Each accent provides four roles:
@@ -240,6 +241,8 @@ related.
   `layoutBlocks` to render.
 - Dragging an image's grip reorders it; clicking the image opens the lightbox.
   Keep those two gestures separate.
+- **The dashboard mirrors the sidebar.** Every nav item except Dashboard and
+  Settings has a card, using the same icon. Add a nav item, add a card.
 - **The End of season list is read-only until unlocked** (the padlock beside the
   progress ring). Locked is the working state — you tick things while closing
   the house; unlocking is for reworking the list itself. Once unlocked, Enter

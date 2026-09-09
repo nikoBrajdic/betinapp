@@ -1,6 +1,6 @@
 import { DashboardCard } from "@/components/dashboard-card"
 import { PageShell } from "@/components/ui/page-shell"
-import { FileText, CheckSquare, Calendar, Zap, Home, BookOpen } from "lucide-react"
+import { FileText, CheckSquare, Calendar, Zap, Home, BookOpen, Snowflake } from "lucide-react"
 import { getNotes } from "@/lib/actions/notes"
 import { getTaskGroups } from "@/lib/actions/tasks"
 import { getEvents } from "@/lib/actions/events"
@@ -8,6 +8,8 @@ import { getBills } from "@/lib/actions/bills"
 import { getGuestStays } from "@/lib/actions/guest-stays"
 import { getDiaryEntries } from "@/lib/actions/diary"
 import { getUtilities } from "@/lib/actions/utilities"
+import { getSeasonClosings } from "@/lib/actions/season"
+import { SEASON_UNITS } from "@/lib/season"
 
 export default async function DashboardPage() {
   const [notes, taskGroups, events, bills, guestStays, diaryEntries, utilities] = await Promise.all([
@@ -94,6 +96,19 @@ export default async function DashboardPage() {
     ? "No entries yet"
     : `entr${diaryEntries.length !== 1 ? "ies" : "y"} · latest ${diaryEntries[0].title}`
 
+  // End of season — how far through closing up the four units we are.
+  const seasonClosings = await getSeasonClosings(now.getFullYear()).catch(() => [])
+  const seasonTasks = seasonClosings.flatMap(c => c.tasks)
+  const seasonDone = seasonTasks.filter(t => t.done).length
+  const unitsClosed = seasonClosings.filter(c => c.closed_at).length
+  const seasonMetric = seasonTasks.length === 0 ? undefined : `${seasonDone}/${seasonTasks.length}`
+  const seasonSummary =
+    seasonTasks.length === 0
+      ? "Not started"
+      : unitsClosed === SEASON_UNITS.length
+      ? "All units closed up"
+      : `done · ${unitsClosed}/${SEASON_UNITS.length} units closed`
+
   return (
     <PageShell>
       <div className="grid grid-cols-2 gap-2.5 md:grid-cols-3 md:gap-4 lg:grid-cols-4">
@@ -103,6 +118,7 @@ export default async function DashboardPage() {
         <DashboardCard title="Utilities" icon={Zap}         href="/utilities"   metric={utilityMetric}  detail={utilitySummary}  color="emerald" />
         <DashboardCard title="Stays"     icon={Home}        href="/guest-stays" metric={staysMetric}    detail={staysSummary}    color="rose"    />
         <DashboardCard title="Diary"     icon={BookOpen}    href="/diary"       metric={diaryMetric}    detail={diarySummary}    color="orange"  />
+        <DashboardCard title="End of Season" icon={Snowflake} href="/season"    metric={seasonMetric}   detail={seasonSummary}   color="teal"    />
       </div>
     </PageShell>
   )
