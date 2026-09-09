@@ -403,7 +403,13 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
   const activeBillYear = selectedBillYear ?? billYears[0] ?? new Date().getFullYear()
   const yearBills = [...bills]
     .filter(b => new Date(b.due_date + "T12:00:00").getFullYear() === activeBillYear)
-    .sort((a, b) => new Date(b.due_date).getTime() - new Date(a.due_date).getTime())
+    // Newest month first, then alphabetical within the month. Sorting on date
+    // alone left bills in whatever order the database returned them, so the
+    // same four names appeared in a different order every month.
+    .sort((a, b) => {
+      const byMonth = b.due_date.localeCompare(a.due_date)
+      return byMonth !== 0 ? byMonth : a.name.localeCompare(b.name, "hr")
+    })
   const billTypeOptions = [...new Set(yearBills.map(bill => bill.name))].sort((a, b) => a.localeCompare(b))
   const amountBounds = useMemo(() => {
     if (yearBills.length === 0) return { min: 0, max: 0 }
