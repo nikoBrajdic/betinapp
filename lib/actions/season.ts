@@ -180,88 +180,56 @@ export async function addSeasonTask(closingId: string, area: string, title: stri
 }
 
 /**
- * Split one checkbox into two at the caret.
+ * Persist a whole edited list in one go.
  *
- * Covers both keystrokes with one operation: Enter mid-sentence leaves the
- * text before the caret and carries the rest into a new row; Enter at the end
- * is the same thing with an empty tail, i.e. a fresh row.
+ * Editing is local until you press Done — typing must never wait on the
+ * network — so this reconciles the final shape rather than replaying each
+ * keystroke. Rows carrying a `tmp-` id are new.
  *
- * Returns the new row's id so the caller can put the caret in it.
+ * Only the fields the editor can change are written. `done`, `done_at` and
+ * `photo_url` are left untouched, so ticking a box on someone else's phone
+ * mid-edit does not get clobbered when this lands.
  */
-export async function splitSeasonTask(id: string, before: string, after: string) {
+export async function saveSeasonTasks(
+  closingId: string,
+  rows: { id: string; area: string; title: string }[],
+) {
   const supabase = await createClient()
 
-  const { data: current, error: readError } = await supabase
+  const { data: existing } = await supabase
     .from("season_tasks")
-    .select("closing_id, area, sort_order")
-    .eq("id", id)
-    .single()
-  if (readError || !current) throw readError ?? new Error("Task not found")
-
-  const { error: updateError } = await supabase
-    .from("season_tasks")
-    .update({ title: before })
-    .eq("id", id)
-  if (updateError) throw updateError
-
-  const { data: created, error: insertError } = await supabase
-    .from("season_tasks")
-    .insert({
-      closing_id: current.closing_id,
-      area: current.area,
-      title: after,
-      sort_order: current.sort_order + 1,
-    })
     .select("id")
-    .single()
-  if (insertError) throw insertError
+    .eq("closing_id", closingId)
 
-  // sort_order is a plain int, so everything below the split shifts down one.
-  const { data: rest } = await supabase
-    .from("season_tasks")
-    .select("id, sort_order")
-    .eq("closing_id", current.closing_id)
-    .gt("sort_order", current.sort_order)
-    .neq("id", created.id)
-    .order("sort_order", { ascending: true })
+  const keep = new Set(rows.filter(r => !r.id.startsWith("tmp-")).map(r => r.id))
+  const removed = (existing ?? []).map(r => r.id).filter(id => !keep.has(id))
+  if (removed.length) {
+    await supabase.from("season_tasks").delete().in("id", removed)
+  }
 
-  for (const task of rest ?? []) {
-    await supabase.from("season_tasks").update({ sort_order: task.sort_order + 1 }).eq("id", task.id)
+  const additions = rows
+    .map((row, index) => ({ row, index }))
+    .filter(({ row }) => row.id.startsWith("tmp-"))
+  if (additions.length) {
+    await supabase.from("season_tasks").insert(
+      additions.map(({ row, index }) => ({
+        closing_id: closingId,
+        area: row.area,
+        title: row.title,
+        sort_order: index,
+      })),
+    )
+  }
+
+  for (const [index, row] of rows.entries()) {
+    if (row.id.startsWith("tmp-")) continue
+    await supabase
+      .from("season_tasks")
+      .update({ title: row.title, area: row.area, sort_order: index })
+      .eq("id", row.id)
   }
 
   revalidatePath("/season")
-  return created.id as string
-}
-
-/** Merge a row back into the one above it, for Backspace at the start. */
-export async function mergeSeasonTaskUp(id: string) {
-  const supabase = await createClient()
-
-  const { data: current } = await supabase
-    .from("season_tasks")
-    .select("closing_id, sort_order, title")
-    .eq("id", id)
-    .single()
-  if (!current) return null
-
-  const { data: previous } = await supabase
-    .from("season_tasks")
-    .select("id, title")
-    .eq("closing_id", current.closing_id)
-    .lt("sort_order", current.sort_order)
-    .order("sort_order", { ascending: false })
-    .limit(1)
-    .maybeSingle()
-  if (!previous) return null
-
-  await supabase
-    .from("season_tasks")
-    .update({ title: `${previous.title}${current.title}` })
-    .eq("id", previous.id)
-  await supabase.from("season_tasks").delete().eq("id", id)
-
-  revalidatePath("/season")
-  return { id: previous.id as string, caret: (previous.title as string).length }
 }
 
 export async function deleteSeasonTask(id: string) {

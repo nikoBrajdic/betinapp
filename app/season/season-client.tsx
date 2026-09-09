@@ -19,8 +19,7 @@ import { useRealtimeRefresh } from "@/hooks/use-realtime-refresh"
 import {
   addSeasonTask,
   deleteSeasonTask,
-  mergeSeasonTaskUp,
-  splitSeasonTask,
+  saveSeasonTasks,
   setSeasonClosed,
   startSeasonClosing,
   toggleSeasonTask,
@@ -53,6 +52,10 @@ export function SeasonClient({
   const [editing, setEditing] = useState(false)
   const [focusId, setFocusId] = useState<string | null>(null)
   const [caret, setCaret] = useState<number | null>(null)
+  // While editing, the list lives here and nothing waits on the network —
+  // pressing Enter has to feel instant. Done writes the whole shape back.
+  const [draft, setDraft] = useState<SeasonTask[] | null>(null)
+  const [saving, setSaving] = useState(false)
 
   const photoInputRef = useRef<HTMLInputElement>(null)
   const photoTarget = useRef<string | null>(null)
@@ -70,15 +73,16 @@ export function SeasonClient({
     return { done, total: c.tasks.length }
   }
 
-  const areas = useMemo(() => {
-    if (!closing) return []
-    const order: string[] = []
-    for (const task of closing.tasks) if (!order.includes(task.area)) order.push(task.area)
-    return order.map(area => ({ area, tasks: closing.tasks.filter(t => t.area === area) }))
-  }, [closing])
+  const tasks = editing && draft ? draft : (closing?.tasks ?? [])
 
-  const done = closing?.tasks.filter(t => t.done).length ?? 0
-  const total = closing?.tasks.length ?? 0
+  const areas = useMemo(() => {
+    const order: string[] = []
+    for (const task of tasks) if (!order.includes(task.area)) order.push(task.area)
+    return order.map(area => ({ area, tasks: tasks.filter(t => t.area === area) }))
+  }, [tasks])
+
+  const done = tasks.filter(t => t.done).length
+  const total = tasks.length
   const allDone = total > 0 && done === total
 
   const handleStart = async () => {
@@ -88,6 +92,75 @@ export function SeasonClient({
       router.refresh()
     } catch (error) { console.error(error) }
     setBusy(false)
+  }
+
+  /** Enter: keep the text before the caret, carry the rest into a new row. */
+  const splitLocal = (taskId: string, before: string, after: string) => {
+    if (!draft) return
+    const index = draft.findIndex(t => t.id === taskId)
+    if (index === -1) return
+    const source = draft[index]
+    const created: SeasonTask = {
+      ...source,
+      id: `tmp-${Math.random().toString(36).slice(2, 10)}`,
+      title: after,
+      done: false,
+      done_at: null,
+      done_by_name: null,
+      photo_url: null,
+    }
+    const next = [...draft]
+    next[index] = { ...source, title: before }
+    next.splice(index + 1, 0, created)
+    setDraft(next)
+    setFocusId(created.id)
+    setCaret(0)
+  }
+
+  /** Backspace at position 0: fold this row into the one above. */
+  const mergeLocal = (taskId: string) => {
+    if (!draft) return
+    const index = draft.findIndex(t => t.id === taskId)
+    if (index <= 0) return
+    const previous = draft[index - 1]
+    const next = [...draft]
+    next[index - 1] = { ...previous, title: `${previous.title}${draft[index].title}` }
+    next.splice(index, 1)
+    setDraft(next)
+    setFocusId(previous.id)
+    setCaret(previous.title.length)
+  }
+
+  const setTitleLocal = (taskId: string, title: string) => {
+    setDraft(current => current?.map(t => (t.id === taskId ? { ...t, title } : t)) ?? current)
+  }
+
+  const removeLocal = (taskId: string) => {
+    setDraft(current => current?.filter(t => t.id !== taskId) ?? current)
+  }
+
+  const startEditing = () => {
+    if (!closing) return
+    setDraft(closing.tasks.map(t => ({ ...t })))
+    setEditing(true)
+  }
+
+  const finishEditing = async () => {
+    if (!closing || !draft) { setEditing(false); return }
+    setSaving(true)
+    try {
+      await trackSave(saveSeasonTasks(
+        closing.id,
+        draft
+          .filter(t => t.title.trim() !== "")
+          .map(t => ({ id: t.id, area: t.area, title: t.title.trim() })),
+      ))
+      router.refresh()
+    } catch (error) { console.error(error) }
+    setSaving(false)
+    setEditing(false)
+    setDraft(null)
+    setFocusId(null)
   }
 
   const handleToggle = async (task: SeasonTask) => {
@@ -184,9 +257,12 @@ export function SeasonClient({
               accent={editing ? "stays" : undefined}
               size="sm"
               aria-pressed={editing}
-              onClick={() => { setEditing(v => !v); setFocusId(null) }}
+              disabled={saving}
+              onClick={() => (editing ? finishEditing() : startEditing())}
             >
-              {editing ? <><Check /> Done</> : <><Pencil /> Edit</>}
+              {editing
+                ? saving ? <><Loader2 className="animate-spin" /> Saving…</> : <><Check /> Done</>
+                : <><Pencil /> Edit</>}
             </Button>
             <ProgressRing done={done} total={total} />
             <Button
@@ -270,18 +346,9 @@ export function SeasonClient({
                             task={task}
                             autoFocus={focusId === task.id}
                             caret={focusId === task.id ? caret : null}
-                            onCommit={title => trackSave(updateSeasonTask(task.id, { title }))}
-                            onSplit={async (before, after) => {
-                              const newId = await trackSave(splitSeasonTask(task.id, before, after))
-                              setFocusId(newId)
-                              setCaret(0)
-                              router.refresh()
-                            }}
-                            onMergeUp={async () => {
-                              const target = await trackSave(mergeSeasonTaskUp(task.id))
-                              if (target) { setFocusId(target.id); setCaret(target.caret) }
-                              router.refresh()
-                            }}
+                            onCommit={title => setTitleLocal(task.id, title)}
+                            onSplit={(before, after) => splitLocal(task.id, before, after)}
+                            onMergeUp={() => mergeLocal(task.id)}
                           />
                         ) : (
                           <p className={cn(
@@ -329,6 +396,7 @@ export function SeasonClient({
                         )}
                         title="Remove this step"
                         onClick={async () => {
+                          if (editing) { removeLocal(task.id); return }
                           await trackSave(deleteSeasonTask(task.id))
                           router.refresh()
                         }}
@@ -397,12 +465,7 @@ function TaskTitleInput({
   onMergeUp: () => void
 }) {
   const ref = useRef<HTMLTextAreaElement>(null)
-  const [value, setValue] = useState(task.title)
-
-  // Track edits made elsewhere, but never yank the text out from under a caret.
-  useEffect(() => {
-    if (document.activeElement !== ref.current) setValue(task.title)
-  }, [task.title])
+  const value = task.title
 
   const resize = () => {
     const el = ref.current
@@ -425,8 +488,7 @@ function TaskTitleInput({
       ref={ref}
       rows={1}
       value={value}
-      onChange={e => setValue(e.target.value)}
-      onBlur={() => { if (value !== task.title) onCommit(value) }}
+      onChange={e => onCommit(e.target.value)}
       onKeyDown={e => {
         if (e.key === "Enter" && !e.shiftKey) {
           e.preventDefault()
