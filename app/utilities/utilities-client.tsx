@@ -291,19 +291,35 @@ function computeBillShares(
   return { payerShare, guestShares }
 }
 
+/**
+ * The chips are the people whose stay overlapped the billing month — that is a
+ * fact, not a choice, so it never depends on what is selected. Deselecting
+ * someone greys their chip; it does not make them disappear.
+ */
+function billGuests(payer: string, guestSummaries: GuestSummary[]) {
+  return guestSummaries.filter(guest => guest.name !== payer && guest.days > 0)
+}
+
+/**
+ * Who the bill is actually divided between: those present, minus anyone
+ * deselected. Membership always comes from the stays, so a name left over in
+ * `split_between` from an earlier edit cannot reappear with 0 nights.
+ */
 function selectedSplitGuests(
-  bill: Bill,
   payer: string,
   guestSummaries: GuestSummary[],
   selectedGuestNames: Set<string>,
 ) {
-  const guestDaysByName = new Map(guestSummaries.map(guest => [guest.name, guest.days]))
-  if (bill.split_preset === "default") {
-    return guestSummaries.filter(guest => guest.name !== payer && selectedGuestNames.has(guest.name))
-  }
-  return Array.from(selectedGuestNames)
-    .filter(name => name !== payer)
-    .map(name => ({ name, days: guestDaysByName.get(name) ?? 0 }))
+  return billGuests(payer, guestSummaries).filter(guest => selectedGuestNames.has(guest.name))
+}
+
+/**
+ * A bill that has never had its split touched includes everyone who was there.
+ * Previously this defaulted to nobody, so untouched bills were split to the
+ * payer alone.
+ */
+function defaultSplitNames(payer: string, guestSummaries: GuestSummary[]) {
+  return [payer, ...billGuests(payer, guestSummaries).map(guest => guest.name)]
 }
 
 export function UtilitiesClient({ utilities, readings, bills, stays }: UtilitiesClientProps) {
@@ -620,11 +636,11 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
       const daysInMonth = dayIndex(monthNextStart) - dayIndex(monthStart)
 
       const guestSummaries = summarizeGuestsForBillPeriod(monthStart, monthEnd, monthNextStart)
-      const defaultSelectedNames = bill.split_between ?? []
-      const selectedGuestNames = billSplitToggles[bill.id] ?? new Set(defaultSelectedNames)
       const payer = bill.paid_by || "Mama"
+      const defaultSelectedNames = bill.split_between?.length ? bill.split_between : defaultSplitNames(payer, guestSummaries)
+      const selectedGuestNames = billSplitToggles[bill.id] ?? new Set(defaultSelectedNames)
       const payerIncluded = selectedGuestNames.has(payer)
-      const includedGuests = selectedSplitGuests(bill, payer, guestSummaries, selectedGuestNames)
+      const includedGuests = selectedSplitGuests(payer, guestSummaries, selectedGuestNames)
       if (includedGuests.length === 0) continue
       const { guestShares } = computeBillShares(bill, payer, payerIncluded, daysInMonth, includedGuests)
 
@@ -1427,17 +1443,16 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
 
                   // Guests in this period, combined by name; Mama (Vesna) is always counted separately
                   const guestSummaries = summarizeGuestsForBillPeriod(periodStart, periodEndIncl, periodNextStart)
-                  const defaultSelectedNames = bill.split_between ?? []
-                  const selectedGuestNames = billSplitToggles[bill.id] ?? new Set(defaultSelectedNames)
                   const payer = bill.paid_by || "Mama"
+                  const defaultSelectedNames = bill.split_between?.length ? bill.split_between : defaultSplitNames(payer, guestSummaries)
+                  const selectedGuestNames = billSplitToggles[bill.id] ?? new Set(defaultSelectedNames)
                   const payerIncluded = selectedGuestNames.has(payer)
-                  const includedGuests = selectedSplitGuests(bill, payer, guestSummaries, selectedGuestNames)
+                  const includedGuests = selectedSplitGuests(payer, guestSummaries, selectedGuestNames)
                   const hasSplit = includedGuests.length > 0
                   const { payerShare, guestShares } = computeBillShares(bill, payer, payerIncluded, daysInPeriod, includedGuests)
                   const shareFor = (guestName: string) => guestShares.get(guestName) ?? 0
                   const guestDaysByName = new Map(guestSummaries.map(guest => [guest.name, guest.days]))
-                  const guestChipNames = Array.from(new Set([...guestSummaries.map(guest => guest.name), ...Array.from(selectedGuestNames)]))
-                    .filter(name => name !== payer)
+                  const guestChipNames = billGuests(payer, guestSummaries).map(guest => guest.name)
 
                   const isVisible = filteredBillIdSet.has(bill.id)
                   const monthStyle = monthTone(startDate.getMonth())
@@ -1541,17 +1556,16 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
                     const daysInPeriod = dayIndex(periodNextStart) - dayIndex(periodStart)
                     const period = billPeriodLabel(startDate, endDate, hasActiveBillFilters)
                     const guestSummaries = summarizeGuestsForBillPeriod(periodStart, periodEndIncl, periodNextStart)
-                    const defaultSelectedNames = bill.split_between ?? []
-                    const selectedGuestNames = billSplitToggles[bill.id] ?? new Set(defaultSelectedNames)
                     const payer = bill.paid_by || "Mama"
+                    const defaultSelectedNames = bill.split_between?.length ? bill.split_between : defaultSplitNames(payer, guestSummaries)
+                    const selectedGuestNames = billSplitToggles[bill.id] ?? new Set(defaultSelectedNames)
                     const payerIncluded = selectedGuestNames.has(payer)
-                    const includedGuests = selectedSplitGuests(bill, payer, guestSummaries, selectedGuestNames)
+                    const includedGuests = selectedSplitGuests(payer, guestSummaries, selectedGuestNames)
                     const hasSplit = includedGuests.length > 0
                     const { payerShare, guestShares } = computeBillShares(bill, payer, payerIncluded, daysInPeriod, includedGuests)
                     const shareFor = (guestName: string) => guestShares.get(guestName) ?? 0
                     const guestDaysByName = new Map(guestSummaries.map(guest => [guest.name, guest.days]))
-                    const guestChipNames = Array.from(new Set([...guestSummaries.map(guest => guest.name), ...Array.from(selectedGuestNames)]))
-                      .filter(name => name !== payer)
+                    const guestChipNames = billGuests(payer, guestSummaries).map(guest => guest.name)
                     const isVisible = filteredBillIdSet.has(bill.id)
                     const monthStyle = monthTone(startDate.getMonth())
 
