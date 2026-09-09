@@ -307,19 +307,14 @@ export function NotesClient({ notes, documents }: NotesClientProps) {
                 onChange={e => setSearch(e.target.value)}
               />
             </div>
-            <div className="flex items-center gap-2">
-              <Segmented value={view} onValueChange={v => setView(v as "grid" | "list")} accent="notes">
-                <SegmentedIconItem value="grid" aria-label="Grid view">
-                  <Grid3X3 />
-                </SegmentedIconItem>
-                <SegmentedIconItem value="list" aria-label="List view">
-                  <List />
-                </SegmentedIconItem>
-              </Segmented>
-              <Button variant="outline" onClick={() => addInputRef.current?.click()}>
-                <Upload /> Upload
-              </Button>
-            </div>
+            <Segmented value={view} onValueChange={v => setView(v as "grid" | "list")} accent="notes">
+              <SegmentedIconItem value="grid" aria-label="Grid view">
+                <Grid3X3 />
+              </SegmentedIconItem>
+              <SegmentedIconItem value="list" aria-label="List view">
+                <List />
+              </SegmentedIconItem>
+            </Segmented>
           </div>
 
           {entries.length === 0 ? (
@@ -432,7 +427,7 @@ export function NotesClient({ notes, documents }: NotesClientProps) {
       >
         <DialogContent size="sm">
           <DialogHeader>
-            <DialogTitle>New</DialogTitle>
+            <DialogTitle>New note</DialogTitle>
           </DialogHeader>
           <div className="py-2 space-y-1.5">
             <Label htmlFor="note-title">Note title</Label>
