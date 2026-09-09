@@ -384,7 +384,7 @@ export function TasksClient({ taskGroups }: TasksClientProps) {
                 onDragEnter={() => handleGroupDragEnter(index)}
                 onDragOver={event => event.preventDefault()}
                 className={cn(
-                  "relative mb-5 break-inside-avoid p-5 pt-7 border-2 flex flex-col shadow-none transition-all hover:shadow-md hover:-translate-y-0.5 group/card",
+                  "relative mb-5 break-inside-avoid p-5 pt-7 border flex flex-col shadow-none transition-all hover:shadow-md hover:-translate-y-0.5 group/card",
                   bg,
                   dragOverGroup === index && "before:absolute before:-top-2 before:left-4 before:right-4 before:h-0.5 before:rounded-full before:bg-violet-500",
                 )}

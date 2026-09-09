@@ -90,6 +90,7 @@ Each accent provides four roles:
 |---|---|
 | Page padding | `p-3 md:p-6`, via `<PageShell>` — never set page padding by hand |
 | Radius | controls `rounded-lg` · containers `rounded-xl` · chips `rounded-full` |
+| Border | **1px everywhere** — `border`, never `border-2`, on any card, panel or table. Heavier weights are reserved for things that are not surfaces: a checkbox, the ring cutting the online dot out of the navy, a spinner stroke, a drag-and-drop overlay. |
 | Dialog width | `size="sm"` 380 · `"md"` 460 · `"lg"` 560 · `"xl"` 780 |
 | Icon buttons | `icon-xs` 28 · `icon-sm` 32 · `icon` 36 |
 

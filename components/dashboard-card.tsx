@@ -38,7 +38,7 @@ export function DashboardCard({
         className={cn(
           // Padding is the whole game on a 2-up phone grid: at 375px each tile
           // is ~163px wide, so p-6 would leave ~115px for text.
-          "group relative flex h-full flex-col rounded-2xl border-2 p-3.5 transition-all duration-200 md:p-5",
+          "group relative flex h-full flex-col rounded-2xl border p-3.5 transition-all duration-200 md:p-5",
           c.bg, c.border, c.hover,
           "hover:shadow-md hover:-translate-y-0.5",
           className,

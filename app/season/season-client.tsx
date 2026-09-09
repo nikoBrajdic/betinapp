@@ -216,7 +216,7 @@ export function SeasonClient({
       ) : (
         <div className="space-y-4">
           {closing.closed_at && (
-            <Card className="shadow-none border-2 border-emerald-200 bg-emerald-50/50 px-4 py-3 gap-0">
+            <Card className="shadow-none border border-emerald-200 bg-emerald-50/50 px-4 py-3 gap-0">
               <p className="text-sm font-medium text-emerald-800">
                 Closed on {new Date(closing.closed_at).toLocaleDateString("en-GB", {
                   day: "numeric", month: "long", year: "numeric",
@@ -228,7 +228,7 @@ export function SeasonClient({
           {areas.map(({ area, tasks }) => {
             const areaDone = tasks.filter(t => t.done).length
             return (
-              <Card key={area} className="shadow-none border-2 overflow-hidden py-0 gap-0">
+              <Card key={area} className="shadow-none border overflow-hidden py-0 gap-0">
                 <div className="flex items-center justify-between gap-3 px-4 py-2.5 bg-gray-50 border-b border-gray-100">
                   <div className="flex items-center gap-2">
                     <h2 className="text-sm font-semibold text-gray-800">{area}</h2>

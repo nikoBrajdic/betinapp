@@ -46,7 +46,7 @@ export function AdminManageClient({ admins, allowlist, currentUserRole, isSupera
   return (
     <PageShell className="space-y-4 md:space-y-5">
       {/* Language preference — available to everyone */}
-      <Card className="shadow-none border-2 p-4 md:p-5">
+      <Card className="shadow-none border p-4 md:p-5">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
             <h2 className="text-sm font-semibold text-gray-800">Language</h2>

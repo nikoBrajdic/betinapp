@@ -332,7 +332,7 @@ export function NotesClient({ notes, documents }: NotesClientProps) {
                   <Card
                     key={`${entry.kind}-${entry.id}`}
                     onClick={() => openEntry(entry)}
-                    className="p-5 gap-0 transition-all group border-2 shadow-none hover:border-indigo-200 hover:shadow-md hover:-translate-y-0.5 overflow-hidden"
+                    className="p-5 gap-0 transition-all group border shadow-none hover:border-indigo-200 hover:shadow-md hover:-translate-y-0.5 overflow-hidden"
                   >
                     <div className="flex items-start justify-between gap-2 mb-3">
                       <div className="min-w-0">
@@ -376,7 +376,7 @@ export function NotesClient({ notes, documents }: NotesClientProps) {
               })}
             </div>
           ) : (
-            <Card className="shadow-none border-2 overflow-hidden py-0 gap-0">
+            <Card className="shadow-none border overflow-hidden py-0 gap-0">
               <div className="flex items-center gap-4 px-4 py-2 bg-gray-50 border-b border-gray-100 text-xs font-medium text-gray-400 uppercase tracking-wide">
                 <div className="w-24 flex-shrink-0">Type</div>
                 <div className="flex-1 min-w-0">Name</div>

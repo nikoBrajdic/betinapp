@@ -804,7 +804,7 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
 
   return (
     <PageShell>
-      <Card className={cn("shadow-none border-2 border-blue-100 mb-5 px-5", settleUpCollapsed ? "py-4 gap-0" : "py-5 gap-2")}>
+      <Card className={cn("shadow-none border border-blue-100 mb-5 px-5", settleUpCollapsed ? "py-4 gap-0" : "py-5 gap-2")}>
         <div className="flex items-center justify-between gap-4 min-h-6">
           <button
             type="button"
@@ -951,7 +951,7 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
                     const Icon = utilityIcon(row.name)
                     const nightSummary = personNightsForPeriod(stays, row.previousDate, row.currentDate)
                     return (
-                      <Card key={row.id} className="shadow-none border-2 px-4 py-3">
+                      <Card key={row.id} className="shadow-none border px-4 py-3">
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
                             <div className="flex items-center gap-2">
@@ -1009,7 +1009,7 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
               )}
               <div className={cn("md:hidden", mobileReadingsView === "cards" ? "hidden" : "block")}>
                 <div className="overflow-x-auto">
-                  <Card className="shadow-none border-2 overflow-hidden min-w-[760px]">
+                  <Card className="shadow-none border overflow-hidden min-w-[760px]">
                     <div className="flex items-center gap-4 px-4 py-2 bg-gray-50 border-b border-gray-100">
                       <div className="w-20 flex-shrink-0 text-xs font-medium text-gray-400 uppercase tracking-wide">Date</div>
                       <div className="w-32 flex-shrink-0 text-xs font-medium text-gray-400 uppercase tracking-wide">Meter</div>
@@ -1084,7 +1084,7 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
                   </Card>
                 </div>
               </div>
-              <Card className="hidden md:block shadow-none border-2 overflow-hidden">
+              <Card className="hidden md:block shadow-none border overflow-hidden">
                 {/* Column headers */}
                 <div className="flex items-center gap-4 px-4 py-2 bg-gray-50 border-b border-gray-100">
                   <div className="w-20 flex-shrink-0 text-xs font-medium text-gray-400 uppercase tracking-wide">Date</div>
@@ -1198,7 +1198,7 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
                   <SegmentedItem value="table">Table</SegmentedItem>
                 </Segmented>
               </div>
-              <Card className="shadow-none border-2 overflow-hidden">
+              <Card className="shadow-none border overflow-hidden">
               {/* Year tabs */}
               <div className="flex items-center justify-between px-4 pt-3 pb-2">
                 <div className="flex items-center gap-1">

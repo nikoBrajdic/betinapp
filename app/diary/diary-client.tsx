@@ -105,7 +105,7 @@ export function DiaryClient({ entries }: DiaryClientProps) {
               <Card
                 key={entry.id}
                 onClick={() => router.push(`/diary/${entry.id}`)}
-                className="p-5 transition-all group border-2 hover:border-amber-200 overflow-hidden shadow-none hover:shadow-md hover:-translate-y-0.5"
+                className="p-5 transition-all group border hover:border-amber-200 overflow-hidden shadow-none hover:shadow-md hover:-translate-y-0.5"
               >
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center gap-2 min-w-0">
