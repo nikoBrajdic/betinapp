@@ -22,7 +22,6 @@ export interface SeasonTask {
   done: boolean
   done_at: string | null
   done_by_name: string | null
-  photo_url: string | null
   notes: string | null
   sort_order: number
 }

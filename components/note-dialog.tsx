@@ -9,6 +9,7 @@ import { TableNoteEditor, emptyTable, parseTableContent, stringifyTable, type Ta
 import { FileText, ImageIcon, Loader2, Plus, Table, Trash2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
+import { compressImage, extensionFor, safeFileStem } from "@/lib/image-upload"
 import { emptyNoteBlocks, noteHasContent, parseNoteBlocks, stringifyNoteBlocks, type NoteBlock, type NoteImage } from "@/components/note-rich-content"
 
 interface NoteDialogProps {
@@ -21,30 +22,13 @@ interface NoteDialogProps {
   mode: "create" | "edit"
 }
 
-async function compressImage(file: File, maxWidth = 1000, maxHeight = 760, quality = 0.82): Promise<Blob> {
-  return new Promise((resolve, reject) => {
-    const img = new Image()
-    const url = URL.createObjectURL(file)
-    img.onload = () => {
-      URL.revokeObjectURL(url)
-      const scale = Math.min(1, maxWidth / img.width, maxHeight / img.height)
-      const canvas = document.createElement("canvas")
-      canvas.width = Math.round(img.width * scale)
-      canvas.height = Math.round(img.height * scale)
-      canvas.getContext("2d")?.drawImage(img, 0, 0, canvas.width, canvas.height)
-      canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error("Compression failed")), "image/jpeg", quality)
-    }
-    img.onerror = reject
-    img.src = url
-  })
-}
 
 async function uploadNoteImage(file: File): Promise<string> {
   const supabase = createClient()
   const compressed = await compressImage(file)
-  const path = `notes/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, "_")}.jpg`
+  const path = `notes/${Date.now()}-${safeFileStem(file.name)}.${extensionFor(compressed)}`
   const { data, error } = await supabase.storage.from("diary-images").upload(path, compressed, {
-    contentType: "image/jpeg",
+    contentType: compressed.type,
     cacheControl: "31536000",
   })
   if (error) throw error

@@ -9,11 +9,11 @@ import {
   LayoutDashboard,
   FileText,
   CheckSquare,
-  Calendar,
   Zap,
   Home,
   BookOpen,
   Snowflake,
+  Package,
   Settings,
   LogOut,
   RefreshCw,
@@ -28,10 +28,10 @@ const navigation = [
   { name: "Dashboard", tKey: "nav.dashboard", href: "/", icon: LayoutDashboard },
   { name: "Notes", tKey: "nav.notes", href: "/notes", icon: FileText },
   { name: "Tasks", tKey: "nav.tasks", href: "/tasks", icon: CheckSquare },
-  { name: "Calendar", tKey: "nav.calendar", href: "/calendar", icon: Calendar },
   { name: "Utilities", tKey: "nav.utilities", href: "/utilities", icon: Zap },
   { name: "Stays", tKey: "nav.stays", href: "/guest-stays", icon: Home },
   { name: "Diary", tKey: "nav.diary", href: "/diary", icon: BookOpen },
+  { name: "Inventory", tKey: "nav.inventory", href: "/inventory", icon: Package },
   { name: "End of Season", tKey: "nav.season", href: "/season", icon: Snowflake },
 ]
 
@@ -81,7 +81,7 @@ function MiniCalendar() {
         {days.map((day, i) => (
           <button
             key={i}
-            onClick={() => day && router.push("/calendar")}
+            onClick={() => day && router.push("/guest-stays?view=calendar")}
             className={cn(
               "text-center text-[11px] py-1 rounded-md transition-colors",
               !day && "invisible",

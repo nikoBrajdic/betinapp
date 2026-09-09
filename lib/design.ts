@@ -18,6 +18,7 @@ export type Accent =
   | "readings"
   | "bills"
   | "season"
+  | "inventory"
   | "neutral"
 
 interface AccentTokens {
@@ -90,6 +91,13 @@ export const accents: Record<Accent, AccentTokens> = {
     hoverBorder: "hover:border-teal-200",
     ring: "focus-visible:ring-teal-600/40",
   },
+  inventory: {
+    solid: "bg-lime-700 text-white hover:bg-lime-800",
+    soft: "bg-lime-50 text-lime-700 border-lime-200",
+    text: "text-lime-700",
+    hoverBorder: "hover:border-lime-200",
+    ring: "focus-visible:ring-lime-700/40",
+  },
   neutral: {
     solid: "bg-gray-800 text-white hover:bg-gray-900",
     soft: "bg-gray-100 text-gray-700 border-gray-200",
@@ -111,7 +119,6 @@ export const accentByRoute: { prefix: string; accent: Accent }[] = [
   { prefix: "/diary", accent: "diary" },
   { prefix: "/utilities", accent: "bills" },
   { prefix: "/bills", accent: "bills" },
-  { prefix: "/calendar", accent: "brand" },
   { prefix: "/season", accent: "season" },
 ]
 

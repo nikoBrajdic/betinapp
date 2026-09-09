@@ -26,6 +26,7 @@ const colorMap = {
   indigo:  { bg: "bg-indigo-50",  icon: "bg-indigo-500",  text: "text-indigo-600",  border: "border-indigo-100",  hover: "hover:border-indigo-300" },
   orange:  { bg: "bg-orange-50",  icon: "bg-orange-600",  text: "text-orange-700",  border: "border-orange-100",  hover: "hover:border-orange-300" },
   teal:    { bg: "bg-teal-50",    icon: "bg-teal-600",    text: "text-teal-700",    border: "border-teal-100",    hover: "hover:border-teal-300" },
+  lime:    { bg: "bg-lime-50",    icon: "bg-lime-700",    text: "text-lime-700",    border: "border-lime-100",    hover: "hover:border-lime-300" },
 }
 
 export function DashboardCard({

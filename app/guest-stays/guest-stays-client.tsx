@@ -6,7 +6,6 @@ import { Card } from "@/components/ui/card"
 import { Plus, Pencil, Trash2, Copy, MoreHorizontal } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { ConfirmDeleteDialog } from "@/components/confirm-delete-dialog"
-import { PageShell } from "@/components/ui/page-shell"
 import { EmptyState } from "@/components/ui/empty-state"
 import { Segmented, SegmentedItem } from "@/components/ui/segmented"
 import { Pill } from "@/components/ui/pill"
@@ -110,7 +109,7 @@ export function GuestStaysClient({ guests, familyMembers }: GuestStaysClientProp
     : staysInYear
 
   return (
-    <PageShell>
+    <>
       {guests.length === 0 ? (
         <EmptyState
           message="No stays yet"
@@ -426,6 +425,6 @@ export function GuestStaysClient({ guests, familyMembers }: GuestStaysClientProp
         onConfirm={() => deleteStay?.id && handleDelete(deleteStay.id)}
         itemName={deleteStay?.guest_name}
       />
-    </PageShell>
+    </>
   )
 }
