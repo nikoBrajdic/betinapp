@@ -74,6 +74,7 @@ function SegmentedItem({
       onClick={() => context.onValueChange(value)}
       className={cn(
         'inline-flex items-center justify-center gap-1.5 rounded-lg font-medium transition-colors outline-none',
+        'whitespace-nowrap',
         'focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-offset-gray-100',
         accent(context.accent).ring,
         context.size === 'sm' ? 'h-7 px-2.5 text-xs' : 'h-8 px-3 text-sm',
