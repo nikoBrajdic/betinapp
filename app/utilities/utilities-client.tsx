@@ -725,6 +725,10 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
       .sort((a, b) => b.amount - a.amount)
   }, [filteredBills, stays, billSplitToggles])
   const totalSettlements = settlementRows.reduce((sum, row) => sum + row.amount, 0)
+  // The face value of what is still open, which is deliberately larger: a
+  // payer's own share of a bill they paid is not a debt to anybody.
+  const unsettledBills = filteredBills.filter(bill => !bill.paid)
+  const unsettledTotal = unsettledBills.reduce((sum, bill) => sum + Number(bill.amount), 0)
   const settlementGroups = useMemo(() => {
     const grouped = new Map<string, { total: number; items: Array<{ name: string; amount: number }> }>()
     for (const row of settlementRows) {
@@ -1218,6 +1222,12 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
             </button>
           </div>
           <div className={cn("relative transition-all duration-200 ease-out overflow-hidden", settleUpCollapsed ? "max-h-0 opacity-0 mt-0" : "max-h-[2000px] opacity-100 mt-2")}>
+            <p className="text-xs text-gray-400 mb-2.5 leading-relaxed">
+              What still has to change hands, across{" "}
+              {unsettledBills.length} unsettled {unsettledBills.length === 1 ? "bill" : "bills"}
+              {" "}worth {formatMoney(unsettledTotal)}. The difference is each payer's own
+              share, which nobody owes them.
+            </p>
             <div className="flex items-center gap-2 mb-2">
               <span className="text-xs text-gray-400">Owed:</span>
               <button
