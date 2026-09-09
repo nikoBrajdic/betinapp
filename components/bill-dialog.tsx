@@ -63,7 +63,7 @@ export function BillDialog({
   initialPeriod,
   initialPeriodEnd,
   initialSettled = false,
-  initialPaidBy = "Mama",
+  initialPaidBy = "Vesna",
   initialSplitBetween = [],
   initialSplitPreset = "default",
   initialSplitWeights = {},
@@ -74,7 +74,7 @@ export function BillDialog({
   const [periodMode, setPeriodMode] = useState<PeriodMode>(initialPeriodEnd ? "range" : "month")
   const [period, setPeriod] = useState(initialPeriod ?? currentPeriod())
   const [settled, setSettled] = useState(initialSettled)
-  const [paidBy, setPaidBy] = useState(initialPaidBy || "Mama")
+  const [paidBy, setPaidBy] = useState(initialPaidBy || "Vesna")
   const [splitBetween, setSplitBetween] = useState<string[]>(initialSplitBetween)
   const [splitPreset, setSplitPreset] = useState<SplitPreset>(initialSplitPreset)
   const [splitWeights, setSplitWeights] = useState<Record<string, number>>(initialSplitWeights)
@@ -110,7 +110,7 @@ export function BillDialog({
     [occupantsForPeriod],
   )
   const allKnownPayerOptions = useMemo(
-    () => Array.from(new Set(["Mama", ...payerSuggestions, ...occupantsForPeriod, ...customPayers, paidBy])),
+    () => Array.from(new Set(["Vesna", ...payerSuggestions, ...occupantsForPeriod, ...customPayers, paidBy])),
     [payerSuggestions, occupantsForPeriod, customPayers, paidBy],
   )
   const nonResidentSuggestions = useMemo(
@@ -157,7 +157,7 @@ export function BillDialog({
 
   useEffect(() => {
     if (!open) return
-    const initialPayer = (initialPaidBy || "Mama").trim() || "Mama"
+    const initialPayer = (initialPaidBy || "Vesna").trim() || "Vesna"
     setName(initialName || BILL_NAMES[0])
     setAmount(initialAmount > 0 ? initialAmount.toString() : "")
     setPeriodMode(initialPeriodEnd ? "range" : "month")
@@ -173,7 +173,7 @@ export function BillDialog({
       return sameList(current, next) ? current : next
     })
     setCustomPayers(current => {
-      const shouldBeCustom = initialPayer !== "Mama"
+      const shouldBeCustom = initialPayer !== "Vesna"
       const next = shouldBeCustom ? [initialPayer] : []
       return sameList(current, next) ? current : next
     })
@@ -231,7 +231,7 @@ export function BillDialog({
     setPeriod(currentPeriod())
     setPeriodEnd(currentPeriod())
     setSettled(false)
-    setPaidBy("Mama")
+    setPaidBy("Vesna")
     setSplitBetween([])
     setSplitPreset("default")
     setSplitWeights({})
@@ -274,9 +274,9 @@ export function BillDialog({
   const removePayerOption = (option: string) => {
     setCustomPayers(current => current.filter(name => name !== option))
     if (paidBy === option) {
-      const fallback = residentPayerOptions.includes("Mama")
-        ? "Mama"
-        : residentPayerOptions[0] || "Mama"
+      const fallback = residentPayerOptions.includes("Vesna")
+        ? "Vesna"
+        : residentPayerOptions[0] || "Vesna"
       setPaidBy(fallback)
     }
   }

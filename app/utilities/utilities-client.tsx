@@ -294,16 +294,39 @@ function computeBillShares(
   return { payerShare, guestShares }
 }
 
-/**
- * The chips are the people whose stay overlapped the billing month — that is a
- * fact, not a choice, so it never depends on what is selected. Deselecting
- * someone greys their chip; it does not make them disappear.
- */
-/** How Mama/Vesna is named on bills. */
-const MAMA = "Mama"
+/** The household name for Vesna on bills — she pays, and is always present. */
+const VESNA = "Vesna"
 
-function billGuests(payer: string, guestSummaries: GuestSummary[]) {
-  return guestSummaries.filter(guest => guest.name !== payer && guest.days > 0)
+/**
+ * Who appears on a bill, which depends on how it is split.
+ *
+ * By nights (`default`) — the household utilities Vesna pays: the people are
+ * whoever's stay overlapped the month. That is a fact about the month, so it
+ * is derived and cannot be typed in. Deselecting greys a chip; it never
+ * removes anyone from the row.
+ *
+ * Fixed shares (`equal` / `weighted`) — the Internet, split three ways between
+ * Niko, Matea and Vesna whoever happened to be at the house: the people are
+ * chosen, so stays must not add or remove anyone. Anyone who did stay is still
+ * listed, so they can be toggled in.
+ */
+function billGuests(
+  bill: Bill,
+  payer: string,
+  guestSummaries: GuestSummary[],
+  selectedGuestNames: Set<string>,
+) {
+  const stayed = guestSummaries.filter(guest => guest.name !== payer && guest.days > 0)
+  if (bill.split_preset === "default") return stayed
+
+  const daysByName = new Map(guestSummaries.map(guest => [guest.name, guest.days]))
+  const names = new Set([
+    ...stayed.map(guest => guest.name),
+    ...Array.from(selectedGuestNames).filter(name => name !== payer),
+  ])
+  return Array.from(names)
+    .map(name => ({ name, days: daysByName.get(name) ?? 0 }))
+    .sort((a, b) => a.name.localeCompare(b.name))
 }
 
 /**
@@ -312,11 +335,13 @@ function billGuests(payer: string, guestSummaries: GuestSummary[]) {
  * `split_between` from an earlier edit cannot reappear with 0 nights.
  */
 function selectedSplitGuests(
+  bill: Bill,
   payer: string,
   guestSummaries: GuestSummary[],
   selectedGuestNames: Set<string>,
 ) {
-  return billGuests(payer, guestSummaries).filter(guest => selectedGuestNames.has(guest.name))
+  return billGuests(bill, payer, guestSummaries, selectedGuestNames)
+    .filter(guest => selectedGuestNames.has(guest.name))
 }
 
 /**
@@ -324,8 +349,11 @@ function selectedSplitGuests(
  * Previously this defaulted to nobody, so untouched bills were split to the
  * payer alone.
  */
-function defaultSplitNames(payer: string, guestSummaries: GuestSummary[]) {
-  return [payer, ...billGuests(payer, guestSummaries).map(guest => guest.name)]
+function defaultSplitNames(bill: Bill, payer: string, guestSummaries: GuestSummary[]) {
+  return [
+    payer,
+    ...billGuests(bill, payer, guestSummaries, new Set<string>()).map(guest => guest.name),
+  ]
 }
 
 export function UtilitiesClient({ utilities, readings, bills, stays }: UtilitiesClientProps) {
@@ -429,7 +457,7 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
     // in the summaries even when she is not the payer, or a bill someone else
     // paid (Niko's Internet) silently drops her from the split.
     const summaries = Array.from(guestDays.entries()).map(([name, days]) => ({ name, days }))
-    summaries.push({ name: MAMA, days: dayIndex(monthNextStart) - dayIndex(monthStart) })
+    summaries.push({ name: VESNA, days: dayIndex(monthNextStart) - dayIndex(monthStart) })
 
     return summaries.sort((a, b) => a.name.localeCompare(b.name))
   }
@@ -455,7 +483,7 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
         amount: bill.amount,
         dueDate: bill.due_date,
         paid: bill.paid,
-        paidBy: bill.paid_by || "Mama",
+        paidBy: bill.paid_by || VESNA,
         splitBetween,
         splitPreset: bill.split_preset ?? "default",
         splitWeights: bill.split_weights ?? {},
@@ -648,11 +676,11 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
       const daysInMonth = dayIndex(monthNextStart) - dayIndex(monthStart)
 
       const guestSummaries = summarizeGuestsForBillPeriod(monthStart, monthEnd, monthNextStart)
-      const payer = bill.paid_by || "Mama"
-      const defaultSelectedNames = bill.split_between?.length ? bill.split_between : defaultSplitNames(payer, guestSummaries)
+      const payer = bill.paid_by || VESNA
+      const defaultSelectedNames = bill.split_between?.length ? bill.split_between : defaultSplitNames(bill, payer, guestSummaries)
       const selectedGuestNames = billSplitToggles[bill.id] ?? new Set(defaultSelectedNames)
       const payerIncluded = selectedGuestNames.has(payer)
-      const includedGuests = selectedSplitGuests(payer, guestSummaries, selectedGuestNames)
+      const includedGuests = selectedSplitGuests(bill, payer, guestSummaries, selectedGuestNames)
       if (includedGuests.length === 0) continue
       const { guestShares } = computeBillShares(bill, payer, payerIncluded, daysInMonth, includedGuests)
 
@@ -812,7 +840,7 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
         amount: bill.amount,
         dueDate: bill.due_date,
         paid: !bill.paid,
-        paidBy: bill.paid_by || "Mama",
+        paidBy: bill.paid_by || VESNA,
         splitBetween: bill.split_between ?? [],
         splitPreset: bill.split_preset ?? "default",
         splitWeights: bill.split_weights ?? {},
@@ -1455,16 +1483,16 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
 
                   // Guests in this period, combined by name; Mama (Vesna) is always counted separately
                   const guestSummaries = summarizeGuestsForBillPeriod(periodStart, periodEndIncl, periodNextStart)
-                  const payer = bill.paid_by || "Mama"
-                  const defaultSelectedNames = bill.split_between?.length ? bill.split_between : defaultSplitNames(payer, guestSummaries)
+                  const payer = bill.paid_by || VESNA
+                  const defaultSelectedNames = bill.split_between?.length ? bill.split_between : defaultSplitNames(bill, payer, guestSummaries)
                   const selectedGuestNames = billSplitToggles[bill.id] ?? new Set(defaultSelectedNames)
                   const payerIncluded = selectedGuestNames.has(payer)
-                  const includedGuests = selectedSplitGuests(payer, guestSummaries, selectedGuestNames)
+                  const includedGuests = selectedSplitGuests(bill, payer, guestSummaries, selectedGuestNames)
                   const hasSplit = includedGuests.length > 0
                   const { payerShare, guestShares } = computeBillShares(bill, payer, payerIncluded, daysInPeriod, includedGuests)
                   const shareFor = (guestName: string) => guestShares.get(guestName) ?? 0
                   const guestDaysByName = new Map(guestSummaries.map(guest => [guest.name, guest.days]))
-                  const guestChipNames = billGuests(payer, guestSummaries).map(guest => guest.name)
+                  const guestChipNames = billGuests(bill, payer, guestSummaries, selectedGuestNames).map(guest => guest.name)
 
                   const isVisible = filteredBillIdSet.has(bill.id)
                   const monthStyle = monthTone(startDate.getMonth())
@@ -1574,16 +1602,16 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
                     const daysInPeriod = dayIndex(periodNextStart) - dayIndex(periodStart)
                     const period = billPeriodLabel(startDate, endDate, hasActiveBillFilters)
                     const guestSummaries = summarizeGuestsForBillPeriod(periodStart, periodEndIncl, periodNextStart)
-                    const payer = bill.paid_by || "Mama"
-                    const defaultSelectedNames = bill.split_between?.length ? bill.split_between : defaultSplitNames(payer, guestSummaries)
+                    const payer = bill.paid_by || VESNA
+                    const defaultSelectedNames = bill.split_between?.length ? bill.split_between : defaultSplitNames(bill, payer, guestSummaries)
                     const selectedGuestNames = billSplitToggles[bill.id] ?? new Set(defaultSelectedNames)
                     const payerIncluded = selectedGuestNames.has(payer)
-                    const includedGuests = selectedSplitGuests(payer, guestSummaries, selectedGuestNames)
+                    const includedGuests = selectedSplitGuests(bill, payer, guestSummaries, selectedGuestNames)
                     const hasSplit = includedGuests.length > 0
                     const { payerShare, guestShares } = computeBillShares(bill, payer, payerIncluded, daysInPeriod, includedGuests)
                     const shareFor = (guestName: string) => guestShares.get(guestName) ?? 0
                     const guestDaysByName = new Map(guestSummaries.map(guest => [guest.name, guest.days]))
-                    const guestChipNames = billGuests(payer, guestSummaries).map(guest => guest.name)
+                    const guestChipNames = billGuests(bill, payer, guestSummaries, selectedGuestNames).map(guest => guest.name)
                     const isVisible = filteredBillIdSet.has(bill.id)
                     const monthStyle = monthTone(startDate.getMonth())
 
@@ -1710,7 +1738,7 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
         initialPeriod={editingBill?.due_date ? editingBill.due_date.slice(0, 7) : undefined}
         initialPeriodEnd={editingBill?.period_end ? editingBill.period_end.slice(0, 7) : undefined}
         initialSettled={editingBill?.paid ?? false}
-        initialPaidBy={editingBill?.paid_by || "Mama"}
+        initialPaidBy={editingBill?.paid_by || "Vesna"}
         initialSplitBetween={editingBill?.split_between}
         initialSplitPreset={editingBill?.split_preset ?? "default"}
         initialSplitWeights={editingBill?.split_weights ?? {}}

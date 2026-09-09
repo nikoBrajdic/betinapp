@@ -115,9 +115,10 @@ Migrations live in `scripts/` — always run them in numeric order, by hand, in 
 ## Business Logic
 
 ### Bill splitting (utilities-client.tsx)
-- **Mama/Vesna** is always present for the **full billing month** (`daysInMonth` days), whether or not a stay was recorded for her, and whether or not she is the payer. Her own stay rows are ignored (filter: `!name.includes("vesna")`) and she is added to the summaries with the full month instead — otherwise a bill someone else paid drops her from the split entirely.
+- **Vesna** (previously written as "Mama") is always present for the **full billing month** (`daysInMonth` days), whether or not a stay was recorded for her, and whether or not she is the payer. Her own stay rows are ignored (filter: `!name.includes("vesna")`) and she is added to the summaries with the full month instead — otherwise a bill someone else paid drops her from the split entirely.
 - **Other guests** contribute their actual night-overlap with the billing month. `to_date` is the exclusive checkout date (same convention as the rest of the app).
 - Split formula: `person_share = (person_days / total_person_days) * bill_amount`
+- **Two kinds of bill.** `split_preset: "default"` divides by nights — the utilities Vesna pays, where who took part is derived from the stays. `split_preset: "equal"` divides evenly between a chosen set regardless of stays — the Internet, always three ways between Niko, Matea and Vesna. Stays must never add or remove anyone from an `equal` bill.
 - **The chips are everyone whose stay overlapped the billing month** — derived from stays, never from stored selection. Someone with no nights that month never appears; someone with nights always does.
 - Chips are toggleable to exclude a person from the split. Deselecting greys the chip, it does not remove them from the row.
 - **The payer's chip is always shown and always toggleable**, whether or not they stayed — whoever fronted the money can be counted in or left out. It renders a rung darker (`blue-700`) than a guest's so "who paid" reads apart from "who shared it". When included, the payer counts for the full billing month.
@@ -184,6 +185,6 @@ All amounts in **EUR**. `formatMoney(amount)` from `@/lib/currency` formats as `
 
 **Change split logic** → `app/utilities/utilities-client.tsx`, search for `guestDaysMap`
 
-**Change who counts as "Mama"** → filter: `!s.guest_name.toLowerCase().includes("vesna")` in utilities-client.tsx
+**Change who counts as the household payer** → the `VESNA` constant and the `!s.guest_name.toLowerCase().includes("vesna")` filter in utilities-client.tsx
 
 **Deploy** → `npx vercel --prod` (not git push)
