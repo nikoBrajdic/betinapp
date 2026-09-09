@@ -248,6 +248,11 @@ related.
   the house; unlocking is for reworking the list itself. Once unlocked, Enter
   splits a row at the caret, which makes "add a row" and "break this line in
   two" the same gesture, and Backspace at position 0 merges upward.
+- **Typing never waits on the network.** While the list is unlocked it lives
+  in local state; Done writes the whole shape back through `saveSeasonTasks`.
+  An earlier version awaited a server round trip per keystroke and the new row
+  appeared seconds later, which read as broken. If an interaction happens while
+  a caret is in a field, do it locally and reconcile afterwards.
 
 ---
 
