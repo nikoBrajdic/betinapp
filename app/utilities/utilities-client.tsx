@@ -698,11 +698,30 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
       }
     }
 
-    return Array.from(owedPairs.entries())
+    // Net each pair off against each other. Vesna pays the utilities and Niko
+    // pays the Internet, so without this they show as owing each other at the
+    // same time and neither figure is what anyone should actually transfer.
+    const netted = new Map<string, number>()
+    for (const [pairKey, amount] of owedPairs) {
+      const [debtor, creditor] = pairKey.split("::")
+      const reverseKey = `${creditor}::${debtor}`
+      if (netted.has(reverseKey)) {
+        netted.set(reverseKey, (netted.get(reverseKey) ?? 0) - amount)
+      } else {
+        netted.set(pairKey, (netted.get(pairKey) ?? 0) + amount)
+      }
+    }
+
+    return Array.from(netted.entries())
       .map(([pairKey, amount]) => {
         const [debtor, creditor] = pairKey.split("::")
-        return { debtor, creditor, amount }
+        // A negative net means the debt runs the other way.
+        return amount >= 0
+          ? { debtor, creditor, amount }
+          : { debtor: creditor, creditor: debtor, amount: -amount }
       })
+      // Under a cent is settled as far as anyone is concerned.
+      .filter(row => row.amount >= 0.005)
       .sort((a, b) => b.amount - a.amount)
   }, [filteredBills, stays, billSplitToggles])
   const totalSettlements = settlementRows.reduce((sum, row) => sum + row.amount, 0)
@@ -884,80 +903,6 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
 
   return (
     <PageShell>
-      <Card className={cn("shadow-none border border-blue-100 mb-5 px-5", settleUpCollapsed ? "py-4 gap-0" : "py-5 gap-2")}>
-        <div className="flex items-center justify-between gap-4 min-h-6">
-          <button
-            type="button"
-            onClick={() => setSettleUpCollapsed(collapsed => !collapsed)}
-            className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-500"
-          >
-            <span>Settle up</span>
-            <span className="font-semibold text-blue-600">{formatMoney(totalSettlements)}</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setSettleUpCollapsed(collapsed => !collapsed)}
-            className="inline-flex items-center justify-center h-6 w-6 rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
-            title={settleUpCollapsed ? "Expand settle up" : "Collapse settle up"}
-          >
-            {settleUpCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
-          </button>
-        </div>
-        <div className={cn("relative transition-all duration-200 ease-out overflow-hidden", settleUpCollapsed ? "max-h-0 opacity-0 mt-0" : "max-h-[420px] opacity-100 mt-2")}>
-          <div className="flex items-center gap-2 mb-2">
-            <span className="text-xs text-gray-400">Owed:</span>
-            <button
-              type="button"
-              onClick={() => setOwedView("by")}
-              className={cn(
-                "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs border transition-all",
-                owedView === "by"
-                  ? "bg-blue-500 text-white border-blue-500"
-                  : "bg-white text-gray-400 border-gray-200 hover:border-blue-300 hover:text-blue-500",
-              )}
-            >
-              By
-            </button>
-            <button
-              type="button"
-              onClick={() => setOwedView("to")}
-              className={cn(
-                "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs border transition-all",
-                owedView === "to"
-                  ? "bg-blue-500 text-white border-blue-500"
-                  : "bg-white text-gray-400 border-gray-200 hover:border-blue-300 hover:text-blue-500",
-              )}
-            >
-              To
-            </button>
-          </div>
-          {settlementRows.length === 0 ? (
-            <p className="text-sm text-gray-400">No outstanding settlements.</p>
-          ) : (
-            <div className="space-y-1.5">
-              {settlementGroups.map(group => (
-                <div key={group.name} className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm font-semibold text-gray-800">{group.name}</p>
-                    <p className="text-sm font-semibold text-gray-900">{formatMoney(group.total)}</p>
-                  </div>
-                  <div className="mt-1.5 pl-3 space-y-1">
-                    {group.items.map(item => (
-                      <div key={`${group.name}-${item.name}`} className="flex items-center justify-between">
-                        <p className="text-sm text-gray-600">
-                          {owedView === "by" ? `to ${item.name}` : `from ${item.name}`}
-                        </p>
-                        <p className="text-sm font-medium text-gray-800">{formatMoney(item.amount)}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </Card>
-
       <Tabs value={activeTab} onValueChange={setActiveTab} className="gap-4">
         <div className="flex items-center justify-between gap-3">
           <Segmented
@@ -1253,6 +1198,79 @@ export function UtilitiesClient({ utilities, readings, bills, stays }: Utilities
         </TabsContent>
 
         <TabsContent value="bills" className="mt-0">
+        <Card className={cn("shadow-none border border-blue-100 mb-5 px-5", settleUpCollapsed ? "py-4 gap-0" : "py-5 gap-2")}>
+          <div className="flex items-center justify-between gap-4 min-h-6">
+            <button
+              type="button"
+              onClick={() => setSettleUpCollapsed(collapsed => !collapsed)}
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-500"
+            >
+              <span>Settle up</span>
+              <span className="font-semibold text-blue-600">{formatMoney(totalSettlements)}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setSettleUpCollapsed(collapsed => !collapsed)}
+              className="inline-flex items-center justify-center h-6 w-6 rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+              title={settleUpCollapsed ? "Expand settle up" : "Collapse settle up"}
+            >
+              {settleUpCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+            </button>
+          </div>
+          <div className={cn("relative transition-all duration-200 ease-out overflow-hidden", settleUpCollapsed ? "max-h-0 opacity-0 mt-0" : "max-h-[2000px] opacity-100 mt-2")}>
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-xs text-gray-400">Owed:</span>
+              <button
+                type="button"
+                onClick={() => setOwedView("by")}
+                className={cn(
+                  "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs border transition-all",
+                  owedView === "by"
+                    ? "bg-blue-500 text-white border-blue-500"
+                    : "bg-white text-gray-400 border-gray-200 hover:border-blue-300 hover:text-blue-500",
+                )}
+              >
+                By
+              </button>
+              <button
+                type="button"
+                onClick={() => setOwedView("to")}
+                className={cn(
+                  "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs border transition-all",
+                  owedView === "to"
+                    ? "bg-blue-500 text-white border-blue-500"
+                    : "bg-white text-gray-400 border-gray-200 hover:border-blue-300 hover:text-blue-500",
+                )}
+              >
+                To
+              </button>
+            </div>
+            {settlementRows.length === 0 ? (
+              <p className="text-sm text-gray-400">No outstanding settlements.</p>
+            ) : (
+              <div className="space-y-1.5">
+                {settlementGroups.map(group => (
+                  <div key={group.name} className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-semibold text-gray-800">{group.name}</p>
+                      <p className="text-sm font-semibold text-gray-900">{formatMoney(group.total)}</p>
+                    </div>
+                    <div className="mt-1.5 pl-3 space-y-1">
+                      {group.items.map(item => (
+                        <div key={`${group.name}-${item.name}`} className="flex items-center justify-between">
+                          <p className="text-sm text-gray-600">
+                            {owedView === "by" ? `to ${item.name}` : `from ${item.name}`}
+                          </p>
+                          <p className="text-sm font-medium text-gray-800">{formatMoney(item.amount)}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </Card>
           {bills.length === 0 ? (
             <EmptyState
               message="No bills yet"

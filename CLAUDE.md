@@ -124,6 +124,7 @@ Migrations live in `scripts/` — always run them in numeric order, by hand, in 
 - **The payer's chip is always shown and always toggleable**, whether or not they stayed — whoever fronted the money can be counted in or left out. It renders a rung darker (`blue-700`) than a guest's so "who paid" reads apart from "who shared it". When included, the payer counts for the full billing month.
 - A bill whose `split_between` has never been set defaults to **everyone present**, not to nobody.
 - `due_date` is always the **1st of the billing month** (`YYYY-MM-01`).
+- **Settle up nets each pair off.** Vesna pays the utilities and Niko pays the Internet, so both directions exist; showing them unnetted meant two people appeared to owe each other at once and neither figure was transferable. It lives in the Bills tab, since it is about bills.
 - Bills list **newest month first, then alphabetically by name** within a month. Sorting on the date alone leaves same-month bills in database order, which changes between months.
 
 ### Guest stays
