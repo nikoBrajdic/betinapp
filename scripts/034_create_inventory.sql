@@ -91,3 +91,25 @@ create policy "Users can update inventory files" on storage.objects
 drop policy if exists "Users can delete inventory files" on storage.objects;
 create policy "Users can delete inventory files" on storage.objects
   for delete using (bucket_id = 'inventory-photos');
+
+-- Realtime. The existing tables were enabled by hand in the Supabase dashboard,
+-- which is why no earlier migration mentions the publication — easy to forget
+-- for a new table, and the failure is silent (the subscription simply never
+-- fires). Doing it here instead. Guarded, because adding a table twice errors.
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and tablename = 'inventory_photos'
+  ) then
+    alter publication supabase_realtime add table public.inventory_photos;
+  end if;
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and tablename = 'inventory_items'
+  ) then
+    alter publication supabase_realtime add table public.inventory_items;
+  end if;
+exception
+  when undefined_object then null; -- publication absent on this project; ignore
+end $$;
