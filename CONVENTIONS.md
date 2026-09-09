@@ -239,6 +239,11 @@ related.
   `layoutBlocks` to render.
 - Dragging an image's grip reorders it; clicking the image opens the lightbox.
   Keep those two gestures separate.
+- **The End of season list is read-only until unlocked** (the padlock beside the
+  progress ring). Locked is the working state — you tick things while closing
+  the house; unlocking is for reworking the list itself. Once unlocked, Enter
+  splits a row at the caret, which makes "add a row" and "break this line in
+  two" the same gesture, and Backspace at position 0 merges upward.
 
 ---
 

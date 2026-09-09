@@ -1,8 +1,8 @@
 "use client"
 
-import { useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Camera, Check, Loader2, Plus, Trash2, X } from "lucide-react"
+import { Camera, Check, Loader2, Lock, LockOpen, Plus, Trash2, X } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -19,6 +19,8 @@ import { useRealtimeRefresh } from "@/hooks/use-realtime-refresh"
 import {
   addSeasonTask,
   deleteSeasonTask,
+  mergeSeasonTaskUp,
+  splitSeasonTask,
   setSeasonClosed,
   startSeasonClosing,
   toggleSeasonTask,
@@ -46,6 +48,11 @@ export function SeasonClient({
   const [lightbox, setLightbox] = useState<string | null>(null)
   const [addingArea, setAddingArea] = useState<string | null>(null)
   const [newTitle, setNewTitle] = useState("")
+  // The list is read-only by default — you tick things while closing the house.
+  // Unlocking turns every line into a text field for reworking the list itself.
+  const [editing, setEditing] = useState(false)
+  const [focusId, setFocusId] = useState<string | null>(null)
+  const [caret, setCaret] = useState<number | null>(null)
 
   const photoInputRef = useRef<HTMLInputElement>(null)
   const photoTarget = useRef<string | null>(null)
@@ -174,6 +181,16 @@ export function SeasonClient({
           <div className="flex items-center gap-2">
             <ProgressRing done={done} total={total} />
             <Button
+              variant={editing ? "default" : "subtle"}
+              accent={editing ? "stays" : undefined}
+              size="icon-sm"
+              title={editing ? "Done editing — lock the list" : "Unlock the list to edit it"}
+              aria-pressed={editing}
+              onClick={() => { setEditing(v => !v); setFocusId(null) }}
+            >
+              {editing ? <LockOpen /> : <Lock />}
+            </Button>
+            <Button
               variant={closing.closed_at ? "outline" : "default"}
               accent="stays"
               size="sm"
@@ -249,12 +266,32 @@ export function SeasonClient({
                       </button>
 
                       <div className="min-w-0 flex-1">
-                        <p className={cn(
-                          "text-sm leading-snug",
-                          task.done ? "text-gray-400 line-through" : "text-gray-800",
-                        )}>
-                          {task.title}
-                        </p>
+                        {editing ? (
+                          <TaskTitleInput
+                            task={task}
+                            autoFocus={focusId === task.id}
+                            caret={focusId === task.id ? caret : null}
+                            onCommit={title => trackSave(updateSeasonTask(task.id, { title }))}
+                            onSplit={async (before, after) => {
+                              const newId = await trackSave(splitSeasonTask(task.id, before, after))
+                              setFocusId(newId)
+                              setCaret(0)
+                              router.refresh()
+                            }}
+                            onMergeUp={async () => {
+                              const target = await trackSave(mergeSeasonTaskUp(task.id))
+                              if (target) { setFocusId(target.id); setCaret(target.caret) }
+                              router.refresh()
+                            }}
+                          />
+                        ) : (
+                          <p className={cn(
+                            "text-sm leading-snug",
+                            task.done ? "text-gray-400 line-through" : "text-gray-800",
+                          )}>
+                            {task.title}
+                          </p>
+                        )}
                         {task.done && task.done_by_name && (
                           <p className="mt-0.5 text-xs text-gray-400">
                             {task.done_by_name}
@@ -287,7 +324,10 @@ export function SeasonClient({
                       <Button
                         variant="subtle"
                         size="icon-xs"
-                        className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 hover:text-red-600"
+                        className={cn(
+                          "hover:text-red-600",
+                          editing ? "opacity-100" : "opacity-0 group-hover:opacity-100 focus-visible:opacity-100",
+                        )}
                         title="Remove this step"
                         onClick={async () => {
                           await trackSave(deleteSeasonTask(task.id))
@@ -336,6 +376,78 @@ export function SeasonClient({
         />
       )}
     </PageShell>
+  )
+}
+
+/**
+ * An editable checkbox line.
+ *
+ * Enter splits at the caret: text before it stays, text after it becomes the
+ * next row. At the end of a line that tail is empty, which is just "add a row"
+ * — the same gesture either way, so there is nothing extra to learn.
+ * Backspace at position 0 merges back into the row above.
+ */
+function TaskTitleInput({
+  task, autoFocus, caret, onCommit, onSplit, onMergeUp,
+}: {
+  task: SeasonTask
+  autoFocus: boolean
+  caret: number | null
+  onCommit: (title: string) => void
+  onSplit: (before: string, after: string) => void
+  onMergeUp: () => void
+}) {
+  const ref = useRef<HTMLTextAreaElement>(null)
+  const [value, setValue] = useState(task.title)
+
+  // Track edits made elsewhere, but never yank the text out from under a caret.
+  useEffect(() => {
+    if (document.activeElement !== ref.current) setValue(task.title)
+  }, [task.title])
+
+  const resize = () => {
+    const el = ref.current
+    if (!el) return
+    el.style.height = "auto"
+    el.style.height = `${el.scrollHeight}px`
+  }
+
+  useEffect(resize, [value])
+
+  useEffect(() => {
+    if (!autoFocus || !ref.current) return
+    ref.current.focus()
+    const at = caret ?? ref.current.value.length
+    ref.current.setSelectionRange(at, at)
+  }, [autoFocus, caret])
+
+  return (
+    <textarea
+      ref={ref}
+      rows={1}
+      value={value}
+      onChange={e => setValue(e.target.value)}
+      onBlur={() => { if (value !== task.title) onCommit(value) }}
+      onKeyDown={e => {
+        if (e.key === "Enter" && !e.shiftKey) {
+          e.preventDefault()
+          const at = e.currentTarget.selectionStart ?? value.length
+          onSplit(value.slice(0, at), value.slice(e.currentTarget.selectionEnd ?? at))
+          return
+        }
+        if (e.key === "Backspace") {
+          const start = e.currentTarget.selectionStart ?? 0
+          if (start === 0 && (e.currentTarget.selectionEnd ?? 0) === 0) {
+            e.preventDefault()
+            onMergeUp()
+          }
+        }
+      }}
+      className={cn(
+        "w-full resize-none overflow-hidden border-none bg-transparent p-0 text-sm leading-snug outline-none",
+        "text-gray-800 focus:ring-0",
+      )}
+    />
   )
 }
 
