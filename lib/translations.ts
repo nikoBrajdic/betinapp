@@ -13,6 +13,7 @@ const en: Dict = {
   "nav.utilities": "Utilities",
   "nav.stays": "Stays",
   "nav.diary": "Diary",
+  "nav.inventory": "Inventory",
   "nav.season": "End of Season",
   "nav.settings": "Settings",
 
@@ -84,6 +85,7 @@ const hr: Dict = {
   "nav.utilities": "Režije",
   "nav.stays": "Boravci",
   "nav.diary": "Dnevnik",
+  "nav.inventory": "Zalihe",
   "nav.season": "Kraj sezone",
   "nav.settings": "Postavke",
 

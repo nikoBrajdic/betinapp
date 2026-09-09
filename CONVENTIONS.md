@@ -76,6 +76,7 @@ Each section owns a colour. Components take `accent="notes"`, not a class.
 | `stays` | rose | guest stays |
 | `diary` | amber | photo diary |
 | `season` | teal | end-of-season closing lists |
+| `inventory` | lime | stock left at the end of a season |
 | `neutral` | gray | anything unsectioned |
 
 Each accent provides four roles:
@@ -109,6 +110,7 @@ Each accent provides four roles:
 | [`FileTypePill`](components/ui/file-type-pill.tsx) | Document type badges, and `fileType="note"` for notes. |
 | [`EditorHeader`](components/editor-header.tsx) | Sticky back bar for full-page editors. |
 | [`SlashMenu`](components/editor-slash-menu.tsx) | The `/` command palette. |
+| [`compressImage`](lib/image-upload.ts) | **Every** image upload. Never hand-roll a canvas resize. |
 | [`Button`](components/ui/button.tsx) | All buttons. `accent` for the one primary action; `variant="subtle" size="icon-xs"` for row `⋯` menus. |
 
 ### Segmented vs Pill — they mean different things
@@ -157,9 +159,11 @@ Solid accents carry `text-white`; soft accents carry their own dark
 `text-<c>-700`. **Because both colours come from the same token, white-on-pale
 is impossible.** Never split them by hand.
 
-Two accents were deliberately darkened because `-500` with white text failed:
-`diary` uses `amber-600` and `readings` uses `emerald-600`. Don't "restore"
-them to 500.
+Three accents were deliberately darkened because the light shade with white
+text failed: `diary` uses `amber-600`, `readings` uses `emerald-600`, and
+`inventory` uses `lime-**700**` — `lime-600` measures only 3.09:1 on white,
+which technically clears the 3:1 bar for a filled control and is far too thin
+to trust. Don't "restore" any of them to a lighter shade.
 
 Deselected pills are `text-gray-500`, not `gray-400` — a filter you can't read
 is a broken control.
@@ -198,6 +202,29 @@ Next 16). If you want linting, that is a real setup task, not a one-liner.
   (0,1,1) silently beats a utility class (0,1,0). This exact bug once produced
   white text on a pale track. Prefer utilities; if you must write CSS, check
   what it outranks.
+
+---
+
+## 6b. Images — one pipeline, and it is WebP
+
+Every upload goes through [`compressImage`](lib/image-upload.ts). It was
+copy-pasted into four files, each hardcoding JPEG and a `.jpg` path, while
+season uploaded phone originals untouched.
+
+- **Never assume the output format.** `canvas.toBlob` is specified to silently
+  substitute **PNG** when it cannot encode the type you asked for — and a PNG
+  of a photo is *larger* than the JPEG it replaced. The helper encodes WebP,
+  checks `blob.type`, and re-encodes JPEG if it did not get WebP.
+- **Take the extension and `contentType` from the returned blob**, via
+  `extensionFor(blob)` and `blob.type`. The browser decides the format, not you.
+- **Size to the job.** Notes and diary keep 1000x760 — those are photos you
+  look at. Inventory shelf shots are 1600px because you have to *read* a label
+  off them, plus a 400px thumbnail so a category strip does not pull a dozen
+  full-size images.
+- EXIF rotation is applied at decode via `createImageBitmap(file,
+  { imageOrientation: "from-image" })`. Phone photos arrive rotated by metadata.
+- Existing stored images are still JPEG. Their URLs are baked into note and
+  diary blocks, so a backfill means rewriting those URLs — not a drive-by.
 
 ---
 
@@ -278,6 +305,19 @@ related.
   of being retyped. `SEASON_TEMPLATE` in `lib/season.ts` is keyed by unit —
   closing the house is nothing like closing the šok soba — and is only used
   for a unit's very first list.
+- **Inventory is grouped by what a thing *is*, never by where it sits.**
+  The question it answers — "do we already have shower gel?" — gets asked in a
+  shop, where "bathroom shelf" is not a useful heading. An item's `location` is
+  still stored, because finding it matters once you arrive; it just is not the
+  browsing axis. Categories live in `lib/inventory.ts`.
+- **Stock level is a coarse enum, not a count** (`full`/`half`/`low`/`out`/
+  `unknown`). You eyeball a bottle, you do not measure it, and a count nobody
+  takes accurately is worse than a coarse one they will. `unknown` is the state
+  after a year is cloned forward but before anyone has looked.
+- **Inventory clones forward like season closings** — item names carry over
+  with levels reset to `unknown`. Photos deliberately do *not*: last year's
+  shelf is not this year's shelf, and a stale photo shown as current is worse
+  than no photo.
 - **`"use server"` modules may only export async functions.** Constants, types
   and templates live in a plain module next to the actions
   (`lib/season.ts` beside `lib/actions/season.ts`). Exporting an array from an

@@ -151,7 +151,7 @@ export async function toggleSeasonTask(id: string, done: boolean, doneByName: st
 
 export async function updateSeasonTask(
   id: string,
-  input: { title?: string; notes?: string | null; photo_url?: string | null; area?: string },
+  input: { title?: string; notes?: string | null; area?: string },
 ) {
   const supabase = await createClient()
   const { error } = await supabase.from("season_tasks").update(input).eq("id", id)
@@ -186,9 +186,9 @@ export async function addSeasonTask(closingId: string, area: string, title: stri
  * network — so this reconciles the final shape rather than replaying each
  * keystroke. Rows carrying a `tmp-` id are new.
  *
- * Only the fields the editor can change are written. `done`, `done_at` and
- * `photo_url` are left untouched, so ticking a box on someone else's phone
- * mid-edit does not get clobbered when this lands.
+ * Only the fields the editor can change are written. `done` and `done_at` are
+ * left untouched, so ticking a box on someone else's phone mid-edit does not
+ * get clobbered when this lands.
  */
 export async function saveSeasonTasks(
   closingId: string,

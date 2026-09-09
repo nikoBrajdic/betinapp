@@ -76,6 +76,7 @@ app/
   tasks/              # Kanban tasks
   diary/              # Photo diary
   tables/             # Inventory tables
+  inventory/          # End-of-season stock: shelf photos + optional named items
   admin/manage/       # Superadmin: invite codes, user management
   auth/               # Login / signup / callback
 
@@ -105,10 +106,12 @@ All IDs are `uuid`, auth uses `auth.users`.
 | `utilities` | `name, current_usage, max_usage, cost, unit, trend` | Synced from latest readings; electricity split across "Struja 1"/"Struja 2" |
 | `notes` | `title, content, color, author_id` | |
 | `tasks` | `title, completed, task_group_id` | |
+| `inventory_photos` | `year, category, url, thumb_url, caption` | Shelf shots — the primary record |
+| `inventory_items` | `year, category, name, level, location, note` | Optional named index over the photos |
 | `profiles` | `id, role` | role ∈ admin/superadmin |
 | `allowlist` | `email, role` | Controls who can sign up |
 
-Migrations live in `scripts/` — always run them in numeric order, by hand, in the Supabase SQL editor. The latest is `031_create_note_documents.sql`.
+Migrations live in `scripts/` — always run them in numeric order, by hand, in the Supabase SQL editor. The latest is `035_drop_season_photos.sql`.
 
 ---
 
@@ -188,5 +191,8 @@ All amounts in **EUR**. `formatMoney(amount)` from `@/lib/currency` formats as `
 **Change split logic** → `app/utilities/utilities-client.tsx`, search for `guestDaysMap`
 
 **Change who counts as the household payer** → the `VESNA` constant and the `!s.guest_name.toLowerCase().includes("vesna")` filter in utilities-client.tsx
+
+**Change inventory categories or stock levels** → `lib/inventory.ts` (and the
+`check` constraints in `scripts/034_create_inventory.sql`)
 
 **Deploy** → `npx vercel --prod` (not git push)

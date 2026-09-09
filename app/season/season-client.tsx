@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Camera, Check, Loader2, Pencil, Plus, Trash2, X } from "lucide-react"
+import { Check, Loader2, Pencil, Plus, Trash2, X } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -12,8 +12,6 @@ import { Pill } from "@/components/ui/pill"
 import { PageShell } from "@/components/ui/page-shell"
 import { Segmented, SegmentedItem } from "@/components/ui/segmented"
 import { EmptyState } from "@/components/ui/empty-state"
-import { ImageLightbox } from "@/components/image-lightbox"
-import { createClient } from "@/lib/supabase/client"
 import { trackSave } from "@/lib/save-events"
 import { useRealtimeRefresh } from "@/hooks/use-realtime-refresh"
 import {
@@ -43,8 +41,6 @@ export function SeasonClient({
   const router = useRouter()
   const [unit, setUnit] = useState<SeasonUnit>("apartman")
   const [busy, setBusy] = useState(false)
-  const [uploadingId, setUploadingId] = useState<string | null>(null)
-  const [lightbox, setLightbox] = useState<string | null>(null)
   const [addingArea, setAddingArea] = useState<string | null>(null)
   const [newTitle, setNewTitle] = useState("")
   // The list is read-only by default — you tick things while closing the house.
@@ -57,9 +53,6 @@ export function SeasonClient({
   const [draft, setDraft] = useState<SeasonTask[] | null>(null)
   const [saving, setSaving] = useState(false)
 
-  const photoInputRef = useRef<HTMLInputElement>(null)
-  const photoTarget = useRef<string | null>(null)
-  const supabase = useMemo(() => createClient(), [])
 
   useRealtimeRefresh(["season_closings", "season_tasks"])
 
@@ -107,7 +100,6 @@ export function SeasonClient({
       done: false,
       done_at: null,
       done_by_name: null,
-      photo_url: null,
     }
     const next = [...draft]
     next[index] = { ...source, title: before }
@@ -170,28 +162,6 @@ export function SeasonClient({
     } catch (error) { console.error(error) }
   }
 
-  const handlePhoto = async (fileList: FileList | null) => {
-    const file = fileList?.[0]
-    const taskId = photoTarget.current
-    if (photoInputRef.current) photoInputRef.current.value = ""
-    if (!file || !taskId) return
-
-    setUploadingId(taskId)
-    try {
-      const path = `${year}/${unit}/${taskId}-${Date.now()}.jpg`
-      const { error } = await supabase.storage.from("season-photos").upload(path, file, {
-        contentType: file.type || "image/jpeg",
-        upsert: true,
-      })
-      if (error) throw error
-      const { data } = supabase.storage.from("season-photos").getPublicUrl(path)
-      await trackSave(updateSeasonTask(taskId, { photo_url: data.publicUrl }))
-      router.refresh()
-    } catch (error) { console.error(error) }
-    setUploadingId(null)
-    photoTarget.current = null
-  }
-
   const handleAdd = async (area: string) => {
     if (!closing || !newTitle.trim()) return
     try {
@@ -204,15 +174,6 @@ export function SeasonClient({
 
   return (
     <PageShell>
-      <input
-        ref={photoInputRef}
-        type="file"
-        accept="image/*"
-        capture="environment"
-        className="hidden"
-        onChange={e => handlePhoto(e.target.files)}
-      />
-
       {/* Year */}
       <div className="flex flex-wrap items-center gap-1.5 mb-3">
         {years.map(y => (
@@ -376,27 +337,6 @@ export function SeasonClient({
                         )}
                       </div>
 
-                      {task.photo_url ? (
-                        <button
-                          type="button"
-                          onClick={() => setLightbox(task.photo_url)}
-                          className="size-9 flex-shrink-0 overflow-hidden rounded-lg border border-gray-200"
-                          title="View photo"
-                        >
-                          <img src={task.photo_url} alt="" className="h-full w-full object-cover" />
-                        </button>
-                      ) : (
-                        <Button
-                          variant="subtle"
-                          size="icon-xs"
-                          className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
-                          title="Add a photo"
-                          onClick={() => { photoTarget.current = task.id; photoInputRef.current?.click() }}
-                        >
-                          {uploadingId === task.id ? <Loader2 className="animate-spin" /> : <Camera />}
-                        </Button>
-                      )}
-
                       <Button
                         variant="subtle"
                         size="icon-xs"
@@ -444,14 +384,6 @@ export function SeasonClient({
         </div>
       )}
 
-      {lightbox && (
-        <ImageLightbox
-          urls={[lightbox]}
-          index={0}
-          onClose={() => setLightbox(null)}
-          onNavigate={() => {}}
-        />
-      )}
     </PageShell>
   )
 }

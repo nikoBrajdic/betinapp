@@ -1,6 +1,8 @@
 import { DashboardCard } from "@/components/dashboard-card"
 import { PageShell } from "@/components/ui/page-shell"
-import { FileText, CheckSquare, Calendar, Zap, Home, BookOpen, Snowflake } from "lucide-react"
+import { getInventory } from "@/lib/actions/inventory"
+import { STOCKED_LEVELS } from "@/lib/inventory"
+import { FileText, CheckSquare, Calendar, Zap, Home, BookOpen, Snowflake, Package } from "lucide-react"
 import { getNotes } from "@/lib/actions/notes"
 import { getTaskGroups } from "@/lib/actions/tasks"
 import { getEvents } from "@/lib/actions/events"
@@ -109,6 +111,25 @@ export default async function DashboardPage() {
       ? "All units closed up"
       : `done · ${unitsClosed}/${SEASON_UNITS.length} units closed`
 
+  // Inventory: what is worth not re-buying, and what has run out.
+  const inventoryYear = now.getFullYear()
+  const inventory = await getInventory(inventoryYear).catch(() => ({ photos: [], items: [] }))
+  const stocked = inventory.items.filter(i => STOCKED_LEVELS.includes(i.level)).length
+  const inventoryMetric =
+    inventory.items.length === 0 && inventory.photos.length === 0
+      ? undefined
+      : inventory.items.length > 0
+      ? `${stocked}/${inventory.items.length}`
+      : `${inventory.photos.length}`
+  const inventorySummary =
+    inventory.items.length === 0 && inventory.photos.length === 0
+      ? "Nothing logged"
+      : inventory.items.length > 0
+      ? "in stock"
+      : inventory.photos.length === 1
+      ? "shelf photographed"
+      : "shelves photographed"
+
   return (
     <PageShell>
       <div className="grid grid-cols-2 gap-2.5 md:grid-cols-3 md:gap-4 lg:grid-cols-4">
@@ -118,6 +139,7 @@ export default async function DashboardPage() {
         <DashboardCard title="Utilities" icon={Zap}         href="/utilities"   metric={utilityMetric}  detail={utilitySummary}  color="emerald" />
         <DashboardCard title="Stays"     icon={Home}        href="/guest-stays" metric={staysMetric}    detail={staysSummary}    color="rose"    />
         <DashboardCard title="Diary"     icon={BookOpen}    href="/diary"       metric={diaryMetric}    detail={diarySummary}    color="orange"  />
+        <DashboardCard title="Inventory" icon={Package}   href="/inventory"   metric={inventoryMetric} detail={inventorySummary} color="lime"    />
         <DashboardCard title="End of Season" icon={Snowflake} href="/season"    metric={seasonMetric}   detail={seasonSummary}   color="teal"    />
       </div>
     </PageShell>
