@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
+import { useNavigate, usePrefetch } from "@/lib/navigation"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -58,6 +59,7 @@ export function DiaryClient({ entries }: DiaryClientProps) {
   const [creating, setCreating] = useState(false)
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const router = useRouter()
+  const { navigate, prefetch } = useNavigate()
   const t = useT()
   const { lang } = useLanguage()
   const dateLocale = lang === "hr" ? "hr-HR" : "en-US"
@@ -74,7 +76,7 @@ export function DiaryClient({ entries }: DiaryClientProps) {
     setCreating(true)
     try {
       const entry = await trackSave(createDiaryEntry(newTitle.trim()))
-      router.push(`/diary/${entry.id}`)
+      navigate(`/diary/${entry.id}`)
     } catch (e) { console.error(e); setCreating(false) }
   }
 
@@ -83,6 +85,8 @@ export function DiaryClient({ entries }: DiaryClientProps) {
     try { await trackSave(deleteDiaryEntry(deleteId)); router.refresh() }
     catch (e) { console.error(e) }
   }
+
+  usePrefetch(entries.map(e => `/diary/${e.id}`))
 
   const deleteEntry = entries.find(e => e.id === deleteId)
 
@@ -104,7 +108,8 @@ export function DiaryClient({ entries }: DiaryClientProps) {
             return (
               <Card
                 key={entry.id}
-                onClick={() => router.push(`/diary/${entry.id}`)}
+                onClick={() => navigate(`/diary/${entry.id}`)}
+                onPointerEnter={() => prefetch(`/diary/${entry.id}`)}
                 className="p-5 transition-all group border hover:border-amber-200 overflow-hidden shadow-none hover:shadow-md hover:-translate-y-0.5"
               >
                 <div className="flex items-start justify-between mb-3">

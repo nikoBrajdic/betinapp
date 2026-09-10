@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react"
 import { usePathname } from "next/navigation"
-import { Menu, Plus } from "lucide-react"
+import { Loader2, Menu, Plus } from "lucide-react"
+import { useNavigationPending } from "@/lib/navigation"
 
 const pageConfig: Record<string, { title: string; subtitle?: string; action?: string }> = {
   "/":             { title: "Dashboard", subtitle: "Making life at the coast easier, since 2026" },
@@ -33,6 +34,16 @@ export function TopBar() {
   // A label set by one page must not leak into the next.
   useEffect(() => { setActionOverride(null) }, [pathname])
 
+  // Spinner beside the title while a page is on its way. Held back 150ms so a
+  // prefetched page, which arrives instantly, doesn't flash it.
+  const navPending = useNavigationPending()
+  const [showSpinner, setShowSpinner] = useState(false)
+  useEffect(() => {
+    if (!navPending) { setShowSpinner(false); return }
+    const timer = setTimeout(() => setShowSpinner(true), 150)
+    return () => clearTimeout(timer)
+  }, [navPending])
+
   const config =
     pageConfig[pathname] ??
     Object.entries(pageConfig).find(([key]) => pathname.startsWith(key) && key !== "/")?.[1] ??
@@ -60,6 +71,12 @@ export function TopBar() {
             <Menu className="h-5 w-5" />
           </button>
           <h2 className="text-white font-bold text-xl md:text-2xl leading-tight">{config.title}</h2>
+          {showSpinner && (
+            <Loader2
+              aria-label="Loading"
+              className="h-4 w-4 md:h-5 md:w-5 text-white/70 animate-spin motion-reduce:animate-none"
+            />
+          )}
         </div>
         {config.subtitle && (
           <p className="hidden sm:block text-white/55 text-xs md:text-sm leading-tight mt-0.5">{config.subtitle}</p>

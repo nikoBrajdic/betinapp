@@ -111,6 +111,7 @@ Each accent provides four roles:
 | [`EditorHeader`](components/editor-header.tsx) | Sticky back bar for full-page editors. |
 | [`SlashMenu`](components/editor-slash-menu.tsx) | The `/` command palette. |
 | [`compressImage`](lib/image-upload.ts) | **Every** image upload. Never hand-roll a canvas resize. |
+| [`useNavigate`](lib/navigation.ts) | **Every** tap that opens a page. Never call `router.push` directly for a user action. |
 | [`Button`](components/ui/button.tsx) | All buttons. `accent` for the one primary action; `variant="subtle" size="icon-xs"` for row `⋯` menus. |
 
 ### Segmented vs Pill — they mean different things
@@ -225,6 +226,29 @@ season uploaded phone originals untouched.
   { imageOrientation: "from-image" })`. Phone photos arrive rotated by metadata.
 - Existing stored images are still JPEG. Their URLs are baked into note and
   diary blocks, so a backfill means rewriting those URLs — not a drive-by.
+
+---
+
+## 6c. Navigation — a tap must visibly do something
+
+The only `loading.tsx` is at the root, and a navigation that keeps a shared
+parent (`/diary` → `/diary/[id]`) never reaches it: the old page just sat there
+until the new one was ready, which read as a dead tap.
+
+- **Taps go through `useNavigate().navigate(href)`**, not `router.push`. It
+  wraps the push in a transition, so "pending" lasts until the new page has
+  rendered, and reports it to one app-wide flag.
+- **Every `<Link>` contains `<LinkPendingReporter />`** (sidebar, dashboard
+  cards), which does the same for Link taps via `useLinkStatus`.
+- **The top bar shows a spinner beside the title** while anything is pending,
+  held back 150ms so an instant (prefetched) page doesn't flash it.
+- **Lists prefetch what they show.** `usePrefetch(hrefs)` warms the first 12
+  on render, and cards call `prefetch(href)` on pointer-enter. It must be a
+  *full* prefetch: Next 16's `router.prefetch()` defaults to `"auto"`, which for
+  a dynamic page without its own `loading.tsx` fetches almost nothing.
+  Prefetching does nothing in `next dev`, so judge speed on a preview.
+- `router.push` is still fine for non-user redirects (auth flows) and
+  `router.refresh()` is unaffected.
 
 ---
 

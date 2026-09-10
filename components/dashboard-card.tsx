@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { LinkPendingReporter } from "@/lib/navigation"
 import type { LucideIcon } from "lucide-react"
 import { ArrowRight } from "lucide-react"
 
@@ -70,6 +71,7 @@ export function DashboardCard({
           {detail}
         </p>
       </div>
+      <LinkPendingReporter />
     </Link>
   )
 }
