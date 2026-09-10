@@ -12,6 +12,7 @@ const pageConfig: Record<string, { title: string; subtitle?: string; action?: st
   "/bills":        { title: "Utilities",    subtitle: "Readings and household bills",             action: "New Reading" },
   "/guest-stays":  { title: "Stays",  subtitle: "Family and friends coming to visit",  action: "New Stay" },
   "/diary":        { title: "Diary",  subtitle: "Household updates and memories",       action: "New Entry" },
+  "/inventory":    { title: "Inventory", subtitle: "What is left, so nothing gets bought twice", action: "Add Photo" },
   "/season":       { title: "End of season", subtitle: "Closing up, one checklist per unit" },
   "/admin/manage": { title: "Settings", subtitle: "Language, users and access control" },
 }
