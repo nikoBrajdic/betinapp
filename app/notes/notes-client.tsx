@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
+import { useNavigate, usePrefetch } from "@/lib/navigation"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -88,6 +89,7 @@ function getThumbnails(note: Note): string[] {
 
 export function NotesClient({ notes, documents }: NotesClientProps) {
   const router = useRouter()
+  const { navigate, prefetch } = useNavigate()
   const [view, setView] = useState<"grid" | "list">("grid")
   const [search, setSearch] = useState("")
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -157,7 +159,7 @@ export function NotesClient({ notes, documents }: NotesClientProps) {
     setCreating(true)
     try {
       const note = await trackSave(createNote(newTitle.trim()))
-      router.push(`/notes/${note.id}`)
+      navigate(`/notes/${note.id}`)
     } catch (error) {
       console.error(error)
       setCreating(false)
@@ -208,9 +210,11 @@ export function NotesClient({ notes, documents }: NotesClientProps) {
     }
   }
 
+  usePrefetch(entries.filter(e => e.kind === "note").map(e => `/notes/${e.id}`))
+
   const openEntry = (entry: Entry) => {
     if (entry.kind === "note") {
-      router.push(`/notes/${entry.id}`)
+      navigate(`/notes/${entry.id}`)
       return
     }
     const { data } = supabase.storage.from("notes-documents").getPublicUrl(entry.doc.storage_path)
@@ -327,6 +331,7 @@ export function NotesClient({ notes, documents }: NotesClientProps) {
                   <Card
                     key={`${entry.kind}-${entry.id}`}
                     onClick={() => openEntry(entry)}
+                    onPointerEnter={() => { if (entry.kind === "note") prefetch(`/notes/${entry.id}`) }}
                     className="p-5 gap-0 transition-all group border shadow-none hover:border-indigo-200 hover:shadow-md hover:-translate-y-0.5 overflow-hidden"
                   >
                     <div className="flex items-start justify-between gap-2 mb-3">
@@ -385,6 +390,7 @@ export function NotesClient({ notes, documents }: NotesClientProps) {
                   <div
                     key={`${entry.kind}-${entry.id}`}
                     onClick={() => openEntry(entry)}
+                    onPointerEnter={() => { if (entry.kind === "note") prefetch(`/notes/${entry.id}`) }}
                     className="flex items-center gap-4 px-4 py-3.5 hover:bg-gray-50 group transition-colors"
                   >
                     <div className="w-24 flex-shrink-0">

@@ -111,6 +111,7 @@ Each accent provides four roles:
 | [`EditorHeader`](components/editor-header.tsx) | Sticky back bar for full-page editors. |
 | [`SlashMenu`](components/editor-slash-menu.tsx) | The `/` command palette. |
 | [`compressImage`](lib/image-upload.ts) | **Every** image upload. Never hand-roll a canvas resize. |
+| [`useNavigate`](lib/navigation.ts) | **Every** tap that opens a page. Never call `router.push` directly for a user action. |
 | [`Button`](components/ui/button.tsx) | All buttons. `accent` for the one primary action; `variant="subtle" size="icon-xs"` for row `⋯` menus. |
 
 ### Segmented vs Pill — they mean different things
@@ -228,6 +229,29 @@ season uploaded phone originals untouched.
 
 ---
 
+## 6c. Navigation — a tap must visibly do something
+
+The only `loading.tsx` is at the root, and a navigation that keeps a shared
+parent (`/diary` → `/diary/[id]`) never reaches it: the old page just sat there
+until the new one was ready, which read as a dead tap.
+
+- **Taps go through `useNavigate().navigate(href)`**, not `router.push`. It
+  wraps the push in a transition, so "pending" lasts until the new page has
+  rendered, and reports it to one app-wide flag.
+- **Every `<Link>` contains `<LinkPendingReporter />`** (sidebar, dashboard
+  cards), which does the same for Link taps via `useLinkStatus`.
+- **The top bar shows a spinner beside the title** while anything is pending,
+  held back 150ms so an instant (prefetched) page doesn't flash it.
+- **Lists prefetch what they show.** `usePrefetch(hrefs)` warms the first 12
+  on render, and cards call `prefetch(href)` on pointer-enter. It must be a
+  *full* prefetch: Next 16's `router.prefetch()` defaults to `"auto"`, which for
+  a dynamic page without its own `loading.tsx` fetches almost nothing.
+  Prefetching does nothing in `next dev`, so judge speed on a preview.
+- `router.push` is still fine for non-user redirects (auth flows) and
+  `router.refresh()` is unaffected.
+
+---
+
 ## 7. Animation
 
 One curve for navigation motion: `cubic-bezier(.32,.72,0,1)` (the iOS sheet
@@ -252,6 +276,14 @@ related.
   `EditorHeader`.
 - The shell pads itself with `env(safe-area-inset-*)` — required in standalone
   mode where there is no browser chrome.
+- **The shell is `fixed inset-0`, not `h-dvh`.** In iOS standalone with the
+  `black-translucent` status bar, `100dvh` comes out shorter than the physical
+  screen, and the white body showed as a strip along the bottom. Pinning all
+  four edges covers the whole screen; the safe-area padding keeps content off
+  the home indicator.
+- **`html` and `body` are navy (`#1a1464`), never white.** They show through
+  wherever the shell doesn't reach — rubber-band overscroll included. White
+  surfaces (the content inset, dialogs) paint their own background.
 - iOS standalone needs `apple-mobile-web-app-capable` explicitly; Next only
   emits `mobile-web-app-capable`, which iOS ignores. Don't remove it.
 

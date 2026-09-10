@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback, DragEvent } from "react"
-import { useRouter } from "next/navigation"
+import { useNavigate } from "@/lib/navigation"
 import {
   Type, ImageIcon,
   Trash2, Loader2, GripVertical, CornerDownLeft,
@@ -361,7 +361,7 @@ export function NoteEditorClient({ note }: { note: Note }) {
   const [imageDropId, setImageDropId] = useState<string | null>(null)
   const latestTitleRef = useRef(title)
   const latestBlocksRef = useRef(blocks)
-  const router = useRouter()
+  const { navigate } = useNavigate()
 
   useEffect(() => {
     latestTitleRef.current = title
@@ -410,8 +410,8 @@ export function NoteEditorClient({ note }: { note: Note }) {
 
   const startNewNote = useCallback(async () => {
     const created = await trackSave(createNote("Untitled"))
-    router.push(`/notes/${created.id}`)
-  }, [router])
+    navigate(`/notes/${created.id}`)
+  }, [navigate])
 
   useEffect(() => {
     const handleTopbarNew = () => setNewNoteWarningOpen(true)
@@ -789,7 +789,7 @@ export function NoteEditorClient({ note }: { note: Note }) {
               onClick={async () => {
                 setDeleteOpen(false)
                 await trackSave(deleteNote(note.id))
-                router.push("/notes")
+                navigate("/notes")
               }}
             >
               Delete

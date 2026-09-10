@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
 import { usePresence } from "@/hooks/use-presence"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -21,6 +20,7 @@ import {
   X,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { LinkPendingReporter, useNavigate } from "@/lib/navigation"
 import { signOut } from "@/lib/actions/auth"
 import { useT } from "@/lib/language"
 
@@ -47,7 +47,7 @@ interface SidebarProps {
 }
 
 function MiniCalendar() {
-  const router = useRouter()
+  const { navigate } = useNavigate()
   const today = new Date()
   const [current, setCurrent] = useState(new Date(today.getFullYear(), today.getMonth(), 1))
 
@@ -81,7 +81,7 @@ function MiniCalendar() {
         {days.map((day, i) => (
           <button
             key={i}
-            onClick={() => day && router.push("/guest-stays?view=calendar")}
+            onClick={() => day && navigate("/guest-stays?view=calendar")}
             className={cn(
               "text-center text-[11px] py-1 rounded-md transition-colors",
               !day && "invisible",
@@ -210,6 +210,7 @@ export function Sidebar({ user }: SidebarProps) {
                     >
                       <item.icon className="h-[18px] w-[18px] flex-shrink-0" />
                       <span>{t(item.tKey)}</span>
+                      <LinkPendingReporter />
                     </Link>
                   )
                 })}
@@ -224,6 +225,7 @@ export function Sidebar({ user }: SidebarProps) {
                 >
                   <Settings className="h-[18px] w-[18px] flex-shrink-0" />
                   <span>{t("nav.settings")}</span>
+                  <LinkPendingReporter />
                 </Link>
               </nav>
 
@@ -340,6 +342,7 @@ export function Sidebar({ user }: SidebarProps) {
               >
                 {t(item.tKey)}
               </span>
+              <LinkPendingReporter />
             </Link>
           )
         })}
@@ -365,6 +368,7 @@ export function Sidebar({ user }: SidebarProps) {
           >
             {t("nav.settings")}
           </span>
+          <LinkPendingReporter />
         </Link>
       </nav>
 

@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { useRouter } from "next/navigation"
+import { useNavigate, usePrefetch } from "@/lib/navigation"
 import { ArrowLeft } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -34,7 +34,8 @@ export function EditorHeader({
   actions?: React.ReactNode
   className?: string
 }) {
-  const router = useRouter()
+  const { navigate } = useNavigate()
+  usePrefetch([backHref])
   const sentinelRef = React.useRef<HTMLDivElement | null>(null)
   const [scrolled, setScrolled] = React.useState(false)
 
@@ -65,7 +66,7 @@ export function EditorHeader({
         <div className="flex items-center gap-3 h-14 max-w-3xl mx-auto">
           <button
             type="button"
-            onClick={() => router.push(backHref)}
+            onClick={() => navigate(backHref)}
             className={cn(
               "inline-flex items-center gap-1.5 h-8 pl-2 pr-3 rounded-lg text-sm font-medium",
               "border border-gray-200 bg-white text-gray-600 transition-colors flex-shrink-0",

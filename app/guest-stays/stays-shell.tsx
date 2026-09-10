@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useNavigate } from "@/lib/navigation"
 
 import { useT } from "@/lib/language"
 
@@ -37,7 +37,7 @@ export function StaysShell({
   familyMembers: React.ComponentProps<typeof GuestStaysClient>["familyMembers"]
   events: React.ComponentProps<typeof CalendarClient>["events"]
 }) {
-  const router = useRouter()
+  const { navigate } = useNavigate()
   const t = useT()
 
   /**
@@ -57,7 +57,7 @@ export function StaysShell({
         <Segmented
           value={view}
           onValueChange={next =>
-            router.push(next === "calendar" ? "/guest-stays?view=calendar" : "/guest-stays")
+            navigate(next === "calendar" ? "/guest-stays?view=calendar" : "/guest-stays")
           }
           accent="stays"
         >

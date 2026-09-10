@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
+import { useNavigate } from "@/lib/navigation"
 import { Check, Loader2, Pencil, Plus, Trash2, X } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -39,6 +40,7 @@ export function SeasonClient({
   currentUserName: string
 }) {
   const router = useRouter()
+  const { navigate } = useNavigate()
   const [unit, setUnit] = useState<SeasonUnit>("apartman")
   const [busy, setBusy] = useState(false)
   const [addingArea, setAddingArea] = useState<string | null>(null)
@@ -182,14 +184,14 @@ export function SeasonClient({
             label={y}
             state={y === year ? "on" : "off"}
             accent="season"
-            onClick={() => router.push(`/season?year=${y}`)}
+            onClick={() => navigate(`/season?year=${y}`)}
           />
         ))}
         <Pill
           label={`+ ${Math.max(...years) + 1}`}
           state="off"
           accent="season"
-          onClick={() => router.push(`/season?year=${Math.max(...years) + 1}`)}
+          onClick={() => navigate(`/season?year=${Math.max(...years) + 1}`)}
         />
       </div>
 

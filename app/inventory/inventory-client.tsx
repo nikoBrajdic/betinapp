@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
+import { useNavigate } from "@/lib/navigation"
 import { Camera, Loader2, Package, Plus, Search, Trash2, X } from "lucide-react"
 
 import { PageShell } from "@/components/ui/page-shell"
@@ -88,6 +89,7 @@ export function InventoryClient({
   years: number[]
 }) {
   const router = useRouter()
+  const { navigate } = useNavigate()
   useRealtimeRefresh(["inventory_photos", "inventory_items"])
 
   const [query, setQuery] = useState("")
@@ -179,7 +181,7 @@ export function InventoryClient({
         {years.length > 1 && (
           <Segmented
             value={String(inventory.year)}
-            onValueChange={value => router.push(`/inventory?year=${value}`)}
+            onValueChange={value => navigate(`/inventory?year=${value}`)}
             accent="inventory"
             size="sm"
           >
