@@ -63,6 +63,8 @@ export async function getCurrentUser() {
   // Get user profile with role
   const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).single()
 
+  if (!profile) return null
+
   return {
     ...user,
     profile,

@@ -10,39 +10,14 @@ import {
   type SeasonUnit,
 } from "@/lib/season"
 
-/**
- * Make sure the four lists exist for a year, seeding each from its template.
- *
- * The checklist is a fixed yearly ritual — opening the page to an empty screen
- * and a button per unit was pointless ceremony. Safe to call on every load: the
- * unique (year, unit) constraint means a second caller just no-ops.
- */
+/** Ensure every unit exists, copying the last year's customized list atomically. */
 export async function ensureSeasonLists(year: number) {
   const supabase = await createClient()
-
-  const { data: existing } = await supabase
-    .from("season_closings")
-    .select("unit")
-    .eq("year", year)
-
-  const have = new Set((existing ?? []).map(row => row.unit))
-  const missing = SEASON_UNITS.map(u => u.key).filter(unit => !have.has(unit))
-  if (!missing.length) return
-
-  for (const unit of missing) {
-    const { data: closing, error } = await supabase
-      .from("season_closings")
-      .insert({ year, unit })
-      .select()
-      .single()
-    if (error || !closing) continue // raced with another request; fine
-
-    const template = SEASON_TEMPLATE[unit] ?? []
-    if (!template.length) continue
-
-    await supabase.from("season_tasks").insert(
-      template.map((item, index) => ({ ...item, closing_id: closing.id, sort_order: index })),
-    )
+  const { data, error } = await supabase.from("season_closings").select("unit").eq("year", year)
+  if (error) throw error
+  const existing = new Set((data ?? []).map(row => row.unit))
+  for (const unit of SEASON_UNITS) {
+    if (!existing.has(unit.key)) await startSeasonClosing(year, unit.key)
   }
 }
 
@@ -92,44 +67,13 @@ export async function getSeasonYears(): Promise<number[]> {
 export async function startSeasonClosing(year: number, unit: SeasonUnit) {
   const supabase = await createClient()
 
-  const { data: closing, error } = await supabase
-    .from("season_closings")
-    .insert({ year, unit })
-    .select()
-    .single()
+  const { data, error } = await supabase.rpc("ensure_season_closing", {
+    p_year: year,
+    p_unit: unit,
+    p_template: SEASON_TEMPLATE[unit] ?? [],
+  })
   if (error) throw error
-
-  const { data: previous } = await supabase
-    .from("season_closings")
-    .select("id")
-    .eq("unit", unit)
-    .lt("year", year)
-    .order("year", { ascending: false })
-    .limit(1)
-    .maybeSingle()
-
-  // Each unit has its own starter list — closing the house is nothing like
-  // closing the šok soba.
-  let seed = (SEASON_TEMPLATE[unit] ?? []).map((item, index) => ({ ...item, sort_order: index }))
-
-  if (previous) {
-    const { data: previousTasks } = await supabase
-      .from("season_tasks")
-      .select("area, title, sort_order")
-      .eq("closing_id", previous.id)
-      .order("sort_order", { ascending: true })
-    if (previousTasks?.length) {
-      seed = previousTasks.map(t => ({ area: t.area, title: t.title, sort_order: t.sort_order }))
-    }
-  }
-
-  const { error: seedError } = await supabase.from("season_tasks").insert(
-    seed.map(item => ({ ...item, closing_id: closing.id })),
-  )
-  if (seedError) throw seedError
-
-  revalidatePath("/season")
-  return closing
+  return data as string
 }
 
 export async function toggleSeasonTask(id: string, done: boolean, doneByName: string) {
@@ -193,42 +137,15 @@ export async function addSeasonTask(closingId: string, area: string, title: stri
 export async function saveSeasonTasks(
   closingId: string,
   rows: { id: string; area: string; title: string }[],
+  originalIds: string[],
 ) {
   const supabase = await createClient()
-
-  const { data: existing } = await supabase
-    .from("season_tasks")
-    .select("id")
-    .eq("closing_id", closingId)
-
-  const keep = new Set(rows.filter(r => !r.id.startsWith("tmp-")).map(r => r.id))
-  const removed = (existing ?? []).map(r => r.id).filter(id => !keep.has(id))
-  if (removed.length) {
-    await supabase.from("season_tasks").delete().in("id", removed)
-  }
-
-  const additions = rows
-    .map((row, index) => ({ row, index }))
-    .filter(({ row }) => row.id.startsWith("tmp-"))
-  if (additions.length) {
-    await supabase.from("season_tasks").insert(
-      additions.map(({ row, index }) => ({
-        closing_id: closingId,
-        area: row.area,
-        title: row.title,
-        sort_order: index,
-      })),
-    )
-  }
-
-  for (const [index, row] of rows.entries()) {
-    if (row.id.startsWith("tmp-")) continue
-    await supabase
-      .from("season_tasks")
-      .update({ title: row.title, area: row.area, sort_order: index })
-      .eq("id", row.id)
-  }
-
+  const { error } = await supabase.rpc("save_season_tasks", {
+    p_closing_id: closingId,
+    p_rows: rows,
+    p_original_ids: originalIds,
+  })
+  if (error) throw error
   revalidatePath("/season")
 }
 

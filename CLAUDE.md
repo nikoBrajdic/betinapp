@@ -43,7 +43,7 @@ Manual deploy (also production, and it uploads your working tree, committed or n
 npx vercel --prod
 ```
 
-Note: the Vercel project has no Git integration in Vercel's own dashboard — the GitHub Action bridges them with a stored token. So the Vercel UI won't show branch previews.
+The GitHub Action supplies branch previews using the CLI, independently of Vercel Git integration. Preview URLs appear in the Actions run summary.
 
 Live URL: **https://betinapp.vercel.app** (`betin-app.vercel.app` is an alias of the same deployment).
 
@@ -57,7 +57,7 @@ Full workflow, including env vars and the OAuth redirect settings: [PUBLISHING.m
 |---|---|
 | Framework | Next.js 16, App Router, Server Actions |
 | Database | Supabase (PostgreSQL), RLS enabled |
-| Auth | Supabase Auth + Google OAuth only, invite-based |
+| Auth | Supabase Auth + Google OAuth with allowlist + approved profile |
 | Styling | Tailwind CSS v4 |
 | UI components | shadcn/ui (but **not** for tables — see Design below) |
 | Language | TypeScript |
@@ -87,7 +87,7 @@ components/
   sidebar.tsx / top-bar.tsx
 
 lib/actions/             # All server actions (one file per domain)
-scripts/                 # Numbered SQL migrations (001–026), run in order
+scripts/                 # Historical SQL + forward migrations; see PUBLISHING.md
 prisma/schema.prisma     # Reference schema — app uses Supabase directly, not Prisma ORM
 ```
 
@@ -111,13 +111,13 @@ All IDs are `uuid`, auth uses `auth.users`.
 | `profiles` | `id, role` | role ∈ admin/superadmin |
 | `allowlist` | `email, role` | Controls who can sign up |
 
-Migrations live in `scripts/` — always run them in numeric order, by hand, in the Supabase SQL editor. The latest is `035_drop_season_photos.sql`.
+Migrations live in `scripts/`. Apply only reviewed pending files, by hand, in the Supabase SQL editor; never replay the historical directory against existing data. This branch adds `036_household_access.sql` and `037_atomic_season_lists.sql`; see PUBLISHING.md for rollout and applied-state verification.
 
 ---
 
 ## Business Logic
 
-### Bill splitting (utilities-client.tsx)
+### Bill splitting (`lib/bill-splitting.ts`)
 - **Vesna** (previously written as "Mama") is always present for the **full billing month** (`daysInMonth` days), whether or not a stay was recorded for her, and whether or not she is the payer. Her own stay rows are ignored (filter: `!name.includes("vesna")`) and she is added to the summaries with the full month instead — otherwise a bill someone else paid drops her from the split entirely.
 - **Other guests** contribute their actual night-overlap with the billing month. `to_date` is the exclusive checkout date (same convention as the rest of the app).
 - Split formula: `person_share = (person_days / total_person_days) * bill_amount`
@@ -133,7 +133,7 @@ Migrations live in `scripts/` — always run them in numeric order, by hand, in 
 ### Guest stays
 - `from_date` = arrival, `to_date` = departure (exclusive — last night is `to_date - 1`).
 - `nights(from, to)` = `(to - from)` in days.
-- `status` is auto-computed server-side on create/update.
+- `status` is derived on read in `getGuestStays` (also written on create/update for compatibility).
 - Creating/editing/deleting a stay also creates/updates/deletes the linked calendar event.
 - **Duplicate stay** opens the dialog with same dates/type/room/notes but empty name.
 
@@ -168,10 +168,9 @@ Read it before changing any UI.
 ---
 
 ## Auth Flow
-- Google OAuth only. Users must have a valid invite code to sign up.
-- Route protection lives in `proxy.ts` (there is no `middleware.ts`); it guards everything except `/auth/*`, the manifest, the service worker and static assets.
-- Roles: `superadmin` (full access + admin management) and `admin`.
-- Superadmin is set via `scripts/005_create_superadmin.sql`.
+- Google OAuth only. Users need an allowlisted Auth email plus an approved profile. New join requests require approval before `complete_household_signup` creates a profile.
+- Route protection lives in `proxy.ts` (there is no `middleware.ts`); it checks membership on protected routes; OAuth callback/signup routes, the manifest, service worker and static assets have separate handling.
+- All new approved family members receive `superadmin` access. `admin` remains a legacy role. Invite-code onboarding is legacy.
 
 ---
 
@@ -184,15 +183,15 @@ All amounts in **EUR**. `formatMoney(amount)` from `@/lib/currency` formats as `
 
 **Add a new bill type to the dropdown** → `components/bill-dialog.tsx`
 
-**Add a migration** → create `scripts/0NN_description.sql`, run it in the Supabase SQL editor **before** deploying the code that needs it
+**Add a migration** → create a forward `scripts/0NN_description.sql`, test it on a disposable database, then follow PUBLISHING.md for the coordinated database/code rollout
 
 **Seed bills from PDF receipts** → extract with `python3 + pypdf`, insert into `public.bills`. See `scripts/026_seed_betina_bills.sql` for format.
 
-**Change split logic** → `app/utilities/utilities-client.tsx`, search for `guestDaysMap`
+**Change split logic** → `lib/bill-splitting.ts`; run `npm test`
 
-**Change who counts as the household payer** → the `VESNA` constant and the `!s.guest_name.toLowerCase().includes("vesna")` filter in utilities-client.tsx
+**Change who counts as the household payer** → the `VESNA` constant and the `!s.guest_name.toLowerCase().includes("vesna")` filter in `lib/bill-splitting.ts`
 
 **Change inventory categories or stock levels** → `lib/inventory.ts` (and the
 `check` constraints in `scripts/034_create_inventory.sql`)
 
-**Deploy** → `npx vercel --prod` (not git push)
+**Deploy** → branch push → preview → merge to `main`; see PUBLISHING.md. Never publish without explicit authorization.

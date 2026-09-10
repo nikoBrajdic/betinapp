@@ -13,6 +13,8 @@ export function useRealtimeRefresh(tables: string[]) {
   const router = useRouter()
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  const tableKey = [...new Set(tables)].sort().join(",")
+
   useEffect(() => {
     const supabase = createClient()
 
@@ -21,7 +23,7 @@ export function useRealtimeRefresh(tables: string[]) {
       timer.current = setTimeout(() => router.refresh(), 400)
     }
 
-    const channels = tables.map(table =>
+    const channels = tableKey.split(",").filter(Boolean).map(table =>
       supabase
         .channel(`rt:${table}:${Math.random()}`)
         .on("postgres_changes", { event: "*", schema: "public", table }, refresh)
@@ -32,6 +34,5 @@ export function useRealtimeRefresh(tables: string[]) {
       if (timer.current) clearTimeout(timer.current)
       channels.forEach(ch => supabase.removeChannel(ch))
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [tableKey, router])
 }

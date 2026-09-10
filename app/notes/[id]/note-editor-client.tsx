@@ -16,11 +16,12 @@ import {
   isImageBlock,
   layoutBlocks,
   makeImageBlocks,
-  normalizeBlocks,
   rowImageHeight,
 } from "@/lib/image-rows"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
+import { useEditorAutosave } from "@/hooks/use-editor-autosave"
+import { EditorSaveError } from "@/components/editor-save-error"
 import { EditorHeader } from "@/components/editor-header"
 import {
   SlashMenu,
@@ -332,14 +333,14 @@ function BlockRow({
 }
 
 export function NoteEditorClient({ note }: { note: Note }) {
-  const [title, setTitle] = useState(note.title)
-  const [blocks, setBlocks] = useState<Block[]>(() => normalizeBlocks(note.content ?? []))
-  const [savedTitle, setSavedTitle] = useState(note.title)
-  const [savedBlocks, setSavedBlocks] = useState<Block[]>(note.content ?? [])
+  const { title, blocks, saving, error: saveError, savedAt, setBlocksAndSave, setTitleAndSave,
+    persistNow, hasUnsavedChanges, discard } = useEditorAutosave(
+    `notes:${note.id}`,
+    { title: note.title, content: note.content ?? [] },
+    draft => updateNote(note.id, draft),
+  )
   const [focusedId, setFocusedId] = useState<string | null>(null)
   const [focusPosition, setFocusPosition] = useState<number | null>(null)
-  const [saving, setSaving] = useState(false)
-  const [savedAt, setSavedAt] = useState<Date | null>(null)
   const [globalDragOver, setGlobalDragOver] = useState(false)
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
   const [newNoteWarningOpen, setNewNoteWarningOpen] = useState(false)
@@ -351,7 +352,6 @@ export function NoteEditorClient({ note }: { note: Note }) {
   const dragIdx = useRef<number | null>(null)
   const dragOverIdx = useRef<number | null>(null)
   const [dragOverBlock, setDragOverBlock] = useState<number | null>(null)
-  const saveTimer = useRef<NodeJS.Timeout | null>(null)
   const blocksRef = useRef(blocks)
   useEffect(() => { blocksRef.current = blocks }, [blocks])
   const imageInputRef = useRef<HTMLInputElement>(null)
@@ -359,54 +359,7 @@ export function NoteEditorClient({ note }: { note: Note }) {
   const [uploadingImages, setUploadingImages] = useState(false)
   const imageDragId = useRef<string | null>(null)
   const [imageDropId, setImageDropId] = useState<string | null>(null)
-  const latestTitleRef = useRef(title)
-  const latestBlocksRef = useRef(blocks)
   const { navigate } = useNavigate()
-
-  useEffect(() => {
-    latestTitleRef.current = title
-    latestBlocksRef.current = blocks
-  }, [title, blocks])
-
-  const scheduleSave = useCallback((t: string, b: Block[]) => {
-    if (saveTimer.current) clearTimeout(saveTimer.current)
-    setSaving(true)
-    saveTimer.current = setTimeout(async () => {
-      try {
-        await trackSave(updateNote(note.id, { title: t, content: b }))
-        setSavedTitle(t)
-        setSavedBlocks(b)
-        setSavedAt(new Date())
-      }
-      catch (e) { console.error(e) }
-      setSaving(false)
-    }, 1200)
-  }, [note.id])
-
-  const setBlocksAndSave = (next: Block[]) => { setBlocks(next); scheduleSave(title, next) }
-  const setTitleAndSave = (t: string) => { setTitle(t); scheduleSave(t, blocks) }
-
-  const hasUnsavedChanges = useCallback(() => {
-    return (
-      latestTitleRef.current !== savedTitle ||
-      JSON.stringify(latestBlocksRef.current) !== JSON.stringify(savedBlocks)
-    )
-  }, [savedBlocks, savedTitle])
-
-  const persistNow = useCallback(async () => {
-    if (saveTimer.current) {
-      clearTimeout(saveTimer.current)
-      saveTimer.current = null
-    }
-    const currentTitle = latestTitleRef.current
-    const currentBlocks = latestBlocksRef.current
-    setSaving(true)
-    await trackSave(updateNote(note.id, { title: currentTitle, content: currentBlocks }))
-    setSavedTitle(currentTitle)
-    setSavedBlocks(currentBlocks)
-    setSavedAt(new Date())
-    setSaving(false)
-  }, [note.id])
 
   const startNewNote = useCallback(async () => {
     const created = await trackSave(createNote("Untitled"))
@@ -417,12 +370,6 @@ export function NoteEditorClient({ note }: { note: Note }) {
     const handleTopbarNew = () => setNewNoteWarningOpen(true)
     window.addEventListener("topbar:new", handleTopbarNew)
     return () => window.removeEventListener("topbar:new", handleTopbarNew)
-  }, [])
-
-  useEffect(() => {
-    return () => {
-      if (saveTimer.current) clearTimeout(saveTimer.current)
-    }
   }, [])
 
   const addBlock = (type: "heading" | "paragraph", afterId?: string) => {
@@ -616,6 +563,7 @@ export function NoteEditorClient({ note }: { note: Note }) {
         </div>
       )}
 
+      {saveError && <EditorSaveError retry={persistNow} />}
       <EditorHeader
         backHref="/notes"
         backLabel="All notes"
@@ -753,10 +701,7 @@ export function NoteEditorClient({ note }: { note: Note }) {
             <Button
               variant="outline"
               onClick={async () => {
-                if (saveTimer.current) {
-                  clearTimeout(saveTimer.current)
-                  saveTimer.current = null
-                }
+                await discard()
                 setNewNoteWarningOpen(false)
                 await startNewNote()
               }}
@@ -788,6 +733,7 @@ export function NoteEditorClient({ note }: { note: Note }) {
               variant="destructive"
               onClick={async () => {
                 setDeleteOpen(false)
+                await discard()
                 await trackSave(deleteNote(note.id))
                 navigate("/notes")
               }}

@@ -6,7 +6,7 @@ export default async function DiaryEntryPage({ params }: { params: Promise<{ id:
   const { id } = await params
   try {
     const entry = await getDiaryEntry(id)
-    return <DiaryEditorClient entry={entry} />
+    return <DiaryEditorClient key={entry.id} entry={entry} />
   } catch {
     notFound()
   }

@@ -20,7 +20,7 @@ export function parseTableContent(content: string): TableData {
   try {
     const parsed = JSON.parse(content)
     if (parsed.columns && parsed.rows) return parsed
-  } catch {}
+  } catch { /* Keep the fallback when stored content is invalid. */ }
   return emptyTable()
 }
 

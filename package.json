@@ -13,7 +13,10 @@
     "electron:build:mac": "electron-builder --mac",
     "electron:build:win": "electron-builder --win",
     "electron:build": "electron-builder --mac --win",
-    "electron:publish:win": "electron-builder --win --publish always"
+    "electron:publish:win": "electron-builder --win --publish always",
+    "typecheck": "tsc --noEmit --incremental false",
+    "test": "node --import tsx --test tests/*.test.ts tests/*.test.js",
+    "check": "npm run lint && npm run typecheck && npm test"
   },
   "build": {
     "appId": "com.betinapp.app",
@@ -100,13 +103,13 @@
     "clsx": "^2.1.1",
     "cmdk": "1.0.4",
     "date-fns": "latest",
+    "electron-log": "^5.4.1",
+    "electron-updater": "^6.7.0",
     "embla-carousel-react": "8.5.1",
     "input-otp": "1.4.1",
     "lucide-react": "^0.454.0",
-    "next": "16.0.10",
+    "next": "16.3.4",
     "next-themes": "^0.4.6",
-    "electron-log": "^5.4.1",
-    "electron-updater": "^6.7.0",
     "react": "19.2.0",
     "react-day-picker": "9.8.0",
     "react-dom": "19.2.0",
@@ -120,16 +123,23 @@
     "zod": "3.25.76"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "0.3.16",
+    "@eslint/js": "10.0.1",
     "@tailwindcss/postcss": "^4.1.9",
     "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "electron": "^42.5.1",
     "electron-builder": "^26.8.1",
+    "eslint": "10.10.0",
+    "globals": "16.5.0",
+    "jsdom": "26.1.0",
     "png-to-ico": "^3.0.1",
     "postcss": "^8.5",
     "tailwindcss": "^4.1.9",
+    "tsx": "4.23.13",
     "tw-animate-css": "1.3.3",
-    "typescript": "^5"
+    "typescript": "^5",
+    "typescript-eslint": "8.70.0"
   }
 }

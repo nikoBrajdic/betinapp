@@ -1,172 +1,77 @@
-# Household Admin Dashboard
+# Betinapp
 
-A comprehensive household management application built with Next.js, Supabase, and Google OAuth.
+Shared household management for the family's property in Betina, Croatia.
+Next.js 16, React 19, TypeScript, Supabase and Tailwind CSS v4, with an
+Electron wrapper for the live web app.
 
 ## Features
 
-- 📝 **Notes**: Create and manage household notes
-- ✅ **Tasks**: Track tasks with kanban-style board (To Do, In Progress, Done)
-- 📅 **Calendar**: Manage household events and appointments
-- ⚡ **Utilities**: Monitor utility usage (electricity, water, gas, internet)
-- 💰 **Bills**: Track and manage household bills
-- 📊 **Tables**: Inventory management for household items
-- 🏠 **Guest Stays**: Manage guest bookings and stays
+- Notes and documents, plus a photo diary
+- Tasks and end-of-season checklists
+- Guest stays with a linked calendar
+- Meter readings, bills and household settlements
+- Inventory photos and stock levels
+- English and Croatian interface translations
 
-## Authentication
+## Run locally
 
-- **Google OAuth** only (no password-based auth)
-- **Invite-based access**: Only users with valid invite codes can sign up
-- **Role-based permissions**: Superadmin and Admin roles
-- **Secure**: Row Level Security (RLS) enabled on all tables
+Use Node.js 22 LTS and the existing Supabase project:
 
-## Tech Stack
-
-- **Framework**: Next.js 16 (App Router)
-- **Database**: Supabase (PostgreSQL)
-- **Authentication**: Supabase Auth with Google OAuth
-- **Styling**: Tailwind CSS v4
-- **UI Components**: shadcn/ui
-- **Language**: TypeScript
-
-## Getting Started
-
-### Prerequisites
-
-- Node.js 18+ installed
-- A Supabase account
-- A Google Cloud account (for OAuth)
-
-### Setup
-
-Follow the comprehensive setup guide in [SETUP_GUIDE.md](./SETUP_GUIDE.md) for detailed instructions on:
-
-1. Configuring Google OAuth
-2. Setting up Supabase database
-3. Creating your superadmin account
-4. Inviting additional admins
-
-### Quick Start
-
-1. **Install dependencies**:
-   ```bash
-   npm install
-   ```
-
-2. **Set up environment variables**:
-   ```bash
-   NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
-   NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
-   SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
-   NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL=http://localhost:3000
-   ```
-
-3. **Run database migrations**:
-   - Execute SQL scripts in `scripts/` folder in order (001-005)
-
-4. **Start development server**:
-   ```bash
-   npm run dev
-   ```
-
-5. **Sign in and create superadmin**:
-   - Visit `http://localhost:3000/auth/login`
-   - Sign in with Google
-   - Run `scripts/005_create_superadmin.sql` with your email
-
-## Project Structure
-
-```
-├── app/
-│   ├── auth/              # Authentication pages
-│   ├── admin/             # Admin management
-│   ├── notes/             # Notes module
-│   ├── tasks/             # Tasks module
-│   ├── calendar/          # Calendar module
-│   ├── utilities/         # Utilities tracking
-│   ├── bills/             # Bills management
-│   ├── tables/            # Inventory management
-│   └── guest-stays/       # Guest stays tracking
-├── components/            # Reusable components
-├── lib/
-│   ├── actions/          # Server actions
-│   └── supabase/         # Supabase clients
-├── scripts/              # Database migration scripts
-└── middleware.ts         # Auth middleware
+```bash
+npm ci
+npm run dev
 ```
 
-## Usage
+Ask the project owner for `.env.local`. Required keys are
+`NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
+For a fixed local OAuth return address, optionally set
+`NEXT_PUBLIC_SITE_URL_DEV=http://localhost:3000`.
+See [SETUP_GUIDE.md](SETUP_GUIDE.md) for account and OAuth setup.
 
-### For Superadmins
+## Access
 
-1. Sign in with Google
-2. Navigate to "Manage Admins"
-3. Create invite codes for family members
-4. Share invite codes via email or messaging
-5. Manage invites and admin users
+Google OAuth identifies the account. Household access requires both an
+allowlisted Auth email and an approved profile. New members submit a join
+request and sign in again after approval. New approved family members receive
+full access (`superadmin`); invite-code pages are legacy.
 
-### For Admins
+Migration 036 enforces this in the database, including direct API requests.
+Public storage URLs remain public; these are not private photo/file links.
+See [PUBLISHING.md](PUBLISHING.md) before applying the access migration.
 
-1. Receive invite code from superadmin
-2. Go to `/auth/signup`
-3. Enter invite code
-4. Sign in with Google
-5. Access all dashboard features
+## Checks
 
-## Electron Auto-Updates
+```bash
+npm run check  # lint, TypeScript, and regression tests
+npm run build # production build
+```
 
-The desktop build supports in-app auto-updates using `electron-updater`.
+Tests cover access policies and atomic checklist operations in isolated
+PostgreSQL (PGlite), autosave failures/order, and bill calculations. Tests never
+connect to the live Supabase project. The deploy workflow runs the checks
+before producing either a preview or a production deployment.
 
-- Provider: GitHub Releases (`nikoBrajdic/betinapp`)
-- Update checks: on app startup + periodic background checks
-- UX:
-  - "Update available" info popup when a new version is found
-  - background download
-  - "Restart and Install" popup when download completes
+## Project map
 
-### Publish a Windows update
+- `app/`: pages and client views; calendar lives inside Guest Stays
+- `components/`: shared UI; `hooks/`: autosave, realtime and presence
+- `lib/actions/`: Supabase server actions
+- `lib/bill-splitting.ts`: bill shares, night overlaps and settlement netting
+- `scripts/`: historical SQL and forward migrations, applied manually
+- `tests/`: regression checks
+- `proxy.ts`: session and membership checks
+- `electron/`: desktop wrapper and auto-updater
 
-1. Bump version in `package.json` (must be higher than installed version)
-2. Create and publish release artifacts:
-   ```bash
-   npm run electron:publish:win
-   ```
-3. Ensure `GH_TOKEN` is set in the environment so `electron-builder` can upload to GitHub Releases
+Read [CONVENTIONS.md](CONVENTIONS.md) before UI or data-model changes.
+[CLAUDE.md](CLAUDE.md) is the repository context map.
+[Currency formatting](CURRENCY_SETUP.md) documents the display helpers.
 
-Installed users will receive the update prompt in-app after the release is published.
+## Shipping
 
-## Vercel Deployment (GitHub Actions)
+Work on a branch and push it to get a preview URL in the GitHub Actions run
+summary. Merge to `main` only when it looks right: `main` publishes immediately
+after checks pass. Database migrations are a separate manual step; a preview
+using production Supabase still shares live data.
 
-This repo includes a production deployment workflow at `.github/workflows/vercel-deploy.yml`.
-
-- Triggers:
-  - push to `main`
-  - manual run (`workflow_dispatch`)
-- Deploy method:
-  - `vercel pull --environment=production`
-  - `vercel deploy --prod`
-
-### Required GitHub repository secrets
-
-Add these in GitHub -> Settings -> Secrets and variables -> Actions:
-
-- `VERCEL_TOKEN`
-- `VERCEL_ORG_ID`
-- `VERCEL_PROJECT_ID`
-
-These are already set, and the workflow has been deploying on every push to `main`. See [PUBLISHING.md](PUBLISHING.md) for the full picture, including the manual route and env vars.
-
-## Security
-
-- All routes protected by authentication middleware
-- Row Level Security (RLS) enabled on all database tables
-- Invite codes expire after 7 days
-- Single-use invite codes
-- Google OAuth for secure authentication
-
-## License
-
-MIT
-
-## Support
-
-For setup help, see [SETUP_GUIDE.md](./SETUP_GUIDE.md)
+See [PUBLISHING.md](PUBLISHING.md) for migrations, OAuth redirects, rollback,
+and Electron releases.

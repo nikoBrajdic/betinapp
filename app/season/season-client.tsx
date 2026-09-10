@@ -52,6 +52,7 @@ export function SeasonClient({
   const [caret, setCaret] = useState<number | null>(null)
   // While editing, the list lives here and nothing waits on the network —
   // pressing Enter has to feel instant. Done writes the whole shape back.
+  const originalIds = useRef<string[]>([])
   const [draft, setDraft] = useState<SeasonTask[] | null>(null)
   const [saving, setSaving] = useState(false)
 
@@ -135,6 +136,7 @@ export function SeasonClient({
 
   const startEditing = () => {
     if (!closing) return
+    originalIds.current = closing.tasks.map(task => task.id)
     setDraft(closing.tasks.map(t => ({ ...t })))
     setEditing(true)
   }
@@ -148,13 +150,14 @@ export function SeasonClient({
         draft
           .filter(t => t.title.trim() !== "")
           .map(t => ({ id: t.id, area: t.area, title: t.title.trim() })),
+        originalIds.current,
       ))
       router.refresh()
+      setEditing(false)
+      setDraft(null)
+      setFocusId(null)
     } catch (error) { console.error(error) }
-    setSaving(false)
-    setEditing(false)
-    setDraft(null)
-    setFocusId(null)
+    finally { setSaving(false) }
   }
 
   const handleToggle = async (task: SeasonTask) => {

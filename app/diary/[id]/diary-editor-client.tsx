@@ -15,10 +15,11 @@ import {
   isImageBlock,
   layoutBlocks,
   makeImageBlocks,
-  normalizeBlocks,
   rowImageHeight,
 } from "@/lib/image-rows"
 import { useT, useLanguage } from "@/lib/language"
+import { useEditorAutosave } from "@/hooks/use-editor-autosave"
+import { EditorSaveError } from "@/components/editor-save-error"
 import { EditorHeader } from "@/components/editor-header"
 import {
   SlashMenu,
@@ -387,12 +388,14 @@ export function DiaryEditorClient({ entry }: { entry: DiaryEntry }) {
   const t = useT()
   const { lang } = useLanguage()
   const timeLocale = lang === "hr" ? "hr-HR" : "en-US"
-  const [title, setTitle] = useState(entry.title)
-  const [blocks, setBlocks] = useState<Block[]>(() => normalizeBlocks(entry.content ?? []))
+  const { title, blocks, saving, error: saveError, savedAt, setBlocksAndSave, setTitleAndSave,
+    persistNow } = useEditorAutosave(
+    `diary:${entry.id}`,
+    { title: entry.title, content: entry.content ?? [] },
+    draft => updateDiaryEntry(entry.id, draft),
+  )
   const [focusedId, setFocusedId] = useState<string | null>(null)
   const [focusPosition, setFocusPosition] = useState<number | null>(null)
-  const [saving, setSaving] = useState(false)
-  const [savedAt, setSavedAt] = useState<Date | null>(null)
   const [globalDragOver, setGlobalDragOver] = useState(false)
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
 
@@ -403,7 +406,6 @@ export function DiaryEditorClient({ entry }: { entry: DiaryEntry }) {
   const dragIdx = useRef<number | null>(null)
   const dragOverIdx = useRef<number | null>(null)
   const [dragOverBlock, setDragOverBlock] = useState<number | null>(null)
-  const saveTimer = useRef<NodeJS.Timeout | null>(null)
   // Uploads are async, so handlers read the latest blocks from a ref rather
   // than a stale closure.
   const blocksRef = useRef(blocks)
@@ -414,19 +416,6 @@ export function DiaryEditorClient({ entry }: { entry: DiaryEntry }) {
   const imageDragId = useRef<string | null>(null)
   const [imageDropId, setImageDropId] = useState<string | null>(null)
   const router = useRouter()
-
-  const scheduleSave = useCallback((t: string, b: Block[]) => {
-    if (saveTimer.current) clearTimeout(saveTimer.current)
-    setSaving(true)
-    saveTimer.current = setTimeout(async () => {
-      try { await trackSave(updateDiaryEntry(entry.id, { title: t, content: b })); setSavedAt(new Date()) }
-      catch (e) { console.error(e) }
-      setSaving(false)
-    }, 1200)
-  }, [entry.id])
-
-  const setBlocksAndSave = (next: Block[]) => { setBlocks(next); scheduleSave(title, next) }
-  const setTitleAndSave = (t: string) => { setTitle(t); scheduleSave(t, blocks) }
 
   const addBlock = (type: "heading" | "paragraph", afterId?: string) => {
     const newBlock: Block =
@@ -644,6 +633,7 @@ export function DiaryEditorClient({ entry }: { entry: DiaryEntry }) {
         </div>
       )}
 
+      {saveError && <EditorSaveError retry={persistNow} />}
       <EditorHeader
         backHref="/diary"
         backLabel={t("diary.allEntries")}

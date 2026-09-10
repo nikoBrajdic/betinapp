@@ -20,7 +20,7 @@ export async function addToAllowlist(formData: {
 }) {
   const supabase = await createClient()
   const { error } = await supabase.from("allowlist").insert({
-    email: formData.email,
+    email: formData.email.trim().toLowerCase(),
     role: formData.role,
   })
 
@@ -103,14 +103,10 @@ export async function approveJoinRequest(id: string) {
   if (fetchError) throw fetchError
 
   // Check if user is on the allowlist
-  const { data: allowlistEntry, error: allowlistError } = await supabase
-    .from("allowlist")
-    .select("*")
-    .eq("email", request.email)
-    .single()
-
-  if (allowlistError || !allowlistEntry) {
-    throw new Error("User not found in allowlist - this should not happen if the system is working correctly")
+  const { data: entries, error: allowlistError } = await supabase.from("allowlist").select("email")
+  if (allowlistError) throw allowlistError
+  if (!entries?.some(entry => entry.email.toLowerCase() === request.email.toLowerCase())) {
+    throw new Error("User is no longer on the allowlist")
   }
 
   // Update join request status to approved
@@ -146,7 +142,7 @@ export async function createJoinRequest(formData: {
 }) {
   const supabase = await createClient()
   const { error } = await supabase.from("join_requests").insert({
-    email: formData.email,
+    email: formData.email.trim().toLowerCase(),
     name: formData.name,
   })
 

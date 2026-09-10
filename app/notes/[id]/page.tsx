@@ -6,7 +6,7 @@ export default async function NoteEditorPage({ params }: { params: Promise<{ id:
   const { id } = await params
   try {
     const note = await getNote(id)
-    return <NoteEditorClient note={note} />
+    return <NoteEditorClient key={note.id} note={note} />
   } catch {
     notFound()
   }

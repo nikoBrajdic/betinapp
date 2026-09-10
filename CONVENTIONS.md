@@ -108,6 +108,7 @@ Each accent provides four roles:
 | [`Pill`](components/ui/pill.tsx) | Filters and labels. States: `on`, `off`, `fixed`, `count`. `PersonPill` is the named wrapper for people. |
 | [`EmptyState`](components/ui/empty-state.tsx) | "Nothing here yet", with an accent CTA. |
 | [`FileTypePill`](components/ui/file-type-pill.tsx) | Document type badges, and `fileType="note"` for notes. |
+| [`EditorSaveError`](components/editor-save-error.tsx) | Retry feedback for failed note/diary saves. |
 | [`EditorHeader`](components/editor-header.tsx) | Sticky back bar for full-page editors. |
 | [`SlashMenu`](components/editor-slash-menu.tsx) | The `/` command palette. |
 | [`compressImage`](lib/image-upload.ts) | **Every** image upload. Never hand-roll a canvas resize. |
@@ -130,7 +131,7 @@ documents. Use the custom flex-row pattern — header bar, `divide-y` rows,
 hover-revealed actions:
 
 ```tsx
-<Card className="shadow-none border-2 overflow-hidden">
+<Card className="shadow-none border overflow-hidden">
   <div className="flex items-center gap-4 px-4 py-2 bg-gray-50 border-b border-gray-100">
     <div className="w-XX flex-shrink-0 text-xs font-medium text-gray-400 uppercase tracking-wide">Col</div>
     <div className="flex-1 …">Col</div>
@@ -178,15 +179,12 @@ a drive-by.
 
 ---
 
-## 5b. The build is the gate
+## 5b. Checks are the gate
 
-`next.config.mjs` no longer sets `typescript.ignoreBuildErrors`, so
-**type errors fail the build** — and since a push to `main` deploys straight to
-production, that build is the only thing standing between a mistake and the
-live app. Don't re-add the escape hatch to get a change out; fix the type.
-
-`npm run lint` is not wired up (no `eslint.config.*`, and `next lint` is gone in
-Next 16). If you want linting, that is a real setup task, not a one-liner.
+Run `npm run check` (ESLint, TypeScript and regression tests) and `npm run build`.
+Both branch-preview and production jobs depend on the check job. The production
+build still fails on type errors; never add `typescript.ignoreBuildErrors`.
+Tests use isolated PostgreSQL, never the live household database.
 
 ---
 
@@ -231,8 +229,8 @@ season uploaded phone originals untouched.
 
 ## 6c. Navigation — a tap must visibly do something
 
-The only `loading.tsx` is at the root, and a navigation that keeps a shared
-parent (`/diary` → `/diary/[id]`) never reaches it: the old page just sat there
+Diary and note editors have no nested `loading.tsx`; navigation that keeps a
+shared parent (`/diary` → `/diary/[id]`) does not reach the root fallback: the old page just sat there
 until the new one was ready, which read as a dead tap.
 
 - **Taps go through `useNavigate().navigate(href)`**, not `router.push`. It
@@ -291,6 +289,17 @@ related.
 
 ## 9. Editors (notes and diary)
 
+- **Notes and diary share `useEditorAutosave`.** It serializes writes, journals
+  the latest unsaved draft in localStorage, and flushes on navigation or when
+  the page becomes hidden. A tab-close prompt protects outstanding edits;
+  reopening the same document restores and retries a retained draft. When
+  browser storage is disabled, the close prompt still applies but drafts cannot
+  survive closing the browser. Do not cancel the debounce on unmount.
+- **A failed save is visible and retryable.** `EditorSaveError` keeps the editor
+  open with a Retry button. `trackSave` emits `save:error` on rejection and
+  `save:end` only on success; the global indicator cannot turn a rejected save
+  into a green check. Status changes are announced through a live region.
+  The error surface uses the existing neutral gray-800/gray-50 pairing.
 - **Always editable.** There is no read/edit mode toggle — that's how current
   editors work.
 - **`/` opens the command palette** on an empty text block. Croatian keywords
@@ -330,6 +339,8 @@ related.
   two" the same gesture, and Backspace at position 0 merges upward.
 - **Typing never waits on the network.** While the list is unlocked it lives
   in local state; Done writes the whole shape back through `saveSeasonTasks`.
+  A failed save keeps the draft unlocked for retry. The SQL RPC commits all
+  edits atomically, preserving completion fields and concurrently added rows.
   An earlier version awaited a server round trip per keystroke and the new row
   appeared seconds later, which read as broken. If an interaction happens while
   a caret is in a field, do it locally and reconcile afterwards.
@@ -344,7 +355,9 @@ related.
   read in `getGuestStays`, because a stored value goes stale the moment the
   date passes. Same reasoning applies to anything else that depends on "today".
 - **Bill splitting**: Mama/Vesna is present for the full billing month and is
-  excluded from the guest chips. Other guests contribute their night overlap.
+  counted in the full-period summaries. Other guests contribute their night overlap.
+  Overlapping stay rows for the same name count each night once. Shared math
+  lives in `lib/bill-splitting.ts`, including equal/weighted presets and netting.
   `share = (person_days / total_person_days) × amount`.
 - **Season closings clone forward.** One list per unit per year
   (`apartman`, `kuca`, `garsonjera`, `sok_soba`). Starting a year copies the
@@ -370,7 +383,14 @@ related.
   (`lib/season.ts` beside `lib/actions/season.ts`). Exporting an array from an
   actions file fails the build at page-data collection, not at typecheck.
 - All money is EUR via `formatMoney` from `@/lib/currency`.
-- Wrap server actions in `trackSave()` to drive the save indicator.
+- Wrap server actions in `trackSave()` to drive the save indicator. Mutations
+  must throw on database errors; a resolved promise is treated as success.
+- Database policies require an allowlisted Auth email and an approved profile.
+  Never trust editable profile email fields or OAuth metadata for authorization.
+  Access helpers and signup completion are defined in migration 036.
+- Season setup uses `ensure_season_closing` and save uses `save_season_tasks`
+  from migration 037. Even an empty previous list clones as empty; templates
+  only seed a unit's first list.
 - `useRealtimeRefresh([...tables])` subscribes to Supabase realtime.
 
 ---

@@ -5,6 +5,11 @@ import type { Language } from "@/lib/language"
 type Dict = Record<string, string>
 
 const en: Dict = {
+  "save.saving": "Saving…",
+  "save.saved": "Saved",
+  "save.failed": "Save failed. Please retry.",
+  "save.editorFailed": "Changes haven't saved. Keep this editor open and retry.",
+  "save.retry": "Retry",
   // Sidebar navigation
   "nav.dashboard": "Dashboard",
   "nav.notes": "Notes",
@@ -77,6 +82,11 @@ const en: Dict = {
 }
 
 const hr: Dict = {
+  "save.saving": "Spremanje…",
+  "save.saved": "Spremljeno",
+  "save.failed": "Spremanje nije uspjelo. Pokušajte ponovno.",
+  "save.editorFailed": "Promjene nisu spremljene. Ostavite uređivač otvoren i pokušajte ponovno.",
+  "save.retry": "Pokušaj ponovno",
   // Sidebar navigation
   "nav.dashboard": "Nadzorna ploča",
   "nav.notes": "Bilješke",

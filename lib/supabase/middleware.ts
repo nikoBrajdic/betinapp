@@ -29,28 +29,24 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  // Public routes that don't require authentication
+  const path = request.nextUrl.pathname
   const publicRoutes = ["/auth/login", "/auth/signup", "/auth/callback", "/auth/complete-signup"]
-  const isPublicRoute = publicRoutes.some((route) => request.nextUrl.pathname.startsWith(route))
-
-  // If no user and trying to access protected route, redirect to login
-  if (!user && !isPublicRoute) {
+  const isPublicRoute = publicRoutes.includes(path)
+  const redirectTo = (path: string) => {
     const url = request.nextUrl.clone()
-    url.pathname = "/auth/login"
-    return NextResponse.redirect(url)
+    url.pathname = path
+    url.search = ""
+    const response = NextResponse.redirect(url)
+    supabaseResponse.cookies.getAll().forEach(cookie => response.cookies.set(cookie))
+    return response
   }
-
-  // If user exists and trying to access auth pages, redirect to dashboard
-  if (
-    user &&
-    isPublicRoute &&
-    request.nextUrl.pathname !== "/auth/callback" &&
-    request.nextUrl.pathname !== "/auth/complete-signup"
-  ) {
-    const url = request.nextUrl.clone()
-    url.pathname = "/"
-    return NextResponse.redirect(url)
+  if (!user) return isPublicRoute ? supabaseResponse : redirectTo("/auth/login")
+  // The OAuth callback must finish signup before membership can be checked.
+  if (path === "/auth/callback" || path === "/auth/complete-signup") return supabaseResponse
+  const { data: profile, error } = await supabase.from("profiles").select("id").eq("id", user.id).maybeSingle()
+  if (error || !profile) {
+    await supabase.auth.signOut()
+    return isPublicRoute ? supabaseResponse : redirectTo("/auth/login")
   }
-
-  return supabaseResponse
+  return isPublicRoute ? redirectTo("/") : supabaseResponse
 }
