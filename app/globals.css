@@ -118,8 +118,14 @@
   * {
     @apply border-border outline-ring/50;
   }
+  /* Navy, not white. Anything the shell fails to cover — the iOS rubber-band
+     overscroll, or a strip under the home indicator — shows the app colour
+     instead of a white bar. Surfaces that want white paint it themselves. */
+  html, body {
+    background-color: #1a1464;
+  }
   body {
-    @apply bg-background text-foreground;
+    @apply text-foreground;
   }
   button, a, [role="button"] {
     cursor: pointer;

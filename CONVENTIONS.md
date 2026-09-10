@@ -252,6 +252,14 @@ related.
   `EditorHeader`.
 - The shell pads itself with `env(safe-area-inset-*)` — required in standalone
   mode where there is no browser chrome.
+- **The shell is `fixed inset-0`, not `h-dvh`.** In iOS standalone with the
+  `black-translucent` status bar, `100dvh` comes out shorter than the physical
+  screen, and the white body showed as a strip along the bottom. Pinning all
+  four edges covers the whole screen; the safe-area padding keeps content off
+  the home indicator.
+- **`html` and `body` are navy (`#1a1464`), never white.** They show through
+  wherever the shell doesn't reach — rubber-band overscroll included. White
+  surfaces (the content inset, dialogs) paint their own background.
 - iOS standalone needs `apple-mobile-web-app-capable` explicitly; Next only
   emits `mobile-web-app-capable`, which iOS ignores. Don't remove it.
 

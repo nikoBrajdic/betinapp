@@ -59,7 +59,7 @@ export default async function RootLayout({
         <LanguageProvider>
         {user ? (
           <div
-            className="app-shell flex h-dvh w-screen overflow-hidden gap-2 md:gap-4 flex-col md:flex-row"
+            className="app-shell fixed inset-0 flex overflow-hidden gap-2 md:gap-4 flex-col md:flex-row"
             style={{ background: "linear-gradient(135deg, #1a1464 0%, #2563eb 100%)" }}
           >
             <Sidebar user={user} />
