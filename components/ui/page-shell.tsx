@@ -7,7 +7,9 @@ import { spacing } from '@/lib/design'
  * Standard page body. Every route renders its content inside one of these so
  * padding and vertical rhythm are identical across the app.
  *
- * `fill` is for pages that manage their own scrolling (the calendar grid).
+ * `fill` is for pages that manage their own scrolling (the calendar grid). It
+ * applies from `md` up; on phones the page grows with its content and the
+ * shell scrolls, so the bottom padding survives.
  */
 function PageShell({
   className,
@@ -19,7 +21,7 @@ function PageShell({
       data-slot="page-shell"
       className={cn(
         spacing.page,
-        fill && 'h-full flex flex-col min-h-0',
+        fill && 'flex flex-col md:h-full md:min-h-0',
         className,
       )}
       {...props}

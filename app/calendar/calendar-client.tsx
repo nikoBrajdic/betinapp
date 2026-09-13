@@ -158,8 +158,8 @@ export function CalendarClient({ events, familyMembers }: CalendarClientProps) {
         ))}
       </div>
 
-      {/* Grid */}
-      <div className="grid grid-cols-7 grid-rows-6 flex-1 min-h-0">
+      {/* Mobile rows grow to fit their chips; the page scrolls when needed. */}
+      <div className="grid grid-cols-7 auto-rows-[minmax(4.5rem,auto)] flex-1 shrink-0 md:grid-rows-6 md:shrink md:min-h-0">
         {cells.map(({ date, current }, i) => {
           const dateStr = getLocalDateString(date)
           const dayEvents = getEventsForDate(date)
@@ -171,7 +171,7 @@ export function CalendarClient({ events, familyMembers }: CalendarClientProps) {
               key={i}
               onClick={() => setSelectedDate(isSelected ? null : date)}
               className={cn(
-                "min-h-0 h-full p-1 md:p-1.5 border-t border-gray-100 transition-colors overflow-hidden",
+                "min-w-0 md:min-h-0 p-1 md:p-1.5 border-t border-gray-100 transition-colors overflow-hidden",
                 !current && "bg-gray-50/50",
                 isSelected && "bg-blue-50",
                 current && !isSelected && "hover:bg-gray-50"

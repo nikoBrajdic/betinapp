@@ -328,6 +328,13 @@ related.
   both register a `topbar:new` listener and two would race. The tab lives in
   the URL (`?view=calendar`) so it can be linked to; `/calendar` is a redirect
   kept for old bookmarks.
+- **The calendar fits the screen on desktop and scrolls on phones.** From `md`
+  up, `fill` pins the page to the shell's height and the six week rows share
+  it. Below `md` that squeezed every row to a sliver and cut off event chips,
+  so rows are at least `4.5rem` and grow to fit their chips, `fill` is off
+  (`PageShell` applies it from `md` only), and the shell scrolls. Turning
+  `fill` off on phones is what keeps the bottom padding: a fixed-height page
+  lets the rows overflow past it and the last row sits flush on the edge.
 - **Chrome that keys off the route must key off the tab too.** `EventsPanel`
   checks `searchParams.get("view")`, not just the pathname, and server actions
   touching events `revalidatePath("/guest-stays")` — the path the calendar
