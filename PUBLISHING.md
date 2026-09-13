@@ -125,6 +125,21 @@ Add a replacement callback before removing an existing one. Configure Vercel
 Deployment Protection to allow the intended preview reviewers access; app
 membership is checked separately. Rebuild after changing app environment vars.
 
+## Keeping Supabase awake
+
+The free tier pauses a project after about a week with no database activity.
+A Vercel Cron job in `vercel.json` requests `/api/health` on production once a
+day (06:00 UTC; Hobby runs it sometime within that hour). The route runs one
+anon query against Postgres and answers `200 {"ok":true}`, or `503` if the
+database is unreachable; runs are listed under the project's Settings → Cron
+Jobs in Vercel. Crons run only on production, so nothing happens until this is
+on `main`. A GitHub Actions schedule was rejected: the repo is public, and
+GitHub disables schedules after 60 days without commits, which is exactly the
+off-season. Pinging any other page does not count as activity:
+signed-out requests redirect to login without calling Supabase. `api/health`
+is excluded from the `proxy.ts` matcher so it is never redirected; keep it
+that way. If the project pauses anyway, restore it from the Supabase dashboard.
+
 ## Manual deploy and rollback
 
 Manual commands upload the current working tree, including uncommitted edits:
